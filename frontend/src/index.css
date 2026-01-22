@@ -6,7 +6,7 @@ html, body, #root {
   width: 100vw;
   margin: 0;
   padding: 0;
-  overflow: hidden; 
+  overflow: hidden;
   background-color: #f8fafc;
   font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
@@ -21,7 +21,7 @@ html, body, #root {
   box-sizing: border-box;
 }
 
-/* 3. CALENDAR SCALING & GRID FIX */
+/* 3. CALENDAR ARCHITECTURE */
 .main-dashboard-calendar {
   width: 100% !important;
   height: 100% !important;
@@ -31,150 +31,199 @@ html, body, #root {
   background: transparent !important;
 }
 
-/* Force the internal day container to use a 7-column grid */
+/* Force the calendar view to not stretch past its boundaries */
+.react-calendar__viewContainer {
+  flex-grow: 0 !important; 
+}
+
 .react-calendar__month-view__days {
   display: grid !important;
   grid-template-columns: repeat(7, 1fr) !important;
   width: 100% !important;
+  flex-grow: 0 !important; 
+  /* This prevents the last row from touching the container edge */
+  padding-bottom: 10px !important; 
+  min-height: 400px;
 }
 
-.react-calendar__viewContainer {
-  flex-grow: 1 !important;
-  display: flex !important;
-}
-
-.react-calendar__month-view {
-  display: flex !important;
-  flex-direction: column !important;
-  width: 100% !important;
-}
-
-/* 4. THE LARGE RECTANGLES (FIXED ALIGNMENT) */
-.react-calendar__month-view__days__day {
-  /* Calculation: (Total Height - Header space) / 6 rows */
-  height: calc((100vh - 320px) / 6) !important; 
+/* 4. THE TILE (DATE BOX) */
+.react-calendar__tile {
+  position: relative !important;
+  height: calc((100vh - 340px) / 6) !important; /* Adjusted slightly for better bottom clearance */
   width: 100% !important;
   max-width: 100% !important;
-  
-  /* Reset react-calendar internal flex-basis which breaks custom grids */
-  flex-basis: auto !important; 
-  
+  flex-basis: auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: flex-start !important;
+  align-items: flex-start !important;
+  padding: 14px !important; 
   border: 6px solid white !important;
   background-color: #f1f5f9 !important;
-  border-radius: 24px !important;
-  font-weight: 800 !important;
-  font-size: 1.25rem !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  transition: all 0.2s ease;
+  border-radius: 28px !important;
+  transition: all 0.3s ease;
+  overflow: hidden !important;
 }
 
-.react-calendar__month-view__days__day:hover {
+.react-calendar__tile:hover:not(.vp-neighboring-day) {
   background-color: #e2e8f0 !important;
   transform: scale(0.98);
 }
 
-/* Override for days outside the current month */
-.react-calendar__month-view__days__day--neighboringMonth {
-  color: #cbd5e1 !important;
-  background-color: #f8fafc !important;
+/* 5. DATE NUMBER */
+.react-calendar__tile abbr {
+  font-size: 1.25rem !important;
+  font-weight: 800 !important;
+  text-decoration: none !important;
+  color: #1e293b;
+  z-index: 5;
 }
 
-/* 5. CALENDAR NAV & LABELS */
-.react-calendar__navigation {
-  margin-bottom: 20px !important;
-  height: 50px !important;
+/* 6. CORNER TAG (LOT ID) */
+.lot-tag-container {
+  position: absolute;
+  top: 0;
+  right: 0;
+  background: #0f172a; 
+  padding: 8px 14px;
+  border-bottom-left-radius: 14px;
+  box-shadow: -2px 2px 8px rgba(0, 0, 0, 0.2);
+  z-index: 10;
+  animation: tag-slide-in 0.3s ease-out;
 }
 
+.lot-tag-text {
+  font-size: 15px;
+  font-weight: 900;
+  color: #fcd34d; 
+}
+
+/* 7. VILLA PRO STATUS COLORS */
+.vp-free { background-color: #22c55e !important; }
+.vp-free abbr { color: white !important; }
+.vp-my-spot { background-color: #3b82f6 !important; }
+.vp-my-spot abbr { color: white !important; }
+.vp-full { background-color: #ef4444 !important; }
+.vp-full abbr { color: white !important; }
+.vp-unavailable { background-color: #f8fafc !important; opacity: 0.4; }
+.vp-neighboring-day { opacity: 0.1; pointer-events: none; border: none !important; }
+
+.vp-free, .vp-full, .vp-my-spot, .vp-sniping-active {
+  animation: fadeIn 0.4s ease-out forwards;
+}
+
+/* 8. NAV & WEEKDAYS */
 .react-calendar__navigation button {
   font-size: 1.75rem !important;
   font-weight: 900 !important;
-  color: #0f172a !important;
 }
 
 .react-calendar__month-view__weekdays {
   display: grid !important;
   grid-template-columns: repeat(7, 1fr) !important;
+  padding: 12px 0 !important;
+  margin-bottom: 15px !important;
+  background: #f1f5f9; 
+  border-radius: 20px;
   text-align: center;
-  font-weight: 800;
-  text-transform: uppercase;
-  font-size: 0.75rem;
-  color: #94a3b8;
-  padding-bottom: 10px;
 }
 
-abbr[title] {
+.react-calendar__month-view__weekdays__weekday abbr {
   text-decoration: none !important;
+  font-size: 11px !important;
+  font-weight: 900 !important;
+  color: #64748b !important;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
 }
 
-/* 6. LOGIN SCREEN STYLES */
-.login-bg {
-  height: 100vh;
-  width: 100vw;
+/* 9. OVERLAYS & CONTAINER */
+.calendar-container {
+  position: relative;
+  flex-grow: 1;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  background-color: #0f172a;
+  flex-direction: column;
+  padding-bottom: 30px !important; /* Fixed padding at the bottom of the card */
+  padding-left: 8px !important;
+  padding-right: 8px !important;
+  overflow: hidden;
 }
 
-/* 7. VILLA PRO STATUS COLORS */
-
-/* FREE TO BOOK - Green */
-.vp-free {
-  background-color: #22c55e !important;
-  color: white !important;
-  border-color: white !important;
+.loading-spinner-overlay {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 100;
+  background: white;
+  padding: 16px 32px;
+  border-radius: 20px;
+  font-weight: 900;
+  color: #3b82f6;
+  box-shadow: 0 15px 35px rgba(0,0,0,0.15);
+  display: flex; align-items: center; gap: 12px;
+  text-transform: uppercase;
 }
 
-/* YOUR ACTIVE SPOT - Blue */
-.vp-my-spot {
-  background-color: #2563eb !important;
-  color: white !important;
+/* 10. LOGIN & ANIMATIONS */
+@keyframes tag-slide-in {
+  from { transform: translateX(20px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
 }
 
-/* FULL - Red */
-.vp-full {
-  background-color: #ef4444 !important;
-  color: white !important;
-}
-
-/* UNAVAILABLE / PAST - Grey */
-.vp-unavailable {
-  background-color: #f8fafc !important;
-  color: #cbd5e1 !important;
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* SNIPING - Pulsing Orange */
-.vp-sniper-active {
-  background-color: #f97316 !important;
-  color: white !important;
-  animation: vp-pulse 2s infinite;
-}
-
-/* PENDING/WAITING - Amber */
-.vp-pending {
-  background-color: #f59e0b !important;
-  color: white !important;
-}
-
-/* CLICKED / LOADING */
 .vp-processing {
-  background-color: #94a3b8 !important;
-  color: white !important;
-  animation: pulse 1s infinite;
+  outline: 4px solid #3b82f6 !important;
+  outline-offset: -4px;
+  animation: pulse 1.5s infinite;
 }
 
 @keyframes pulse {
-  0% { opacity: 1; }
-  50% { opacity: 0.5; }
-  100% { opacity: 1; }
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
 }
 
-@keyframes vp-pulse {
-  0% { transform: scale(1); opacity: 1; }
-  50% { transform: scale(0.97); opacity: 0.8; }
-  100% { transform: scale(1); opacity: 1; }
+.login-bg {
+  height: 100vh; width: 100vw;
+  display: flex; align-items: center; justify-content: center;
+  background-color: #0f172a;
+}
+
+/* High-Visibility Sniper Tile */
+.vp-sniping-active {
+  background: #dc2626 !important; /* Tailwind red-600 */
+  color: white !important;
+  font-weight: 900 !important;
+  position: relative;
+  z-index: 5;
+  box-shadow: 0 0 15px rgba(220, 38, 38, 0.4);
+  animation: sniper-target-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  border: 2px solid white !important;
+}
+
+@keyframes sniper-target-pulse {
+  0%, 100% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  50% {
+    transform: scale(0.92);
+    filter: brightness(1.2);
+    box-shadow: 0 0 25px rgba(220, 38, 38, 0.6);
+  }
+}
+
+/* Placeholder state while switching months */
+.vp-tile-loading {
+  background-color: #f1f5f9 !important;
+  border: 6px solid #fdfdfd !important;
+  opacity: 0.6;
+}
+
+.vp-tile-loading abbr {
+  color: #cbd5e1 !important; /* Faded numbers */
+}
+
+
+@keyframes fadeIn {
+  from { opacity: 0.4; transform: scale(0.98); }
+  to { opacity: 1; transform: scale(1); }
 }
