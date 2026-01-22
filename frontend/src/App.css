@@ -1,0 +1,107 @@
+#root {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 2rem;
+  text-align: center;
+}
+
+.logo {
+  height: 6em;
+  padding: 1.5em;
+  will-change: filter;
+  transition: filter 300ms;
+}
+.logo:hover {
+  filter: drop-shadow(0 0 2em #646cffaa);
+}
+.logo.react:hover {
+  filter: drop-shadow(0 0 2em #61dafbaa);
+}
+
+@keyframes logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  a:nth-of-type(2) .logo {
+    animation: logo-spin infinite 20s linear;
+  }
+}
+
+.card {
+  padding: 2em;
+}
+
+.read-the-docs {
+  color: #888;
+}
+
+/* VillaPro Calendar States */
+.vp-reserved {
+  background-color: #28a745 !important;
+  color: white !important;
+  border-radius: 4px;
+}
+
+.vp-full {
+  background-color: #dc3545 !important;
+  color: white !important;
+  cursor: not-allowed;
+}
+
+.vp-pending {
+  background-color: #ffc107 !important;
+  color: black !important;
+  animation: pulse 1.5s infinite;
+}
+
+.vp-unavailable {
+  background-color: #e9ecef !important;
+  color: #adb5bd !important;
+  pointer-events: none;
+}
+
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.6; }
+  100% { opacity: 1; }
+}
+
+/* Calendar Custom Styling */
+.main-dashboard-calendar {
+  width: 100% !important;
+  border: none !important;
+  font-family: inherit !important;
+}
+
+.react-calendar__tile {
+  padding: 20px 10px !important;
+  height: 80px !important;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  font-weight: 700 !important;
+  font-size: 1rem !important;
+  border-radius: 1rem;
+  transition: all 0.2s;
+}
+
+/* VillaPro States */
+.vp-reserved { background-color: #22c55e !important; color: white !important; }
+.vp-pending { background-color: #f59e0b !important; color: white !important; animation: pulse 2s infinite; }
+.vp-full { background-color: #ef4444 !important; color: white !important; cursor: not-allowed; }
+.vp-pending-delete { background-color: #94a3b8 !important; color: white !important; opacity: 0.5; }
+.vp-unavailable { color: #e2e8f0 !important; cursor: default; }
+.vp-free { color: #3b82f6 !important; }
+
+@keyframes pulse {
+  0% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(0.98); }
+  100% { opacity: 1; transform: scale(1); }
+}

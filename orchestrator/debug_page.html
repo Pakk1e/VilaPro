@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+
+
+
+
+
+
+
+
+
+<html>
+
+  <head>
+    <title>VILLA PRO 
+Clients zone
+</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <link href="/static/fontawesome-6.4.2/css/fontawesome.min.css" rel="stylesheet">
+    <link href="/static/fontawesome-6.4.2/css/solid.min.css" rel="stylesheet">
+  <link href="/static/fontawesome-6.4.2/css/regular.min.css" rel="stylesheet">
+    <link rel="stylesheet" type="text/css" href="/static/css/bootstrap.min.css">
+    <link rel="stylesheet" type="text/css" href="/static/jquery_ui/jquery-ui.min.css">
+    <link rel="stylesheet" type="text/css" href="/static/css/bootstrap-icons.css"/>
+    <link rel="stylesheet" type="text/css" href="/static/bootstrap-tagsinput/bootstrap-tagsinput.css">
+    <link rel="stylesheet" type="text/css" href="/static/css/style.css"/>
+    <link rel="stylesheet" type="text/css" href="/static/css/bootstrap-datetimepicker.css">
+    <link rel="stylesheet" type="text/css" href="/static/css/tagify.css"/>
+    <link rel="stylesheet" type="text/css" href="/static/css/bootstrap-table.min.css"/>
+    
+
+    <!-- favicons stuff -->
+    <link rel="apple-touch-icon" sizes="57x57" href="/static/img/favicons/apple-icon-57x57.png">
+    <link rel="apple-touch-icon" sizes="60x60" href="/static/img/favicons/apple-icon-60x60.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="/static/img/favicons/apple-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="76x76" href="/static/img/favicons/apple-icon-76x76.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="/static/img/favicons/apple-icon-114x114.png">
+    <link rel="apple-touch-icon" sizes="120x120" href="/static/img/favicons/apple-icon-120x120.png">
+    <link rel="apple-touch-icon" sizes="144x144" href="/static/img/favicons/apple-icon-144x144.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="/static/img/favicons/apple-icon-152x152.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/static/img/favicons/apple-icon-180x180.png">
+    <link rel="icon" type="image/png" sizes="192x192"  href="/static/img/favicons/android-icon-192x192.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/static/img/favicons/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="96x96" href="/static/img/favicons/favicon-96x96.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/static/img/favicons/favicon-16x16.png">
+    <link rel="manifest" href="/static/img/favicons/manifest.json">
+    <meta name="msapplication-TileColor" content="#ffffff">
+    <meta name="msapplication-TileImage" content="/static/img/favicons/ms-icon-144x144.png">
+    <meta name="theme-color" content="#ffffff">
+
+  </head>
+  <body>
+    <nav class="navbar fixed-top navbar-expand-lg navbar-light bg-light">
+      <div class="container-fluid">
+        <a class="navbar-brand" href="/en/">
+            <img src="/static/img/logo-villa.png" width="30" height="30" class="d-inline-block align-top" alt="" loading="lazy">
+           VILLA PRO <small>clients zone</small>
+        </a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#VillaNavbar">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="collapse navbar-collapse" id="VillaNavbar">
+          <ul class="navbar-nav mr-auto">
+            
+            
+            
+          </ul>
+
+          <ul class="navbar-nav ms-auto">
+            <li class="nav-item dropdown">
+              <form id="form-lang-change" action="/i18n/setlang/" method="POST">
+                <input type="hidden" name="csrfmiddlewaretoken" value="4fUBZ8hSG7fEcvIdX63i3OVea5CkOFOyJBKvg0iWzRc7ZT6vv529WXYyXw82bdie">
+                <input id="lang_code" name="language" type="hidden">
+                <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                  <span class="fas fa-globe-europe"></span> Language
+                </a>
+                <ul class="dropdown-menu">
+                  
+                  <li>
+                    <a class="dropdown-item active" href="#" onclick="$('#lang_code').val('en'); $('#form-lang-change').submit();">
+                      English
+                    </a>
+                  </li>
+                  
+                  <li>
+                    <a class="dropdown-item" href="#" onclick="$('#lang_code').val('sk'); $('#form-lang-change').submit();">
+                      Slovensky
+                    </a>
+                  </li>
+                  
+                  <li>
+                    <a class="dropdown-item" href="#" onclick="$('#lang_code').val('pl'); $('#form-lang-change').submit();">
+                      Polski
+                    </a>
+                  </li>
+                  
+                  <li>
+                    <a class="dropdown-item" href="#" onclick="$('#lang_code').val('ru'); $('#form-lang-change').submit();">
+                      Русский
+                    </a>
+                  </li>
+                  
+                  <li>
+                    <a class="dropdown-item" href="#" onclick="$('#lang_code').val('cs'); $('#form-lang-change').submit();">
+                      Česky
+                    </a>
+                  </li>
+                  
+                </ul>
+              </form>
+            </li>
+            
+          </ul>
+          
+        </div>
+      </div>
+    </nav>
+    
+
+    
+    
+<div class="container">
+  
+
+  <div class="row">
+    <div class="offset-md-4 col-md-4">
+      <br>
+      <h4>Sign in <small class="text-muted">please</small></h4><br>
+      <form class="form-vertical" method="post" action="/login/">
+      <input type="hidden" name="csrfmiddlewaretoken" value="4fUBZ8hSG7fEcvIdX63i3OVea5CkOFOyJBKvg0iWzRc7ZT6vv529WXYyXw82bdie">
+      <label class="sr-only" for="email">Email address:</label>
+      <div class="input-group mb-3">
+        <span class="input-group-text"><i class="fas fa-user"></i></span>
+          <div class="form-floating">
+            <input id="email" type="username" class="form-control form-control-lg" name="username" placeholder="Email">
+            <label for="email">Email</label>
+          </div>
+      </div>
+      <label class="sr-only" for="pwd">Password:</label>
+      <div class="input-group mb-3">
+        <span class="input-group-text"><i class="fas fa-lock"></i></span>
+        <div class="form-floating">
+          <input id="password" type="password" class="form-control form-control-lg" name="password" placeholder="Password">
+          <label for="password">Password</label>
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary btn-lg w-100 mb-3">Login</button>
+      <p style="margin-top: 5px; text-align: right">
+        <a href="/password_reset/">Forgot password?</a>
+      </p>
+      <input type="hidden" name="next" value="/en/reserv_single/sk_ba_panoramacity2/" />
+    </form>
+    </div>
+  </div>
+
+</div>
+
+
+    <br>
+
+    <footer class="footer">
+      <div class="container-fluid">
+        <div class="row">
+          <div class="col-xs-12 col-sm-6 col-md-6 col-lg-6">
+            <div class="footer-copyright">
+              2023 © <a href="http://www.villapro.eu">VILLA PRO s.r.o.</a>
+            </div>
+          </div>
+          <div class="col-xs-12 col-sm-6 col-md-6 col-lg-6">
+            <div class="footer-links">
+              <a href="/en/privacy_policy/"> Privacy policy</a>
+            </div>
+          </div>
+		</div>
+      </div>
+    </footer>
+    <script src="/static/jquery/jquery-3.7.1.min.js"></script>
+    <script src="/static/jquery_ui/jquery-ui.min.js"></script>
+    <script src="/static/scripts/bootstrap.bundle.min.js"></script>
+    <script src="/en/jsi18n/"></script>
+    <script src="/static/bootstrap-tagsinput/bootstrap-tagsinput.js"></script>
+    <script src="/static/scripts/moment.min.js"></script>
+    <script src="/static/scripts/bootstrap-table.min.js"></script>
+    <script src="/static/scripts/bootstrap-datetimepicker.min.js"></script>
+    <script src="/static/scripts/jQuery.tagify.min.js"></script>
+    <script src="/static/scripts/tagify.polyfills.js"></script>
+    
+  </body>
+</html>

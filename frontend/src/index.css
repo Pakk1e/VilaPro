@@ -1,0 +1,180 @@
+@import "tailwindcss";
+
+/* 1. RESET & LOCK VIEWPORT */
+html, body, #root {
+  height: 100vh;
+  width: 100vw;
+  margin: 0;
+  padding: 0;
+  overflow: hidden; 
+  background-color: #f8fafc;
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+/* 2. DASHBOARD WRAPPER */
+.dashboard-container {
+  height: 100vh;
+  width: 100vw;
+  display: flex;
+  flex-direction: column;
+  padding: 24px;
+  box-sizing: border-box;
+}
+
+/* 3. CALENDAR SCALING & GRID FIX */
+.main-dashboard-calendar {
+  width: 100% !important;
+  height: 100% !important;
+  border: none !important;
+  display: flex !important;
+  flex-direction: column !important;
+  background: transparent !important;
+}
+
+/* Force the internal day container to use a 7-column grid */
+.react-calendar__month-view__days {
+  display: grid !important;
+  grid-template-columns: repeat(7, 1fr) !important;
+  width: 100% !important;
+}
+
+.react-calendar__viewContainer {
+  flex-grow: 1 !important;
+  display: flex !important;
+}
+
+.react-calendar__month-view {
+  display: flex !important;
+  flex-direction: column !important;
+  width: 100% !important;
+}
+
+/* 4. THE LARGE RECTANGLES (FIXED ALIGNMENT) */
+.react-calendar__month-view__days__day {
+  /* Calculation: (Total Height - Header space) / 6 rows */
+  height: calc((100vh - 320px) / 6) !important; 
+  width: 100% !important;
+  max-width: 100% !important;
+  
+  /* Reset react-calendar internal flex-basis which breaks custom grids */
+  flex-basis: auto !important; 
+  
+  border: 6px solid white !important;
+  background-color: #f1f5f9 !important;
+  border-radius: 24px !important;
+  font-weight: 800 !important;
+  font-size: 1.25rem !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: all 0.2s ease;
+}
+
+.react-calendar__month-view__days__day:hover {
+  background-color: #e2e8f0 !important;
+  transform: scale(0.98);
+}
+
+/* Override for days outside the current month */
+.react-calendar__month-view__days__day--neighboringMonth {
+  color: #cbd5e1 !important;
+  background-color: #f8fafc !important;
+}
+
+/* 5. CALENDAR NAV & LABELS */
+.react-calendar__navigation {
+  margin-bottom: 20px !important;
+  height: 50px !important;
+}
+
+.react-calendar__navigation button {
+  font-size: 1.75rem !important;
+  font-weight: 900 !important;
+  color: #0f172a !important;
+}
+
+.react-calendar__month-view__weekdays {
+  display: grid !important;
+  grid-template-columns: repeat(7, 1fr) !important;
+  text-align: center;
+  font-weight: 800;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  color: #94a3b8;
+  padding-bottom: 10px;
+}
+
+abbr[title] {
+  text-decoration: none !important;
+}
+
+/* 6. LOGIN SCREEN STYLES */
+.login-bg {
+  height: 100vh;
+  width: 100vw;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #0f172a;
+}
+
+/* 7. VILLA PRO STATUS COLORS */
+
+/* FREE TO BOOK - Green */
+.vp-free {
+  background-color: #22c55e !important;
+  color: white !important;
+  border-color: white !important;
+}
+
+/* YOUR ACTIVE SPOT - Blue */
+.vp-my-spot {
+  background-color: #2563eb !important;
+  color: white !important;
+}
+
+/* FULL - Red */
+.vp-full {
+  background-color: #ef4444 !important;
+  color: white !important;
+}
+
+/* UNAVAILABLE / PAST - Grey */
+.vp-unavailable {
+  background-color: #f8fafc !important;
+  color: #cbd5e1 !important;
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* SNIPING - Pulsing Orange */
+.vp-sniper-active {
+  background-color: #f97316 !important;
+  color: white !important;
+  animation: vp-pulse 2s infinite;
+}
+
+/* PENDING/WAITING - Amber */
+.vp-pending {
+  background-color: #f59e0b !important;
+  color: white !important;
+}
+
+/* CLICKED / LOADING */
+.vp-processing {
+  background-color: #94a3b8 !important;
+  color: white !important;
+  animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.5; }
+  100% { opacity: 1; }
+}
+
+@keyframes vp-pulse {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(0.97); opacity: 0.8; }
+  100% { transform: scale(1); opacity: 1; }
+}
