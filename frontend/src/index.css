@@ -227,3 +227,45 @@ html, body, #root {
   from { opacity: 0.4; transform: scale(0.98); }
   to { opacity: 1; transform: scale(1); }
 }
+
+
+/* 1. Target the date number (abbr) specifically inside the today tile */
+.calendar-today-tile abbr {
+  color: #2563eb !important; /* Blue-600 */
+  position: relative;
+  display: inline-block;
+}
+
+/* 2. Create the underline using a pseudo-element */
+.calendar-today-tile abbr::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: -4px; /* Space between number and line */
+  width: 100%;
+  height: 3px;
+  background-color: #2563eb;
+  border-radius: 2px;
+}
+
+/* 3. Handle Dark Backgrounds (Reserved, Full, Free) */
+/* When the background is blue/green/red, make the underline and text white */
+.vp-my-spot.calendar-today-tile abbr,
+.vp-free.calendar-today-tile abbr,
+.vp-full.calendar-today-tile abbr,
+.vp-sniping-active.calendar-today-tile abbr {
+  color: white !important;
+}
+
+.vp-my-spot.calendar-today-tile abbr::after,
+.vp-free.calendar-today-tile abbr::after,
+.vp-full.calendar-today-tile abbr::after,
+.vp-sniping-active.calendar-today-tile abbr::after {
+  background-color: white;
+}
+
+/* 4. Optional: Subtle background tint for the whole tile to make it stand out */
+.calendar-today-tile {
+  background-color: #f8fafc !important; /* Slightly whiter than slate-100 */
+  box-shadow: inset 0 0 0 2px rgba(37, 99, 235, 0.1) !important;
+}

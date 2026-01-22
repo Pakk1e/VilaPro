@@ -435,6 +435,17 @@ function App() {
     const dayNumber = date.getDate();
     let classes = [];
 
+    // Logic for Today's Indicator
+    const today = new Date();
+    if (
+      view === 'month' &&
+      date.getDate() === today.getDate() &&
+      date.getMonth() === today.getMonth() &&
+      date.getFullYear() === today.getFullYear()
+    ) {
+      classes.push('calendar-today-tile');
+    }
+
     if (availability.noedit?.includes(dayNumber)) classes.push('vp-unavailable');
     if (availability.full?.includes(dayNumber)) classes.push('vp-full');
     if (availability.free?.includes(dayNumber)) classes.push('vp-free');
