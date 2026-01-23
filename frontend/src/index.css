@@ -1,23 +1,23 @@
 @import "tailwindcss";
 
 /* 1. RESET & LOCK VIEWPORT */
-html, body, #root {
+html,
+body,
+#root {
   height: 100vh;
   width: 100vw;
   margin: 0;
   padding: 0;
-  overflow: hidden;
   background-color: #f8fafc;
   font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
 /* 2. DASHBOARD WRAPPER */
 .dashboard-container {
-  height: 100vh;
+  height: 100dvh;
   width: 100vw;
   display: flex;
   flex-direction: column;
-  padding: 24px;
   box-sizing: border-box;
 }
 
@@ -33,34 +33,33 @@ html, body, #root {
 
 /* Force the calendar view to not stretch past its boundaries */
 .react-calendar__viewContainer {
-  flex-grow: 0 !important; 
+  flex-grow: 0 !important;
 }
 
 .react-calendar__month-view__days {
   display: grid !important;
   grid-template-columns: repeat(7, 1fr) !important;
   width: 100% !important;
-  flex-grow: 0 !important; 
+  flex-grow: 0 !important;
   /* This prevents the last row from touching the container edge */
-  padding-bottom: 10px !important; 
-  min-height: 400px;
+  padding-bottom: 10px !important;
 }
 
 /* 4. THE TILE (DATE BOX) */
 .react-calendar__tile {
   position: relative !important;
-  height: calc((100vh - 340px) / 6) !important; /* Adjusted slightly for better bottom clearance */
+  aspect-ratio: 1 / 1;
+  height: auto !important;
+  min-height: 64px;
   width: 100% !important;
-  max-width: 100% !important;
-  flex-basis: auto !important;
   display: flex !important;
   flex-direction: column !important;
   justify-content: flex-start !important;
   align-items: flex-start !important;
-  padding: 14px !important; 
-  border: 6px solid white !important;
+  padding: 10px !important;
+  border: 4px solid white !important;
   background-color: #f1f5f9 !important;
-  border-radius: 28px !important;
+  border-radius: 18px !important;
   transition: all 0.3s ease;
   overflow: hidden !important;
 }
@@ -84,7 +83,7 @@ html, body, #root {
   position: absolute;
   top: 0;
   right: 0;
-  background: #0f172a; 
+  background: #0f172a;
   padding: 8px 14px;
   border-bottom-left-radius: 14px;
   box-shadow: -2px 2px 8px rgba(0, 0, 0, 0.2);
@@ -95,20 +94,49 @@ html, body, #root {
 .lot-tag-text {
   font-size: 15px;
   font-weight: 900;
-  color: #fcd34d; 
+  color: #fcd34d;
 }
 
 /* 7. VILLA PRO STATUS COLORS */
-.vp-free { background-color: #22c55e !important; }
-.vp-free abbr { color: white !important; }
-.vp-my-spot { background-color: #3b82f6 !important; }
-.vp-my-spot abbr { color: white !important; }
-.vp-full { background-color: #ef4444 !important; }
-.vp-full abbr { color: white !important; }
-.vp-unavailable { background-color: #f8fafc !important; opacity: 0.4; }
-.vp-neighboring-day { opacity: 0.1; pointer-events: none; border: none !important; }
+.vp-free {
+  background-color: #22c55e !important;
+}
 
-.vp-free, .vp-full, .vp-my-spot, .vp-sniping-active {
+.vp-free abbr {
+  color: white !important;
+}
+
+.vp-my-spot {
+  background-color: #3b82f6 !important;
+}
+
+.vp-my-spot abbr {
+  color: white !important;
+}
+
+.vp-full {
+  background-color: #ef4444 !important;
+}
+
+.vp-full abbr {
+  color: white !important;
+}
+
+.vp-unavailable {
+  background-color: #f8fafc !important;
+  opacity: 0.4;
+}
+
+.vp-neighboring-day {
+  opacity: 0.1;
+  pointer-events: none;
+  border: none !important;
+}
+
+.vp-free,
+.vp-full,
+.vp-my-spot,
+.vp-sniping-active {
   animation: fadeIn 0.4s ease-out forwards;
 }
 
@@ -123,7 +151,7 @@ html, body, #root {
   grid-template-columns: repeat(7, 1fr) !important;
   padding: 12px 0 !important;
   margin-bottom: 15px !important;
-  background: #f1f5f9; 
+  background: #f1f5f9;
   border-radius: 20px;
   text-align: center;
 }
@@ -143,7 +171,8 @@ html, body, #root {
   flex-grow: 1;
   display: flex;
   flex-direction: column;
-  padding-bottom: 30px !important; /* Fixed padding at the bottom of the card */
+  padding-bottom: 30px !important;
+  /* Fixed padding at the bottom of the card */
   padding-left: 8px !important;
   padding-right: 8px !important;
   overflow: hidden;
@@ -151,23 +180,33 @@ html, body, #root {
 
 .loading-spinner-overlay {
   position: absolute;
-  top: 50%; left: 50%;
+  top: 50%;
+  left: 50%;
   transform: translate(-50%, -50%);
-  z-index: 100;
+  z-index: 10;
   background: white;
   padding: 16px 32px;
   border-radius: 20px;
   font-weight: 900;
   color: #3b82f6;
-  box-shadow: 0 15px 35px rgba(0,0,0,0.15);
-  display: flex; align-items: center; gap: 12px;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
+  display: flex;
+  align-items: center;
+  gap: 12px;
   text-transform: uppercase;
 }
 
 /* 10. LOGIN & ANIMATIONS */
 @keyframes tag-slide-in {
-  from { transform: translateX(20px); opacity: 0; }
-  to { transform: translateX(0); opacity: 1; }
+  from {
+    transform: translateX(20px);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
 }
 
 .vp-processing {
@@ -177,19 +216,30 @@ html, body, #root {
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.6;
+  }
 }
 
 .login-bg {
-  height: 100vh; width: 100vw;
-  display: flex; align-items: center; justify-content: center;
+  height: 100vh;
+  width: 100vw;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background-color: #0f172a;
 }
 
 /* High-Visibility Sniper Tile */
 .vp-sniping-active {
-  background: #dc2626 !important; /* Tailwind red-600 */
+  background: #dc2626 !important;
+  /* Tailwind red-600 */
   color: white !important;
   font-weight: 900 !important;
   position: relative;
@@ -200,10 +250,13 @@ html, body, #root {
 }
 
 @keyframes sniper-target-pulse {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: scale(1);
     filter: brightness(1);
   }
+
   50% {
     transform: scale(0.92);
     filter: brightness(1.2);
@@ -219,19 +272,28 @@ html, body, #root {
 }
 
 .vp-tile-loading abbr {
-  color: #cbd5e1 !important; /* Faded numbers */
+  color: #cbd5e1 !important;
+  /* Faded numbers */
 }
 
 
 @keyframes fadeIn {
-  from { opacity: 0.4; transform: scale(0.98); }
-  to { opacity: 1; transform: scale(1); }
+  from {
+    opacity: 0.4;
+    transform: scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 
 /* 1. Target the date number (abbr) specifically inside the today tile */
 .calendar-today-tile abbr {
-  color: #2563eb !important; /* Blue-600 */
+  color: #2563eb !important;
+  /* Blue-600 */
   position: relative;
   display: inline-block;
 }
@@ -241,7 +303,8 @@ html, body, #root {
   content: '';
   position: absolute;
   left: 0;
-  bottom: -4px; /* Space between number and line */
+  bottom: -4px;
+  /* Space between number and line */
   width: 100%;
   height: 3px;
   background-color: #2563eb;
@@ -266,6 +329,102 @@ html, body, #root {
 
 /* 4. Optional: Subtle background tint for the whole tile to make it stand out */
 .calendar-today-tile {
-  background-color: #f8fafc !important; /* Slightly whiter than slate-100 */
+  background-color: #f8fafc !important;
+  /* Slightly whiter than slate-100 */
   box-shadow: inset 0 0 0 2px rgba(37, 99, 235, 0.1) !important;
+}
+
+
+/* 5. Desktop View Only */
+@media (min-width: 1024px) {
+  .react-calendar__tile {
+    aspect-ratio: auto;
+    height: calc((100vh - 340px) / 6) !important;
+    padding: 14px !important;
+    border-radius: 28px !important;
+  }
+}
+
+/* Desktop keeps locked viewport */
+@media (min-width: 769px) {
+
+  html,
+  body,
+  #root {
+    overflow: hidden;
+  }
+}
+
+
+/*Mobile View Only*/
+@media (max-width: 768px) {
+
+  html,
+  body,
+  #root {
+    overflow: auto;
+  }
+
+  .react-calendar__tile abbr {
+    font-size: 0.9rem !important;
+  }
+
+  .react-calendar__month-view__weekdays__weekday abbr {
+    font-size: 9px !important;
+  }
+
+  .lot-tag-container {
+    display: none !important;
+  }
+
+  .calendar-container {
+    padding-bottom: 16px !important;
+  }
+
+  main {
+    padding-bottom: 96px;
+    /* space for sticky action bar */
+  }
+
+  .main-dashboard-calendar {
+    --calendar-tile-height: 44px;
+  }
+
+  .react-calendar__tile {
+    min-height: 44px;
+    padding: 4px 0;
+    font-size: 12px;
+  }
+
+  .react-calendar__month-view__days {
+    row-gap: 6px;
+  }
+
+  .react-calendar__month-view__weekdays {
+    font-size: 10px;
+    margin-bottom: 6px;
+    padding: 6px 10px !important;
+    border-radius: 9999px;
+  }
+  .react-calendar__month-view__weekdays__weekday {
+    padding: 0 !important;
+    font-size: 0.7rem;
+    line-height: 1.2;
+  }
+
+  /* Calendar month / year header cleanup */
+  .react-calendar__navigation {
+    margin-bottom: 6px !important;
+  }
+
+  .react-calendar__navigation__label {
+    font-size: 1.1rem !important;
+    font-weight: 800 !important;
+  }
+
+  .react-calendar__navigation button {
+    font-size: 1.1rem !important;
+    padding: 4px 6px !important;
+  }
+
 }
