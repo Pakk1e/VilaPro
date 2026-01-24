@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
+import ParkingMapModal from "./components/ParkingMapModal";
+
 
 const API_BASE_URL = `https://api.vadovsky-tech.com`;
 
@@ -528,6 +530,14 @@ function App() {
   }, [isLoggedIn, isLogsOpen]); // Triggers when the Logs modal is opened
 
   if (isLoggedIn) {
+
+    // ================= MAP MODAL STATE =================
+    const [isMapOpen, setIsMapOpen] = useState(false);
+    const [mapContext, setMapContext] = useState({
+      spotName: null,
+      dateLabel: null,
+    });
+
     const ActionButton = ({ className = "" }) => {
       const isSnipingTarget =
         !isReservedByMe && (availability.full.includes(selectedDate.getDate()) ||
@@ -606,6 +616,8 @@ function App() {
               <h1 className="text-2xl font-black text-slate-900 tracking-tighter">
                 PARK <span className="text-blue-600">PRO</span>
               </h1>
+
+
 
               <div className="flex items-center gap-3">
                 <div className="flex items-center bg-slate-100 rounded-2xl px-4 py-2 border border-slate-200">
@@ -885,19 +897,50 @@ function App() {
                     .map((res) => (
                       <div
                         key={res.day}
-                        onClick={() => setSelectedDate(new Date(selectedDate.getFullYear(), selectedDate.getMonth(), res.day))}
-                        className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex justify-between items-center hover:bg-slate-100 transition-colors cursor-pointer"
+                        onClick={() =>
+                          setSelectedDate(
+                            new Date(
+                              selectedDate.getFullYear(),
+                              selectedDate.getMonth(),
+                              res.day
+                            )
+                          )
+                        }
+                        className="p-4 bg-slate-50 rounded-2xl border border-slate-100 hover:bg-slate-100 transition-colors cursor-pointer space-y-3"
                       >
-                        <div>
-                          <p className="text-[10px] font-bold text-blue-500 uppercase tracking-widest">
-                            {viewedDate.toLocaleString('en-US', { month: 'long' })} {res.day}
-                          </p>
-                          <p className="font-black text-slate-800">SPOT: {res.lot || '...'}</p>
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <p className="text-[10px] font-bold text-blue-500 uppercase tracking-widest">
+                              {viewedDate.toLocaleString("en-US", { month: "long" })} {res.day}
+                            </p>
+                            <p className="font-black text-slate-800">
+                              Spot {res.lot || "..."}
+                            </p>
+                          </div>
+
+                          <span className="text-[9px] font-black px-2 py-1 rounded-md uppercase bg-green-100 text-green-600 border border-green-200">
+                            {globalPlate}
+                          </span>
                         </div>
-                        <span className="text-[9px] font-black px-2 py-1 rounded-md uppercase bg-green-100 text-green-600 border border-green-200">
-                          {globalPlate}
-                        </span>
+
+                        {/* DESKTOP ONLY — SHOW MAP */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation(); // IMPORTANT
+                            setMapContext({
+                              spotName: res.lot,
+                              dateLabel: `${viewedDate.toLocaleString("en-US", {
+                                month: "long",
+                              })} ${res.day}`,
+                            });
+                            setIsMapOpen(true);
+                          }}
+                          className="hidden lg:inline-flex text-xs font-bold text-blue-600 hover:text-blue-700 underline"
+                        >
+                          Show Map
+                        </button>
                       </div>
+
                     ))
                 ) : (
                   <div className="text-center py-10 text-slate-400 text-xs font-medium">
@@ -1052,6 +1095,14 @@ function App() {
           onClose={() => setIsLogsOpen(false)}
           logs={activityLogs}
         />
+
+        <ParkingMapModal
+          isOpen={isMapOpen}
+          onClose={() => setIsMapOpen(false)}
+          spotName={mapContext.spotName}
+          dateLabel={mapContext.dateLabel}
+        />
+
       </div>
     );
   }
