@@ -422,12 +422,7 @@ function App() {
     }
   };
 
-  const handleJumpToToday = () => {
-    const today = new Date();
-    setSelectedDate(today);
-    setViewedDate(today);
-    fetchData(today);
-  };
+
 
   // --- DYNAMIC TILE CLASSES ---
   const getTileClassName = ({ date, view }) => {
@@ -639,12 +634,7 @@ function App() {
                   📄
                 </button>
 
-                <button
-                  onClick={handleJumpToToday}
-                  className="bg-slate-900 text-white text-[10px] font-bold px-4 py-2.5 rounded-2xl uppercase tracking-widest"
-                >
-                  Today
-                </button>
+                
 
                 <button
                   onClick={() => {
