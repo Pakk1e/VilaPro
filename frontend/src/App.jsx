@@ -51,6 +51,13 @@ function App() {
   const weather = useWeather(isLoggedIn);
   const [isWeatherOpen, setIsWeatherOpen] = useState(false);
 
+  // ================= MAP MODAL STATE =================
+  const [isMapOpen, setIsMapOpen] = useState(false);
+  const [mapContext, setMapContext] = useState({
+    spotName: null,
+    dateLabel: null,
+  });
+
 
   {/* 1. Calculate if the selected date is today or in the future */ }
   const today = new Date();
@@ -74,18 +81,34 @@ function App() {
   const fetchLogs = async () => {
     try {
       const resp = await fetch(`${API_BASE_URL}/api/logs?email=${email}`);
+
+      if (resp.status === 401) {
+        alert("VillaPro session expired. Please log in again.");
+        setIsLoggedIn(false);
+        return;
+      }
+
       const data = await resp.json();
-      setActivityLogs(data);
+      setActivityLogs(Array.isArray(data) ? data : []);
     } catch (e) {
       console.error("Failed to fetch logs");
     }
   };
 
+
   const fetchBulkRules = async () => {
     const resp = await fetch(`${API_BASE_URL}/api/bulk/rules?email=${email}`);
+
+    if (resp.status === 401) {
+      alert("VillaPro session expired. Please log in again.");
+      setIsLoggedIn(false);
+      return;
+    }
+
     const data = await resp.json();
-    setBulkRules(data);
+    setBulkRules(Array.isArray(data) ? data : []);
   };
+
   const handleSaveRule = async (ruleData) => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/bulk/save`, {
@@ -249,11 +272,18 @@ function App() {
       const url = `${API_BASE_URL}/api/availability?month=${targetMonth}&year=${targetYear}&email=${encodeURIComponent(activeEmail)}`;
       const response = await fetch(url, { signal });
 
-      if (response.status === 403) {
-        alert("Your access has been revoked.");
-        handleLogout(); // This function already clears storage and reloads
+      if (response.status === 401) {
+        alert("VillaPro session expired. Please log in again.");
+        setIsLoggedIn(false);
         return;
       }
+
+      if (response.status === 403) {
+        alert("Your access has been revoked.");
+        handleLogout();
+        return;
+      }
+
 
       if (response.ok) {
         const data = await response.json();
@@ -427,12 +457,20 @@ function App() {
   const syncActiveSnipers = async () => {
     try {
       const resp = await fetch(`${API_BASE_URL}/api/sniper/active?email=${email}`);
+
+      if (resp.status === 401) {
+        alert("VillaPro session expired. Please log in again.");
+        setIsLoggedIn(false);
+        return;
+      }
+
       const activeDates = await resp.json();
-      setSnipingDates(activeDates); // This updates your "sniping stack" UI
+      setSnipingDates(Array.isArray(activeDates) ? activeDates : []);
     } catch (e) {
       console.error("Failed to sync snipers", e);
     }
   };
+
 
 
 
@@ -536,77 +574,167 @@ function App() {
     }
   }, [isLoggedIn, isLogsOpen]); // Triggers when the Logs modal is opened
 
-  if (isLoggedIn) {
+  const ActionButton = ({ className = "" }) => {
+    const isSnipingTarget =
+      !isReservedByMe && (availability.full.includes(selectedDate.getDate()) ||
+        availability.noedit.includes(selectedDate.getDate())) &&
+      !snipingDates.includes(getDateStr(selectedDate)) &&
+      isFutureOrToday;
 
-    // ================= MAP MODAL STATE =================
-    const [isMapOpen, setIsMapOpen] = useState(false);
-    const [mapContext, setMapContext] = useState({
-      spotName: null,
-      dateLabel: null,
-    });
-
-    const ActionButton = ({ className = "" }) => {
-      const isSnipingTarget =
-        !isReservedByMe && (availability.full.includes(selectedDate.getDate()) ||
-          availability.noedit.includes(selectedDate.getDate())) &&
-        !snipingDates.includes(getDateStr(selectedDate)) &&
-        isFutureOrToday;
-
-      if (isSnipingTarget) {
-        return (
-          <button
-            onClick={() => startSniper(selectedDate)}
-            className={
-              "w-full bg-red-600 text-white py-4 rounded-2xl font-black uppercase tracking-widest " +
-              "hover:bg-red-500 transition-all shadow-lg shadow-red-500/40 " +
-              className
-            }
-          >
-            🎯 Initialize Snipe
-          </button>
-        );
-      }
-
-      if (snipingDates.includes(getDateStr(selectedDate))) {
-        return (
-          <button
-            onClick={() => stopSniper(selectedDate)}
-            className={
-              "w-full bg-slate-800 text-white py-4 rounded-2xl font-black uppercase tracking-widest " +
-              "hover:bg-slate-700 transition-all border border-slate-700 " +
-              className
-            }
-          >
-            🛑 Stop Sniping
-          </button>
-        );
-      }
-
+    if (isSnipingTarget) {
       return (
         <button
-          onClick={() => handleAction(selectedDate)}
-          disabled={processingDate !== null || availability.noedit.includes(selectedDate.getDate())}
+          onClick={() => startSniper(selectedDate)}
           className={
-            "w-full bg-blue-600 text-white py-4 rounded-2xl font-black uppercase tracking-widest " +
-            "hover:bg-blue-500 transition-all disabled:opacity-50 " +
+            "w-full bg-red-600 text-white py-4 rounded-2xl font-black uppercase tracking-widest " +
+            "hover:bg-red-500 transition-all shadow-lg shadow-red-500/40 " +
             className
           }
         >
-          {processingDate ? "Processing..." : (isReservedByMe ? "Delete" : "Reserve Spot")}
+          🎯 Initialize Snipe
         </button>
       );
-    };
+    }
+
+    if (snipingDates.includes(getDateStr(selectedDate))) {
+      return (
+        <button
+          onClick={() => stopSniper(selectedDate)}
+          className={
+            "w-full bg-slate-800 text-white py-4 rounded-2xl font-black uppercase tracking-widest " +
+            "hover:bg-slate-700 transition-all border border-slate-700 " +
+            className
+          }
+        >
+          🛑 Stop Sniping
+        </button>
+      );
+    }
 
     return (
-      <div className="dashboard-container">
-        {/* HEADER */}
-        <header className="bg-white border-b border-slate-200 sticky top-0 z-30 w-full">
-          {/* MOBILE HEADER */}
-          <div className="lg:hidden h-14 flex items-center justify-between px-4">
-            <h1 className="text-lg font-black text-slate-900 tracking-tight">
+      <button
+        onClick={() => handleAction(selectedDate)}
+        disabled={processingDate !== null || availability.noedit.includes(selectedDate.getDate())}
+        className={
+          "w-full bg-blue-600 text-white py-4 rounded-2xl font-black uppercase tracking-widest " +
+          "hover:bg-blue-500 transition-all disabled:opacity-50 " +
+          className
+        }
+      >
+        {processingDate ? "Processing..." : (isReservedByMe ? "Delete" : "Reserve Spot")}
+      </button>
+    );
+  };
+
+  // --- LOGIN VIEW ---
+  if (!isLoggedIn) {
+    return (
+      <div className="login-bg">
+        <form onSubmit={handleLogin} className="bg-white p-12 rounded-[3rem] shadow-2xl w-full max-w-md">
+          <h2 className="text-3xl font-black text-center mb-2 tracking-tighter text-slate-900">PARK PRO</h2>
+          <p className="text-center text-slate-400 text-xs font-bold uppercase mb-8 tracking-widest">VillaPro Dashboard</p>
+          <input
+            className="w-full p-5 mb-4 bg-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-bold"
+            placeholder="VillaPro Email"
+            type="email" value={email}
+            onChange={e => setEmail(e.target.value)}
+            required
+          />
+          <input
+            className="w-full p-5 mb-8 bg-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-bold"
+            placeholder="Password"
+            type="password" value={password}
+            onChange={e => setPassword(e.target.value)}
+            required
+          />
+          <button className="w-full bg-blue-600 text-white p-5 rounded-2xl font-black uppercase tracking-widest hover:bg-blue-500 transition-all shadow-lg shadow-blue-500/30">
+            {loading ? "Authenticating..." : "Sign In"}
+          </button>
+        </form>
+      </div>
+    );
+  }
+
+
+  return (
+    <div className="dashboard-container">
+      {/* HEADER */}
+      <header className="bg-white border-b border-slate-200 sticky top-0 z-30 w-full">
+        {/* MOBILE HEADER */}
+        <div className="lg:hidden h-14 flex items-center justify-between px-4">
+          <h1 className="text-lg font-black text-slate-900 tracking-tight">
+            PARK <span className="text-blue-600">PRO</span>
+          </h1>
+          <div className="flex items-center gap-3">
+            <WeatherButton
+              weather={weather.data}
+              status={weather.status}
+              onClick={() => setIsWeatherOpen(true)}
+              className="opacity-70 hover:opacity-100 overflow-visible"
+            />
+
+
+            <button
+              onClick={() => setIsSidebarOpen(true)}
+              className="text-slate-900 text-xl"
+              aria-label="Open menu"
+            >
+              ☰
+            </button>
+          </div>
+        </div>
+
+        {/* DESKTOP HEADER */}
+        <div className="hidden lg:flex items-center justify-between px-8 py-4">
+          {/* LEFT */}
+          <div className="flex items-center gap-8">
+            <h1 className="text-2xl font-black text-slate-900 tracking-tighter">
               PARK <span className="text-blue-600">PRO</span>
             </h1>
+
+
+
             <div className="flex items-center gap-3">
+              <div className="flex items-center bg-slate-100 rounded-2xl px-4 py-2 border border-slate-200">
+                <span className="text-[10px] font-bold text-slate-500 mr-3 uppercase">
+                  Active Plate:
+                </span>
+                <input
+                  className="bg-transparent border-none outline-none font-black text-blue-600 w-24"
+                  value={globalPlate}
+                  onChange={(e) => setGlobalPlate(e.target.value.toUpperCase())}
+                />
+              </div>
+
+              <button
+                onClick={() => setIsLogsOpen(true)}
+                className="p-2.5 bg-slate-100 text-slate-500 rounded-2xl hover:bg-slate-200"
+                title="Activity Logs"
+              >
+                📄
+              </button>
+
+
+
+              <button
+                onClick={() => {
+                  setEditingRule(null);
+                  setIsBulkModalOpen(true);
+                }}
+                className="bg-blue-600 text-white text-[10px] font-bold px-4 py-2.5 rounded-2xl uppercase tracking-widest"
+              >
+                ⚙️ Bulk Scheduler
+              </button>
+            </div>
+          </div>
+
+
+          {/* RIGHT */}
+          <div className="flex items-center gap-4">
+
+
+            <div className="flex items-center gap-6">
+              {/* WEATHER — LEFT OF STATUS */}
               <WeatherButton
                 weather={weather.data}
                 status={weather.status}
@@ -615,549 +743,467 @@ function App() {
               />
 
 
+              {/* STATUS + SYNC */}
+              <div className="text-right">
+                <div className="flex items-center justify-end gap-2">
+                  <p className={`text-[10px] font-bold uppercase ${isStale() ? 'text-orange-500' : 'text-slate-400'}`}>
+                    Status: {isStale() ? 'Stale Data' : 'Connected'}
+                  </p>
+
+                  <button
+                    onClick={() => fetchData(viewedDate, false, true)}
+                    className="text-slate-400 hover:text-blue-600"
+                    title="Force Sync"
+                  >
+                    ⟳
+                  </button>
+                </div>
+
+                <p className="text-[9px] font-medium text-slate-400">
+                  Sync: {formatSyncTime()}
+                </p>
+                <p className="text-xs font-bold text-slate-600">{email}</p>
+              </div>
+
+              {/* LOGOUT */}
               <button
-                onClick={() => setIsSidebarOpen(true)}
-                className="text-slate-900 text-xl"
-                aria-label="Open menu"
+                onClick={handleLogout}
+                className="bg-red-50 text-red-600 px-6 py-2 rounded-xl font-bold text-xs hover:bg-red-600 hover:text-white"
               >
-                ☰
+                LOGOUT
               </button>
             </div>
           </div>
-
-          {/* DESKTOP HEADER */}
-          <div className="hidden lg:flex items-center justify-between px-8 py-4">
-            {/* LEFT */}
-            <div className="flex items-center gap-8">
-              <h1 className="text-2xl font-black text-slate-900 tracking-tighter">
-                PARK <span className="text-blue-600">PRO</span>
-              </h1>
+        </div>
+      </header>
 
 
-
-              <div className="flex items-center gap-3">
-                <div className="flex items-center bg-slate-100 rounded-2xl px-4 py-2 border border-slate-200">
-                  <span className="text-[10px] font-bold text-slate-500 mr-3 uppercase">
-                    Active Plate:
-                  </span>
-                  <input
-                    className="bg-transparent border-none outline-none font-black text-blue-600 w-24"
-                    value={globalPlate}
-                    onChange={(e) => setGlobalPlate(e.target.value.toUpperCase())}
-                  />
-                </div>
-
-                <button
-                  onClick={() => setIsLogsOpen(true)}
-                  className="p-2.5 bg-slate-100 text-slate-500 rounded-2xl hover:bg-slate-200"
-                  title="Activity Logs"
-                >
-                  📄
-                </button>
+      {/* MAIN GRID */}
+      <main
+        className={
+          "flex-grow flex flex-col lg:flex-row gap-6 px-4 py-4 lg:px-8 lg:py-8 " +
+          (isSidebarOpen ? "overflow-hidden" : "overflow-y-auto")
+        }
+      >
 
 
-
-                <button
-                  onClick={() => {
-                    setEditingRule(null);
-                    setIsBulkModalOpen(true);
-                  }}
-                  className="bg-blue-600 text-white text-[10px] font-bold px-4 py-2.5 rounded-2xl uppercase tracking-widest"
-                >
-                  ⚙️ Bulk Scheduler
-                </button>
-              </div>
-            </div>
-
-
-            {/* RIGHT */}
-            <div className="flex items-center gap-4">
-
-
-              <div className="flex items-center gap-6">
-                {/* WEATHER — LEFT OF STATUS */}
-                <WeatherButton
-                  weather={weather.data}
-                  status={weather.status}
-                  onClick={() => setIsWeatherOpen(true)}
-                  className="opacity-70 hover:opacity-100 overflow-visible"
-                />
-
-
-                {/* STATUS + SYNC */}
-                <div className="text-right">
-                  <div className="flex items-center justify-end gap-2">
-                    <p className={`text-[10px] font-bold uppercase ${isStale() ? 'text-orange-500' : 'text-slate-400'}`}>
-                      Status: {isStale() ? 'Stale Data' : 'Connected'}
-                    </p>
-
-                    <button
-                      onClick={() => fetchData(viewedDate, false, true)}
-                      className="text-slate-400 hover:text-blue-600"
-                      title="Force Sync"
-                    >
-                      ⟳
-                    </button>
-                  </div>
-
-                  <p className="text-[9px] font-medium text-slate-400">
-                    Sync: {formatSyncTime()}
-                  </p>
-                  <p className="text-xs font-bold text-slate-600">{email}</p>
-                </div>
-
-                {/* LOGOUT */}
-                <button
-                  onClick={handleLogout}
-                  className="bg-red-50 text-red-600 px-6 py-2 rounded-xl font-bold text-xs hover:bg-red-600 hover:text-white"
-                >
-                  LOGOUT
-                </button>
-              </div>
+        {/* CALENDAR SECTION */}
+        <div className="w-full lg:w-2/3 bg-white rounded-[2.5rem] shadow-sm border border-slate-200 p-4 lg:p-8 flex flex-col">
+          <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center mb-4 lg:mb-6 gap-2">
+            <h2 className="text-lg lg:text-xl font-bold text-slate-800">
+              VillaPro Live Map
+            </h2>
+            <div className="flex gap-3 text-xs lg:text-sm">
+              <LegendItem color="bg-green-500" label="Free" />
+              <LegendItem color="bg-red-500" label="Full" />
+              <LegendItem color="bg-blue-600" label="Your Spot" />
+              <LegendItem color="bg-red-600 animate-pulse" label="Sniping" />
             </div>
           </div>
-        </header>
 
+          <div className="calendar-container">
+            {loading && (
+              <div className="loading-spinner-overlay">
+                <div className="w-2 h-2 bg-blue-600 rounded-full animate-ping"></div>
+                Syncing with VillaPro...
+              </div>
+            )}
 
-        {/* MAIN GRID */}
-        <main
+            <Calendar
+              key={`${email}-${viewedDate.getMonth()}-${viewedDate.getFullYear()}`}
+              locale="en-US"
+              calendarType="iso8601"
+              onChange={setSelectedDate}
+              onClickDay={(date) => setSelectedDate(date)}
+              activeStartDate={viewedDate} // This is the key fix for the header label
+              onActiveStartDateChange={({ activeStartDate }) => {
+                if (activeStartDate.getMonth() !== viewedDate.getMonth() || activeStartDate.getFullYear() !== viewedDate.getFullYear()) {
+                  setAvailability({ reserved: [], free: [], full: [], noedit: [] });
+                  setViewedDate(activeStartDate);
+                  // fetchData(activeStartDate); // Keep this commented out if your useEffect already handles viewedDate
+                }
+              }}
+              onDrillDown={({ activeStartDate }) => setViewedDate(activeStartDate)}
+              value={selectedDate}
+              tileClassName={getTileClassName}
+              tileContent={renderTileContent}
+              className={`main-dashboard-calendar ${loading ? 'calendar-loading' : ''}`}
+            />
+          </div>
+        </div>
+
+        {/* ================= MOBILE OVERLAY ================= */}
+        <div
           className={
-            "flex-grow flex flex-col lg:flex-row gap-6 px-4 py-4 lg:px-8 lg:py-8 " +
-            (isSidebarOpen ? "overflow-hidden" : "overflow-y-auto")
+            "fixed inset-0 z-45 bg-black/40 " +
+            (isSidebarOpen ? "block " : "hidden ") +
+            "lg:hidden"
+          }
+          onClick={() => setIsSidebarOpen(false)}
+        ></div>
+
+        {/* ================= SIDEBAR DRAWER ================= */}
+        <div
+          className={
+            /* MOBILE ONLY */
+            "fixed top-0 right-0 z-50 h-full w-[90%] max-w-sm bg-white " +
+            "transform transition-transform duration-300 " +
+            (isSidebarOpen ? "translate-x-0 " : "translate-x-full ") +
+
+            /* DESKTOP — REMOVE WIDTH CAP */
+            "lg:relative lg:inset-auto lg:z-auto lg:h-auto lg:w-1/3 lg:max-w-none " +
+            "lg:transform-none lg:translate-x-0 " +
+
+            /* SHARED */
+            "flex flex-col gap-4 lg:gap-6 p-4 lg:p-0" +
+
+            /* ENABLE SCROLLING */
+            "overflow-y-auto overscroll-contain"
           }
         >
+          {/* MOBILE CLOSE BUTTON */}
+          <button
+            onClick={() => setIsSidebarOpen(false)}
+            className="lg:hidden self-end text-slate-400 font-bold mb-2"
+          >
+            ✕
+          </button>
 
 
-          {/* CALENDAR SECTION */}
-          <div className="w-full lg:w-2/3 bg-white rounded-[2.5rem] shadow-sm border border-slate-200 p-4 lg:p-8 flex flex-col">
-            <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center mb-4 lg:mb-6 gap-2">
-              <h2 className="text-lg lg:text-xl font-bold text-slate-800">
-                VillaPro Live Map
-              </h2>
-              <div className="flex gap-3 text-xs lg:text-sm">
-                <LegendItem color="bg-green-500" label="Free" />
-                <LegendItem color="bg-red-500" label="Full" />
-                <LegendItem color="bg-blue-600" label="Your Spot" />
-                <LegendItem color="bg-red-600 animate-pulse" label="Sniping" />
-              </div>
+          {/* ================= MOBILE HEADER INFO ================= */}
+          <div className="lg:hidden space-y-4 px-2">
+
+            {/* STATUS + REFRESH */}
+            <div className="grid grid-cols-[1fr_auto] grid-rows-2 gap-x-3 gap-y-0 items-center">
+              {/* STATUS (ROW 1) */}
+              <p className={`text-xs font-bold uppercase ${isStale() ? 'text-orange-500' : 'text-slate-600'}`}>
+                Status: {isStale() ? 'Stale Data' : 'Connected'}
+              </p>
+
+              {/* RELOAD (SPANS BOTH ROWS, CENTERED) */}
+              <button
+                onClick={() => fetchData(viewedDate, false, true)}
+                className="row-span-2 flex items-center justify-center w-9 h-9 rounded-full text-slate-500 hover:text-blue-600 hover:bg-slate-100"
+                title="Force Sync"
+              >
+                ⟳
+              </button>
+
+              {/* SYNC (ROW 2) */}
+              <p className="text-[11px] font-medium text-slate-500">
+                Sync: {formatSyncTime()}
+              </p>
             </div>
 
-            <div className="calendar-container">
-              {loading && (
-                <div className="loading-spinner-overlay">
-                  <div className="w-2 h-2 bg-blue-600 rounded-full animate-ping"></div>
-                  Syncing with VillaPro...
-                </div>
-              )}
 
-              <Calendar
-                key={`${email}-${viewedDate.getMonth()}-${viewedDate.getFullYear()}`}
-                locale="en-US"
-                calendarType="iso8601"
-                onChange={setSelectedDate}
-                onClickDay={(date) => setSelectedDate(date)}
-                activeStartDate={viewedDate} // This is the key fix for the header label
-                onActiveStartDateChange={({ activeStartDate }) => {
-                  if (activeStartDate.getMonth() !== viewedDate.getMonth() || activeStartDate.getFullYear() !== viewedDate.getFullYear()) {
-                    setAvailability({ reserved: [], free: [], full: [], noedit: [] });
-                    setViewedDate(activeStartDate);
-                    // fetchData(activeStartDate); // Keep this commented out if your useEffect already handles viewedDate
-                  }
-                }}
-                onDrillDown={({ activeStartDate }) => setViewedDate(activeStartDate)}
-                value={selectedDate}
-                tileClassName={getTileClassName}
-                tileContent={renderTileContent}
-                className={`main-dashboard-calendar ${loading ? 'calendar-loading' : ''}`}
+            {/*Divider*/}
+            <div className="h-px bg-slate-200" />
+
+            {/* EMAIL */}
+            <p className="text-sm text-slate-700 break-all">
+              <span className="font-medium text-slate-500 mr-1">
+                Signed in as
+              </span>
+              <span className="font-bold">
+                {email}
+              </span>
+            </p>
+
+            {/* ACTIVE PLATE */}
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold uppercase text-slate-500">
+                Active Plate
+              </span>
+              <input
+                className="w-32 bg-slate-100 rounded-xl px-3 py-2 font-black text-blue-600 tracking-widest"
+                maxLength={10}
+                value={globalPlate}
+                onChange={(e) => setGlobalPlate(e.target.value.toUpperCase())}
               />
             </div>
           </div>
 
-          {/* ================= MOBILE OVERLAY ================= */}
-          <div
-            className={
-              "fixed inset-0 z-45 bg-black/40 " +
-              (isSidebarOpen ? "block " : "hidden ") +
-              "lg:hidden"
-            }
-            onClick={() => setIsSidebarOpen(false)}
-          ></div>
+          {/*Divider*/}
+          <div className="h-px bg-slate-200 lg:hidden" />
 
-          {/* ================= SIDEBAR DRAWER ================= */}
-          <div
-            className={
-              /* MOBILE ONLY */
-              "fixed top-0 right-0 z-50 h-full w-[90%] max-w-sm bg-white " +
-              "transform transition-transform duration-300 " +
-              (isSidebarOpen ? "translate-x-0 " : "translate-x-full ") +
-
-              /* DESKTOP — REMOVE WIDTH CAP */
-              "lg:relative lg:inset-auto lg:z-auto lg:h-auto lg:w-1/3 lg:max-w-none " +
-              "lg:transform-none lg:translate-x-0 " +
-
-              /* SHARED */
-              "flex flex-col gap-4 lg:gap-6 p-4 lg:p-0" +
-
-              /* ENABLE SCROLLING */
-              "overflow-y-auto overscroll-contain"
-            }
-          >
-            {/* MOBILE CLOSE BUTTON */}
-            <button
-              onClick={() => setIsSidebarOpen(false)}
-              className="lg:hidden self-end text-slate-400 font-bold mb-2"
-            >
-              ✕
-            </button>
-
-
-            {/* ================= MOBILE HEADER INFO ================= */}
-            <div className="lg:hidden space-y-4 px-2">
-
-              {/* STATUS + REFRESH */}
-              <div className="grid grid-cols-[1fr_auto] grid-rows-2 gap-x-3 gap-y-0 items-center">
-                {/* STATUS (ROW 1) */}
-                <p className={`text-xs font-bold uppercase ${isStale() ? 'text-orange-500' : 'text-slate-600'}`}>
-                  Status: {isStale() ? 'Stale Data' : 'Connected'}
-                </p>
-
-                {/* RELOAD (SPANS BOTH ROWS, CENTERED) */}
-                <button
-                  onClick={() => fetchData(viewedDate, false, true)}
-                  className="row-span-2 flex items-center justify-center w-9 h-9 rounded-full text-slate-500 hover:text-blue-600 hover:bg-slate-100"
-                  title="Force Sync"
-                >
-                  ⟳
-                </button>
-
-                {/* SYNC (ROW 2) */}
-                <p className="text-[11px] font-medium text-slate-500">
-                  Sync: {formatSyncTime()}
-                </p>
-              </div>
-
-
-              {/*Divider*/}
-              <div className="h-px bg-slate-200" />
-
-              {/* EMAIL */}
-              <p className="text-sm text-slate-700 break-all">
-                <span className="font-medium text-slate-500 mr-1">
-                  Signed in as
-                </span>
-                <span className="font-bold">
-                  {email}
-                </span>
-              </p>
-
-              {/* ACTIVE PLATE */}
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-bold uppercase text-slate-500">
-                  Active Plate
-                </span>
-                <input
-                  className="w-32 bg-slate-100 rounded-xl px-3 py-2 font-black text-blue-600 tracking-widest"
-                  maxLength={10}
-                  value={globalPlate}
-                  onChange={(e) => setGlobalPlate(e.target.value.toUpperCase())}
-                />
-              </div>
-            </div>
-
-            {/*Divider*/}
-            <div className="h-px bg-slate-200 lg:hidden" />
-
-            {/* ================= YOUR RESERVATIONS ================= */}
-            <div className="flex-grow bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden flex flex-col">
-              {snipingDates.length > 0 && (
-                <div className="p-6 border-b border-slate-100 bg-red-50/50 backdrop-blur-sm">
-                  <div className="flex justify-between items-center mb-3">
-                    <p className="font-black text-red-600 uppercase text-[11px] tracking-[0.15em]">
-                      Live Sniper Targets
-                    </p>
-                    <span className="text-[10px] font-bold text-red-400 animate-pulse">● LIVE</span>
-                  </div>
-                  <div className="flex flex-wrap gap-2.5">
-                    {snipingDates.map(dateStr => {
-                      const [y, m, d] = dateStr.split('-');
-                      const targetDate = new Date(y, m - 1, d);
-                      return (
-                        <button
-                          key={dateStr}
-                          onClick={() => {
-
-                            const isDifferentMonth = targetDate.getMonth() !== viewedDate.getMonth() ||
-                              targetDate.getFullYear() !== viewedDate.getFullYear();
-
-                            setSelectedDate(targetDate);
-
-                            if (isDifferentMonth) {
-                              // 1. Clear current view so user sees it's loading new data
-                              setAvailability({ reserved: [], free: [], full: [], noedit: [] });
-                              // 2. Update the calendar view
-                              setViewedDate(targetDate);
-                              // 3. FORCE a fetch for the new month immediately
-                              fetchData(targetDate);
-                            }
-                          }}
-                          className="group relative flex items-center gap-2 bg-white border-2 border-red-500 text-red-600 px-4 py-2 rounded-xl hover:bg-red-600 hover:text-white transition-all duration-300 shadow-sm"
-                        >
-                          <span className="text-xs font-black tracking-tighter">
-                            {targetDate.toLocaleString('en-US', { month: 'short' }).toUpperCase()} {d}
-                          </span>
-                          <span className="text-sm group-hover:rotate-12 transition-transform">🎯</span>
-                          <span className="absolute -top-1 -right-1 flex h-3 w-3">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
+          {/* ================= YOUR RESERVATIONS ================= */}
+          <div className="flex-grow bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+            {snipingDates.length > 0 && (
+              <div className="p-6 border-b border-slate-100 bg-red-50/50 backdrop-blur-sm">
+                <div className="flex justify-between items-center mb-3">
+                  <p className="font-black text-red-600 uppercase text-[11px] tracking-[0.15em]">
+                    Live Sniper Targets
+                  </p>
+                  <span className="text-[10px] font-bold text-red-400 animate-pulse">● LIVE</span>
                 </div>
-              )}
-              <div className="p-6 border-b border-slate-100 font-bold text-slate-800 uppercase text-xs tracking-wider">Your Reservations</div>
-              <div className="flex-grow overflow-y-auto p-4 space-y-3">
-                {availability.reserved.length > 0 ? (
-                  availability.reserved
-                    .sort((a, b) => a.day - b.day)
-                    .map((res) => (
-                      <div
-                        key={res.day}
-                        onClick={() =>
-                          setSelectedDate(
-                            new Date(
-                              selectedDate.getFullYear(),
-                              selectedDate.getMonth(),
-                              res.day
-                            )
-                          )
-                        }
-                        className="p-4 bg-slate-50 rounded-2xl border border-slate-100 hover:bg-slate-100 transition-colors cursor-pointer space-y-3"
-                      >
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <p className="text-[10px] font-bold text-blue-500 uppercase tracking-widest">
-                              {viewedDate.toLocaleString("en-US", { month: "long" })} {res.day}
-                            </p>
-                            <p className="font-black text-slate-800">
-                              Spot {res.lot || "..."}
-                            </p>
-                          </div>
+                <div className="flex flex-wrap gap-2.5">
+                  {snipingDates.map(dateStr => {
+                    const [y, m, d] = dateStr.split('-');
+                    const targetDate = new Date(y, m - 1, d);
+                    return (
+                      <button
+                        key={dateStr}
+                        onClick={() => {
 
-                          <span className="text-[9px] font-black px-2 py-1 rounded-md uppercase bg-green-100 text-green-600 border border-green-200">
-                            {globalPlate}
-                          </span>
+                          const isDifferentMonth = targetDate.getMonth() !== viewedDate.getMonth() ||
+                            targetDate.getFullYear() !== viewedDate.getFullYear();
+
+                          setSelectedDate(targetDate);
+
+                          if (isDifferentMonth) {
+                            // 1. Clear current view so user sees it's loading new data
+                            setAvailability({ reserved: [], free: [], full: [], noedit: [] });
+                            // 2. Update the calendar view
+                            setViewedDate(targetDate);
+                            // 3. FORCE a fetch for the new month immediately
+                            fetchData(targetDate);
+                          }
+                        }}
+                        className="group relative flex items-center gap-2 bg-white border-2 border-red-500 text-red-600 px-4 py-2 rounded-xl hover:bg-red-600 hover:text-white transition-all duration-300 shadow-sm"
+                      >
+                        <span className="text-xs font-black tracking-tighter">
+                          {targetDate.toLocaleString('en-US', { month: 'short' }).toUpperCase()} {d}
+                        </span>
+                        <span className="text-sm group-hover:rotate-12 transition-transform">🎯</span>
+                        <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            <div className="p-6 border-b border-slate-100 font-bold text-slate-800 uppercase text-xs tracking-wider">Your Reservations</div>
+            <div className="flex-grow overflow-y-auto p-4 space-y-3">
+              {availability.reserved.length > 0 ? (
+                availability.reserved
+                  .sort((a, b) => a.day - b.day)
+                  .map((res) => (
+                    <div
+                      key={res.day}
+                      onClick={() =>
+                        setSelectedDate(
+                          new Date(
+                            selectedDate.getFullYear(),
+                            selectedDate.getMonth(),
+                            res.day
+                          )
+                        )
+                      }
+                      className="p-4 bg-slate-50 rounded-2xl border border-slate-100 hover:bg-slate-100 transition-colors cursor-pointer space-y-3"
+                    >
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="text-[10px] font-bold text-blue-500 uppercase tracking-widest">
+                            {viewedDate.toLocaleString("en-US", { month: "long" })} {res.day}
+                          </p>
+                          <p className="font-black text-slate-800">
+                            Spot {res.lot || "..."}
+                          </p>
                         </div>
 
-                        {/* DESKTOP ONLY — SHOW MAP */}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation(); // IMPORTANT
-                            setMapContext({
-                              spotName: res.lot,
-                              dateLabel: `${viewedDate.toLocaleString("en-US", {
-                                month: "long",
-                              })} ${res.day}`,
-                            });
-                            setIsMapOpen(true);
-                          }}
-                          className="hidden lg:inline-flex text-xs font-bold text-blue-600 hover:text-blue-700 underline"
-                        >
-                          Show Map
-                        </button>
+                        <span className="text-[9px] font-black px-2 py-1 rounded-md uppercase bg-green-100 text-green-600 border border-green-200">
+                          {globalPlate}
+                        </span>
                       </div>
 
-                    ))
-                ) : (
-                  <div className="text-center py-10 text-slate-400 text-xs font-medium">
-                    No active reservations found
-                  </div>
-                )}
-              </div>
-              <div className="p-6 border-t border-slate-100 font-bold text-slate-800 uppercase text-xs tracking-wider">
-                Automation Templates
-              </div>
-              <div className="p-4 space-y-3">
-                {bulkRules.map(rule => (
-                  <div key={rule.id} className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex justify-between items-center">
-                    <div>
-                      {/*<p className="text-[10px] font-black text-blue-600 uppercase">Weekly Schedule</p>*/}
-                      <h4 className="font-black text-slate-900">{rule.name || "Unnamed Rule"}</h4>
-                      <p className="text-[11px] font-bold text-slate-600">Plate: {rule.plate}</p>
+                      {/* DESKTOP ONLY — SHOW MAP */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation(); // IMPORTANT
+                          setMapContext({
+                            spotName: res.lot,
+                            dateLabel: `${viewedDate.toLocaleString("en-US", {
+                              month: "long",
+                            })} ${res.day}`,
+                          });
+                          setIsMapOpen(true);
+                        }}
+                        className="hidden lg:inline-flex text-xs font-bold text-blue-600 hover:text-blue-700 underline"
+                      >
+                        Show Map
+                      </button>
                     </div>
-                    {/* Edit/Delete buttons */}
-                    <div className="flex gap-2">
-                      <button onClick={() => { setEditingRule(rule); setIsBulkModalOpen(true); }} className="text-slate-400 hover:text-blue-600">Edit</button>
-                      <button onClick={() => handleDeleteRule(rule.id)} className="text-slate-400 hover:text-red-600">Delete</button>
-                      <button onClick={() => handleRunRule(rule.id)} className="p-2 hover:bg-blue-50 text-blue-600 rounded-lg transition-colors" title="Run Now">▶️</button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
 
-
-            {/*Divider*/}
-            <div className="h-px bg-slate-200 lg:hidden" />
-
-
-
-            {/* ================= MOBILE ACTIONS ================= */}
-            <div className="lg:hidden flex flex-col gap-2 px-2">
-              <div className="flex flex-col gap-2">
-                <button
-                  onClick={() => setIsLogsOpen(true)}
-                  className="bg-slate-100 rounded-xl px-4 py-1.5 font-bold text-sm"
-                >
-                  Logs
-                </button>
-
-                <button
-                  onClick={() => {
-                    setEditingRule(null);
-                    setIsBulkModalOpen(true);
-                  }}
-                  className="bg-blue-600 text-white rounded-xl px-4 py-2 font-bold text-sm"
-                >
-                  Bulk Scheduler
-                </button>
-
-                <button
-                  onClick={handleLogout}
-                  className="bg-red-50 text-red-600 rounded-xl px-4 py-2 font-bold text-sm"
-                >
-                  Logout
-                </button>
-              </div>
-            </div>
-
-
-
-            {/* SIDEBAR */}
-
-
-            <div className="hidden lg:block bg-slate-900 rounded-[2.5rem] p-8 text-white relative overflow-hidden">
-              {snipingDates && (
-                <div className="absolute top-4 right-4 flex items-center gap-2">
-                  <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
-                  </span>
-                  <span className="text-[9px] font-bold text-red-400 uppercase tracking-widest">Sniper Active</span>
+                  ))
+              ) : (
+                <div className="text-center py-10 text-slate-400 text-xs font-medium">
+                  No active reservations found
                 </div>
               )}
-
-              <p className="text-blue-400 font-bold text-[10px] uppercase tracking-widest mb-1">Selection</p>
-              <p className="text-2xl font-black mb-4">
-                {selectedDate.getMonth() === viewedDate.getMonth()
-                  ? selectedDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
-                  : viewedDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
-                }
-              </p>
-
-              {!isReservedByMe && (availability.full.includes(selectedDate.getDate()) || availability.noedit.includes(selectedDate.getDate()))
-                && !snipingDates.includes(getDateStr(selectedDate)) // Check full string here
-                && isFutureOrToday ? (
-                <button
-                  onClick={() => startSniper(selectedDate)}
-                  className="w-full py-4 rounded-2xl font-black uppercase tracking-widest bg-red-600 hover:bg-red-500 shadow-lg shadow-red-500/40 transition-[background-color,box-shadow,transform] duration-300 ease-in-out"
-                >
-                  🎯 Initialize Snipe
-                </button>
-              ) : snipingDates.includes(getDateStr(selectedDate)) ? (
-                <button
-                  onClick={() => stopSniper(selectedDate)}
-                  className="w-full py-4 rounded-2xl font-black uppercase tracking-widest bg-slate-800 hover:bg-slate-700 border border-slate-700 transition-[background-color,box-shadow,transform] duration-300 ease-in-out"
-                >
-                  🛑 Stop Sniping
-                </button>
-              ) : (
-                <button
-                  onClick={() => handleAction(selectedDate)}
-                  disabled={processingDate !== null || availability.noedit.includes(selectedDate.getDate())}
-                  className="w-full py-4 rounded-2xl font-black uppercase tracking-widest bg-blue-600 hover:bg-blue-500 transition-[background-color,box-shadow,transform] duration-300 ease-in-out disabled:opacity-50"
-                >
-                  {processingDate ? "Processing..." : (isReservedByMe ? "Delete" : "Reserve Spot")}
-                </button>
-              )}
             </div>
-
-
-
+            <div className="p-6 border-t border-slate-100 font-bold text-slate-800 uppercase text-xs tracking-wider">
+              Automation Templates
+            </div>
+            <div className="p-4 space-y-3">
+              {bulkRules.map(rule => (
+                <div key={rule.id} className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex justify-between items-center">
+                  <div>
+                    {/*<p className="text-[10px] font-black text-blue-600 uppercase">Weekly Schedule</p>*/}
+                    <h4 className="font-black text-slate-900">{rule.name || "Unnamed Rule"}</h4>
+                    <p className="text-[11px] font-bold text-slate-600">Plate: {rule.plate}</p>
+                  </div>
+                  {/* Edit/Delete buttons */}
+                  <div className="flex gap-2">
+                    <button onClick={() => { setEditingRule(rule); setIsBulkModalOpen(true); }} className="text-slate-400 hover:text-blue-600">Edit</button>
+                    <button onClick={() => handleDeleteRule(rule.id)} className="text-slate-400 hover:text-red-600">Delete</button>
+                    <button onClick={() => handleRunRule(rule.id)} className="p-2 hover:bg-blue-50 text-blue-600 rounded-lg transition-colors" title="Run Now">▶️</button>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
-          {/* ================= MOBILE STICKY ACTION BAR ================= */}
-          <div
-            className={
-              "lg:hidden fixed bottom-0 left-0 right-0 z-40 px-4 transition-all " +
-              (isSidebarOpen ? "pointer-events-none" : "")
-            }
 
-            style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 8px)" }}
-          >
-            <div
-              className="max-w-md mx-auto bg-white rounded-2xl shadow-md border border-slate-200 px-3 py-3 flex items-center justify-center ">
-              <div className="w-full">
-                <ActionButton />
+
+          {/*Divider*/}
+          <div className="h-px bg-slate-200 lg:hidden" />
+
+
+
+          {/* ================= MOBILE ACTIONS ================= */}
+          <div className="lg:hidden flex flex-col gap-2 px-2">
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={() => setIsLogsOpen(true)}
+                className="bg-slate-100 rounded-xl px-4 py-1.5 font-bold text-sm"
+              >
+                Logs
+              </button>
+
+              <button
+                onClick={() => {
+                  setEditingRule(null);
+                  setIsBulkModalOpen(true);
+                }}
+                className="bg-blue-600 text-white rounded-xl px-4 py-2 font-bold text-sm"
+              >
+                Bulk Scheduler
+              </button>
+
+              <button
+                onClick={handleLogout}
+                className="bg-red-50 text-red-600 rounded-xl px-4 py-2 font-bold text-sm"
+              >
+                Logout
+              </button>
+            </div>
+          </div>
+
+
+
+          {/* SIDEBAR */}
+
+
+          <div className="hidden lg:block bg-slate-900 rounded-[2.5rem] p-8 text-white relative overflow-hidden">
+            {snipingDates && (
+              <div className="absolute top-4 right-4 flex items-center gap-2">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                </span>
+                <span className="text-[9px] font-bold text-red-400 uppercase tracking-widest">Sniper Active</span>
               </div>
-            </div>
+            )}
+
+            <p className="text-blue-400 font-bold text-[10px] uppercase tracking-widest mb-1">Selection</p>
+            <p className="text-2xl font-black mb-4">
+              {selectedDate.getMonth() === viewedDate.getMonth()
+                ? selectedDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
+                : viewedDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+              }
+            </p>
+
+            {!isReservedByMe && (availability.full.includes(selectedDate.getDate()) || availability.noedit.includes(selectedDate.getDate()))
+              && !snipingDates.includes(getDateStr(selectedDate)) // Check full string here
+              && isFutureOrToday ? (
+              <button
+                onClick={() => startSniper(selectedDate)}
+                className="w-full py-4 rounded-2xl font-black uppercase tracking-widest bg-red-600 hover:bg-red-500 shadow-lg shadow-red-500/40 transition-[background-color,box-shadow,transform] duration-300 ease-in-out"
+              >
+                🎯 Initialize Snipe
+              </button>
+            ) : snipingDates.includes(getDateStr(selectedDate)) ? (
+              <button
+                onClick={() => stopSniper(selectedDate)}
+                className="w-full py-4 rounded-2xl font-black uppercase tracking-widest bg-slate-800 hover:bg-slate-700 border border-slate-700 transition-[background-color,box-shadow,transform] duration-300 ease-in-out"
+              >
+                🛑 Stop Sniping
+              </button>
+            ) : (
+              <button
+                onClick={() => handleAction(selectedDate)}
+                disabled={processingDate !== null || availability.noedit.includes(selectedDate.getDate())}
+                className="w-full py-4 rounded-2xl font-black uppercase tracking-widest bg-blue-600 hover:bg-blue-500 transition-[background-color,box-shadow,transform] duration-300 ease-in-out disabled:opacity-50"
+              >
+                {processingDate ? "Processing..." : (isReservedByMe ? "Delete" : "Reserve Spot")}
+              </button>
+            )}
           </div>
 
-        </main>
-        {/* ADD THESE TWO LINES HERE */}
-        <BulkActionModal
-          isOpen={isBulkModalOpen}
-          onClose={() => {
-            setIsBulkModalOpen(false)
-            setEditingRule(null);
-          }}
-          onSave={handleSaveRule} // You'll need to define this function
-          activePlate={globalPlate}
-          editingRule={editingRule}
-          bulkRules={bulkRules}
+
+
+        </div>
+        {/* ================= MOBILE STICKY ACTION BAR ================= */}
+        <div
+          className={
+            "lg:hidden fixed bottom-0 left-0 right-0 z-40 px-4 transition-all " +
+            (isSidebarOpen ? "pointer-events-none" : "")
+          }
+
+          style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 8px)" }}
+        >
+          <div
+            className="max-w-md mx-auto bg-white rounded-2xl shadow-md border border-slate-200 px-3 py-3 flex items-center justify-center ">
+            <div className="w-full">
+              <ActionButton />
+            </div>
+          </div>
+        </div>
+
+      </main>
+      {/* ADD THESE TWO LINES HERE */}
+      <BulkActionModal
+        isOpen={isBulkModalOpen}
+        onClose={() => {
+          setIsBulkModalOpen(false)
+          setEditingRule(null);
+        }}
+        onSave={handleSaveRule} // You'll need to define this function
+        activePlate={globalPlate}
+        editingRule={editingRule}
+        bulkRules={bulkRules}
+      />
+
+      <LogsModal
+        isOpen={isLogsOpen}
+        onClose={() => setIsLogsOpen(false)}
+        logs={activityLogs}
+      />
+
+      <ParkingMapModal
+        isOpen={isMapOpen}
+        onClose={() => setIsMapOpen(false)}
+        spotName={mapContext.spotName}
+        dateLabel={mapContext.dateLabel}
+      />
+
+      <Suspense fallback={null}>
+        <WeatherModal
+          isOpen={isWeatherOpen}
+          onClose={() => setIsWeatherOpen(false)}
+          weather={weather.data}
         />
-
-        <LogsModal
-          isOpen={isLogsOpen}
-          onClose={() => setIsLogsOpen(false)}
-          logs={activityLogs}
-        />
-
-        <ParkingMapModal
-          isOpen={isMapOpen}
-          onClose={() => setIsMapOpen(false)}
-          spotName={mapContext.spotName}
-          dateLabel={mapContext.dateLabel}
-        />
-
-        <Suspense fallback={null}>
-          <WeatherModal
-            isOpen={isWeatherOpen}
-            onClose={() => setIsWeatherOpen(false)}
-            weather={weather.data}
-          />
-        </Suspense>
+      </Suspense>
 
 
 
-      </div >
-    );
-  }
-
-  // --- LOGIN VIEW ---
-  return (
-    <div className="login-bg">
-      <form onSubmit={handleLogin} className="bg-white p-12 rounded-[3rem] shadow-2xl w-full max-w-md">
-        <h2 className="text-3xl font-black text-center mb-2 tracking-tighter text-slate-900">PARK PRO</h2>
-        <p className="text-center text-slate-400 text-xs font-bold uppercase mb-8 tracking-widest">VillaPro Dashboard</p>
-        <input className="w-full p-5 mb-4 bg-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-bold" placeholder="VillaPro Email" type="email" value={email} onChange={e => setEmail(e.target.value)} required />
-        <input className="w-full p-5 mb-8 bg-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-bold" placeholder="Password" type="password" value={password} onChange={e => setPassword(e.target.value)} required />
-        <button className="w-full bg-blue-600 text-white p-5 rounded-2xl font-black uppercase tracking-widest hover:bg-blue-500 transition-all shadow-lg shadow-blue-500/30">
-          {loading ? "Authenticating..." : "Sign In"}
-        </button>
-      </form>
-    </div>
+    </div >
   );
+
+
+
 
 
 }

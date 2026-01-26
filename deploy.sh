@@ -18,12 +18,13 @@ echo "♻️ Refreshing PM2..."
 pm2 delete parkpro-api || true
 pm2 delete parkpro-web || true
 
-# 3. Start Backend with WATCH
-# PM2 will restart server.js if any backend files change
-echo "📡 Starting Backend (Watching for changes)..."
-cd $BACKEND_DIR
-# We ignore node_modules and the database file to prevent infinite restart loops
-pm2 start server.js --name "parkpro-api" --watch --ignore-watch="node_modules parking.db* logs"
+# 3. Restart Backend via PM2 ecosystem
+echo "♻️ Restarting Backend (PM2 ecosystem)..."
+cd "$BASE_DIR" || exit 1
+
+pm2 delete parkpro-api || true
+pm2 start ecosystem.config.js
+pm2 save
 
 
 # 4. Start Frontend

@@ -8,7 +8,7 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 const { wrapper } = require('axios-cookiejar-support');
 const { CookieJar } = require('tough-cookie');
-const bcrypt = require('bcrypt');
+const crypto = require('crypto');
 const runningSnipers = {};
 let nightlyAutomationInterval = null;
 
@@ -22,26 +22,15 @@ const WHITELIST = [
     'svetozar.synak@jci.com'
 ];
 
-const ALLOWED_ORIGINS = [
-    'https://www.vadovsky-tech.com'
-];
+
+const COOKIE_SECRET = process.env.COOKIE_SECRET;
+if (!COOKIE_SECRET) {
+    throw new Error("COOKIE_SECRET env variable is required");
+}
 
 
-app.use(cors({
-    origin: function (origin, callback) {
-        // Allow server-to-server or curl (no origin)
-        if (!origin) return callback(null, true);
+app.use(cors());
 
-        if (ALLOWED_ORIGINS.includes(origin)) {
-            return callback(null, true);
-        }
-
-        return callback(new Error('Not allowed by CORS'));
-    },
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
-}));
 
 app.use('/api', (req, res, next) => {
     const origin = req.headers.origin;
@@ -68,11 +57,12 @@ const db = new sqlite3.Database(dbPath);
 db.serialize(() => {
     db.run(`CREATE TABLE IF NOT EXISTS users (
         email TEXT PRIMARY KEY,
-        password TEXT,
+        encrypted_password TEXT,
         ticket_id TEXT,
         long_ticket_id TEXT,
         article_id TEXT,
-        last_csrf TEXT  -- ADDED THIS
+        last_csrf TEXT,
+        session_cookies TEXT
     )`);
 
     db.run(`CREATE TABLE IF NOT EXISTS bulk_rules (
@@ -87,6 +77,15 @@ db.serialize(() => {
         email TEXT,
         message TEXT,
         timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`);
+
+    db.run(`CREATE TABLE IF NOT EXISTS snipers (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        email TEXT NOT NULL,
+        date TEXT NOT NULL,
+        plate TEXT NOT NULL,
+        status TEXT DEFAULT 'active',
+        UNIQUE(email, date)
     )`);
 
     console.log("Database initialized.");
@@ -104,7 +103,7 @@ db.serialize(() => {
 // This stores a unique client/jar for every logged-in email
 const userSessions = {};
 
-function getSession(email) {
+async function getSession(email) {
     if (!userSessions[email]) {
         const jar = new CookieJar();
         const client = wrapper(axios.create({
@@ -116,15 +115,47 @@ function getSession(email) {
                 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
             }
         }));
-        userSessions[email] = { client, jar, isLogged: false };
+
+        userSessions[email] = {
+            client,
+            jar,
+            isLogged: false,
+            hydrated: false
+        };
     }
-    return userSessions[email];
+
+    const session = userSessions[email];
+
+    if (!session.hydrated) {
+        const row = await new Promise((resolve, reject) => {
+            db.get(
+                "SELECT session_cookies FROM users WHERE email = ?",
+                [email],
+                (err, row) => err ? reject(err) : resolve(row)
+            );
+        });
+
+        if (row?.session_cookies) {
+            try {
+                const decrypted = decrypt(row.session_cookies);
+                await restoreCookies(jar, decrypted);
+                session.isLogged = true;
+                console.log(`🔁 Cookies restored for ${email}`);
+            } catch {
+                console.warn(`⚠️ Failed to restore cookies for ${email}`);
+            }
+        }
+
+
+        session.hydrated = true;
+    }
+
+    return session;
 }
 
-const browserHeaders = {
-    'Accept': 'application/json, text/javascript, */*; q=0.01',
-    'X-Requested-With': 'XMLHttpRequest'
-};
+
+
+
 
 // SHARED LOGIC: The Robot calls this to act like a user
 async function internalInstantReserve(email, date, plate, command = 'ADD') {
@@ -132,8 +163,12 @@ async function internalInstantReserve(email, date, plate, command = 'ADD') {
     const user = await new Promise(r => db.get("SELECT * FROM users WHERE email=?", [email], (err, row) => r(row)));
     if (!user) return { status: false, error_message: "User not found" };
 
-    const session = getSession(email);
-    await ensureLoggedIn(email);
+    const session = await getSession(email);
+    try {
+        await ensureLoggedIn(email);
+    } catch {
+        return { status: false, error_message: "Session expired" };
+    }
 
 
     const [year, month] = date.split('-');
@@ -213,7 +248,7 @@ function startSniperInternal(email, date, plate) {
     // If a sniper for THIS SPECIFIC DATE is already running, clear it first
     if (runningSnipers[email][date]) {
         console.log(`ℹ️ Sniper already running for ${email} on ${date}`);
-        return true;
+        return;
     }
 
     console.log(`🎯 Multi-Sniper engaged for ${email} on date: ${date}`);
@@ -223,7 +258,7 @@ function startSniperInternal(email, date, plate) {
             if (!user || !user.last_csrf) return;
 
             try {
-                const session = getSession(email);
+                const session = await getSession(email);
                 await ensureLoggedIn(user.email);
 
 
@@ -263,11 +298,25 @@ function startSniperInternal(email, date, plate) {
     //res.json({ success: true, message: `Sniper started for ${date}` });
 }
 
-app.get('/api/logs', (req, res) => {
-    db.all("SELECT * FROM activity_logs WHERE email = ? ORDER BY timestamp DESC LIMIT 50", [req.query.email], (err, rows) => {
-        res.json(rows || []);
-    });
+app.get('/api/logs', async (req, res) => {
+    const { email } = req.query;
+
+    if (!requireFields(res, { email })) return;
+    if (!isValidEmail(email)) return res.status(400).json({ error: "Invalid email" });
+
+    try {
+        await ensureLoggedIn(email);
+    } catch {
+        return res.status(401).json({ error: "Session expired" });
+    }
+
+    db.all(
+        "SELECT * FROM activity_logs WHERE email = ? ORDER BY timestamp DESC LIMIT 50",
+        [email],
+        (err, rows) => res.json(rows || [])
+    );
 });
+
 
 app.post('/api/bulk/save', (req, res) => {
     const { email, days, months, plate, name, id } = req.body;
@@ -340,24 +389,67 @@ app.post('/api/bulk/delete', (req, res) => {
 
 
 
-app.get('/api/bulk/rules', (req, res) => {
-    db.all("SELECT * FROM bulk_rules WHERE email = ?", [req.query.email], (err, rows) => res.json(rows || []));
+app.get('/api/bulk/rules', async (req, res) => {
+    const { email } = req.query;
+
+    if (!requireFields(res, { email })) return;
+    if (!isValidEmail(email)) return res.status(400).json({ error: "Invalid email" });
+
+    try {
+        await ensureLoggedIn(email);
+    }
+    catch {
+        return res.status(401).json({ error: "Session expired" });
+    }
+
+    db.all(
+        "SELECT * FROM bulk_rules WHERE email = ?",
+        [email],
+        (err, rows) => res.json(rows || [])
+    );
 });
 
-// --- NIGHTLY AUTOMATION ---
-if (!nightlyAutomationInterval) {
-    nightlyAutomationInterval = setInterval(() => {
-        console.log("🤖 Running Nightly Automation...");
-        db.all("SELECT * FROM bulk_rules", [], (err, rules) => {
-            if (rules) rules.forEach(rule => executeRule(rule.email, rule));
-        });
-    }, 1000 * 60 * 60 * 24);
+
+// --- COOKIE ENCRYPTION HELPERS ---
+
+function encrypt(text) {
+    const iv = crypto.randomBytes(16);
+    const key = crypto.createHash('sha256').update(COOKIE_SECRET).digest();
+    const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
+
+    let encrypted = cipher.update(text, 'utf8', 'base64');
+    encrypted += cipher.final('base64');
+
+    return iv.toString('base64') + ':' + encrypted;
 }
+
+function decrypt(encrypted) {
+    const [ivPart, encryptedPart] = encrypted.split(':');
+    const iv = Buffer.from(ivPart, 'base64');
+    const key = crypto.createHash('sha256').update(COOKIE_SECRET).digest();
+    const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
+
+    let decrypted = decipher.update(encryptedPart, 'base64', 'utf8');
+    decrypted += decipher.final('utf8');
+
+    return decrypted;
+}
+
+function serializeCookies(jar) {
+    return JSON.stringify(jar.toJSON());
+}
+
+async function restoreCookies(jar, json) {
+    const data = JSON.parse(json);
+    jar.fromJSON(data);
+}
+
+
 
 
 // --- HELPERS ---
 async function villaLogin(email, password) {
-    const session = getSession(email);
+    const session = await getSession(email);
     await session.jar.removeAllCookies();
 
     const getRes = await session.client.get('https://clients.villapro.eu/login/');
@@ -377,12 +469,71 @@ async function villaLogin(email, password) {
 }
 
 async function ensureLoggedIn(email) {
-    const session = getSession(email);
+    const session = await getSession(email);
     const cookies = await session.jar.getCookies('https://clients.villapro.eu');
-    if (!session.isLogged || cookies.length === 0) {
-        throw new Error("Session expired — user must log in again");
+
+    if (session.isLogged && cookies.length > 0) {
+        return;
     }
+
+    console.log(`🔐 Re-authenticating ${email} using encrypted password`);
+
+    const user = await new Promise(r =>
+        db.get(
+            "SELECT encrypted_password FROM users WHERE email = ?",
+            [email],
+            (_, row) => r(row)
+        )
+    );
+
+    if (!user?.encrypted_password) {
+        throw new Error("No stored credentials");
+    }
+
+    const password = decrypt(user.encrypted_password);
+    await villaLogin(email, password);
+
+    // refresh cookies after login
+    const cookiesJson = await serializeCookies(session.jar);
+    const encryptedCookies = encrypt(cookiesJson);
+
+    db.run(
+        "UPDATE users SET session_cookies = ? WHERE email = ?",
+        [encryptedCookies, email]
+    );
+
+    session.isLogged = true;
 }
+
+
+async function resumeSnipersOnStartup() {
+    console.log("🔄 Resuming active snipers...");
+
+    db.all(
+        "SELECT * FROM snipers WHERE status = 'active'",
+        async (err, snipers) => {
+            if (err) {
+                console.error("❌ Failed to load snipers:", err);
+                return;
+            }
+
+            for (const s of snipers) {
+                try {
+                    await ensureLoggedIn(s.email);
+                    startSniperInternal(s.email, s.date, s.plate);
+                    console.log(`▶️ Resumed sniper ${s.email} ${s.date}`);
+                } catch (e) {
+                    console.warn(
+                        `⚠️ Could not resume sniper ${s.email} ${s.date}: ${e.message}`
+                    );
+                }
+            }
+        }
+    );
+}
+
+
+
 
 // --- INPUT VALIDATION HELPERS ---
 
@@ -436,7 +587,7 @@ app.post('/api/login', async (req, res) => {
     }
 
     try {
-        const session = getSession(email);
+        const session = await getSession(email);
         await villaLogin(email, password);
 
         const resPage = await session.client.get('https://clients.villapro.eu/en/reserv_single/sk_ba_panoramacity2/');
@@ -449,12 +600,18 @@ app.post('/api/login', async (req, res) => {
         const artId = (scriptText.match(/var article_id = (\d+);/) || [null, "273"])[1];
 
         if (urlId) {
-            const passwordHash = await bcrypt.hash(password, 12);
+            const cookiesJson = await serializeCookies(session.jar);
+            const encryptedCookies = encrypt(cookiesJson);
+
+            const encryptedPassword = encrypt(password);
 
             db.run(
-                `INSERT OR REPLACE INTO users (email, password, ticket_id, long_ticket_id, article_id) VALUES (?, ?, ?, ?, ?)`,
-                [email, passwordHash, urlId, longId, artId]
+                `INSERT OR REPLACE INTO users 
+                (email, encrypted_password, ticket_id, long_ticket_id, article_id, session_cookies)
+                VALUES (?, ?, ?, ?, ?, ?)`,
+                [email, encryptedPassword, urlId, longId, artId, encryptedCookies]
             );
+
 
             res.json({ status: 'success', email });
         } else {
@@ -486,7 +643,7 @@ app.get('/api/availability', async (req, res) => {
         if (!user) return res.status(404).json({ success: false });
 
         try {
-            const session = getSession(email);
+            const session = await getSession(email);
 
             try {
                 await ensureLoggedIn(user.email);
@@ -553,8 +710,14 @@ app.post('/api/reservations/instant', async (req, res) => {
         if (!user) return res.status(404).json({ success: false });
 
         try {
-            const session = getSession(email);
-            await ensureLoggedIn(user.email);
+            const session = await getSession(email);
+
+            try {
+                await ensureLoggedIn(user.email);
+            } catch {
+                return res.status(401).json({ error: "Session expired" });
+            }
+
 
 
             const [year, month] = date.split('-');
@@ -600,35 +763,79 @@ app.post('/api/sniper/start', (req, res) => {
     if (!isValidISODate(date)) return res.status(400).json({ error: "Invalid date" });
     if (!isValidPlate(plate)) return res.status(400).json({ error: "Invalid plate" });
 
-    startSniperInternal(email, date, plate)
-    res.json({ success: true, message: `Sniper active for ${date}` });
+    db.run(
+        "INSERT OR IGNORE INTO snipers (email, date, plate, status) VALUES (?, ?, ?, 'active')",
+        [email, date, plate],
+        () => {
+            db.run(
+                "INSERT OR IGNORE INTO snipers (email, date, plate, status) VALUES (?, ?, ?, 'active')",
+                [email, date, plate],
+                function () {
+                    if (this.changes === 0) {
+                        return res.json({
+                            success: true,
+                            message: "Sniper already running for this date"
+                        });
+                    }
+
+                    startSniperInternal(email, date, plate);
+                    res.json({ success: true, message: `Sniper started for ${date}` });
+                }
+            );
+
+        }
+    );
+
 });
 
 app.post('/api/sniper/stop', (req, res) => {
     const { email, date } = req.body;
 
-    if (!requireFields(res, { email, date })) return;
-    if (!isValidEmail(email)) return res.status(400).json({ error: "Invalid email" });
-    if (!isValidISODate(date)) return res.status(400).json({ error: "Invalid date" });
-
-    if (runningSnipers[email] && runningSnipers[email][date]) {
+    // Stop in-memory sniper if running
+    if (runningSnipers[email]?.[date]) {
         clearInterval(runningSnipers[email][date]);
         delete runningSnipers[email][date];
-        res.json({ success: true, message: `Sniper stopped for ${date}` });
-    } else {
-        res.json({ success: false, message: "No active sniper for this date" });
     }
+
+    // Persist stop state
+    db.run(
+        "UPDATE snipers SET status = 'stopped' WHERE email = ? AND date = ?",
+        [email, date],
+        (err) => {
+            if (err) {
+                console.error("❌ Failed to stop sniper:", err);
+                return res.status(500).json({ success: false });
+            }
+
+            return res.json({
+                success: true,
+                message: `Sniper stopped for ${date}`
+            });
+        }
+    );
 });
 
-app.get('/api/sniper/active', (req, res) => {
+
+app.get('/api/sniper/active', async (req, res) => {
     const { email } = req.query;
+
+    if (!requireFields(res, { email })) return;
+    if (!isValidEmail(email)) return res.status(400).json({ error: "Invalid email" });
+
+    try {
+        await ensureLoggedIn(email);
+    }
+    catch {
+        return res.status(401).json({ error: "Session expired" });
+    }
+
     if (runningSnipers[email]) {
-        // Return an array of all date strings that have an active interval
         res.json(Object.keys(runningSnipers[email]));
     } else {
         res.json([]);
     }
 });
+
 
 
 app.use((err, req, res, next) => {
@@ -639,4 +846,7 @@ app.use((err, req, res, next) => {
 });
 
 
-app.listen(5000, '0.0.0.0', () => console.log('✅ Multi-User Server running on port 5000'));
+app.listen(5000, '0.0.0.0', async () => {
+    console.log('✅ Multi-User Server running on port 5000');
+    await resumeSnipersOnStartup();
+});
