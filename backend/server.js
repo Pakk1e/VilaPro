@@ -208,14 +208,15 @@ async function executeRule(email, rule) {
     const days = JSON.parse(rule.days_of_week);
     const months = JSON.parse(rule.months);
 
-
-    db.run("INSERT INTO activity_logs (email, message) VALUES (?, ?)", [email, `🤖 Robot: Starting scan for plate ${rule.plate}`]);
+    db.run(
+        "INSERT INTO activity_logs (email, message) VALUES (?, ?)",
+        [email, `🤖 Robot: Starting scan for plate ${rule.plate}`]
+    );
 
     for (let i = 0; i <= 14; i++) {
         const target = new Date();
         target.setDate(target.getDate() + i);
 
-        // Manual string building to fix the "Monday Jump" timezone issue
         const y = target.getFullYear();
         const m = String(target.getMonth() + 1).padStart(2, '0');
         const d = String(target.getDate()).padStart(2, '0');
@@ -224,28 +225,37 @@ async function executeRule(email, rule) {
         if (days.includes(target.getDay()) && months.includes(target.getMonth() + 1)) {
             const result = await internalInstantReserve(email, dateStr, rule.plate, 'ADD');
 
-
             if (result.status === true) {
-                db.run("INSERT INTO activity_logs (email, message) VALUES (?, ?)", [email, `✅ Auto-Reserved: ${dateStr}`], (err) => {
-                    if (err) console.error("❌ DB Log Error:", err.message)
-                });
+                db.run(
+                    "INSERT INTO activity_logs (email, message) VALUES (?, ?)",
+                    [email, `✅ Auto-Reserved: ${dateStr}`]
+                );
             } else {
-                // If Full, trigger your EXISTING Sniper logic
-                // We reuse your /api/sniper/start logic by calling it directly
-                db.run("INSERT INTO activity_logs (email, message) VALUES (?, ?)", [email, `🎯 Full: Sniper started for ${dateStr}`]);
-                startSniperInternal(email, dateStr, rule.plate);
+                // 🔐 DB is authority — declare sniper intent first
+                db.run(
+                    "INSERT OR IGNORE INTO snipers (email, date, plate, status) VALUES (?, ?, ?, 'active')",
+                    [email, dateStr, rule.plate],
+                    function () {
+                        if (this.changes > 0) {
+                            db.run(
+                                "INSERT INTO activity_logs (email, message) VALUES (?, ?)",
+                                [email, `🎯 Full: Sniper started for ${dateStr}`]
+                            );
+                            startSniperInternal(email, dateStr, rule.plate);
+                        }
+                    }
+                );
             }
         }
     }
 }
 
+
 // Helper to bridge the gap between Rule and your existing Sniper
 function startSniperInternal(email, date, plate) {
 
-    // Initialize user object if it doesn't exist
     if (!runningSnipers[email]) runningSnipers[email] = {};
 
-    // If a sniper for THIS SPECIFIC DATE is already running, clear it first
     if (runningSnipers[email][date]) {
         console.log(`ℹ️ Sniper already running for ${email} on ${date}`);
         return;
@@ -261,16 +271,18 @@ function startSniperInternal(email, date, plate) {
                 const session = await getSession(email);
                 await ensureLoggedIn(user.email);
 
-
                 const [year, month] = date.split('-');
                 const pageUrl = `https://clients.villapro.eu/en/reserv_single/sk_ba_panoramacity2/${user.ticket_id}/${year}/${parseInt(month)}/`;
                 const getPage = await session.client.get(pageUrl);
                 const $ = cheerio.load(getPage.data);
 
-                const realTicketId = (getPage.data.match(/var ticket_id\s*=\s*["'](\d+)["']/) || [])[1] || '1506424268';
+                const realTicketId =
+                    (getPage.data.match(/var ticket_id\s*=\s*["'](\d+)["']/) || [])[1] || '1506424268';
+
                 const csrfToken = $('input[name="csrfmiddlewaretoken"]').val();
 
-                const response = await session.client.post("https://clients.villapro.eu/en/reserv_single/misc/sk_ba_panoramacity2/",
+                const response = await session.client.post(
+                    "https://clients.villapro.eu/en/reserv_single/misc/sk_ba_panoramacity2/",
                     new URLSearchParams({
                         cmd: 'ADD',
                         date: date,
@@ -278,25 +290,55 @@ function startSniperInternal(email, date, plate) {
                         ticket_id: realTicketId,
                         car_id: plate,
                         csrfmiddlewaretoken: csrfToken
-                    }), { headers: { 'X-Requested-With': 'XMLHttpRequest', 'Referer': pageUrl } }
+                    }),
+                    { headers: { 'X-Requested-With': 'XMLHttpRequest', 'Referer': pageUrl } }
                 );
 
-                if (response.data?.status === true || (response.data?.error_message || 'Still full').includes('Parking lot is already reserved by the user')) {
-                    console.log(`✅ SNIPE SUCCESSFUL for ${email} on ${date}!`);
-                    clearInterval(runningSnipers[email][date]);
-                    delete runningSnipers[email][date];
+                // 🔍 CHECK IF WE ALREADY OWN THIS DATE
+                const alreadyReservedByUs =
+                    $(`.day-reserved-edit[data-date="${date}"]`).length > 0;
+
+                if (response.data?.status === true || alreadyReservedByUs) {
+                    console.log(
+                        alreadyReservedByUs
+                            ? `🛑 Sniper stopping — reservation already owned for ${email} on ${date}`
+                            : `✅ SNIPE SUCCESSFUL for ${email} on ${date}!`
+                    );
+
+                    // ✅ STOP ONLY THIS INTERVAL
+                    clearInterval(sniperId);
+
+                    // ✅ DEFENSIVE MAP CLEANUP
+                    if (runningSnipers[email]?.[date] === sniperId) {
+                        delete runningSnipers[email][date];
+
+                        if (Object.keys(runningSnipers[email]).length === 0) {
+                            delete runningSnipers[email];
+                        }
+                    }
+
+                    // ✅ DB IS AUTHORITY — REMOVE SNIPER INTENT
+                    db.run(
+                        "DELETE FROM snipers WHERE email = ? AND date = ?",
+                        [email, date]
+                    );
                 } else {
-                    console.log(`... [${email}] sniping ${date}: ${response.data?.error_message || 'Still full'}`);
+                    console.log(
+                        `... [${email}] sniping ${date}: ${response.data?.error_message || 'Still full'}`
+                    );
                 }
+
+
             } catch (e) {
                 console.error(`Sniper cycle error for ${date}:`, e.message);
             }
         });
     }, 5000);
 
+    // ✅ ASSIGN AFTER INTERVAL IS CREATED
     runningSnipers[email][date] = sniperId;
-    //res.json({ success: true, message: `Sniper started for ${date}` });
 }
+
 
 app.get('/api/logs', async (req, res) => {
     const { email } = req.query;
@@ -352,40 +394,53 @@ app.post('/api/bulk/save', (req, res) => {
 app.post('/api/bulk/delete', (req, res) => {
     const { id, email } = req.body;
 
-    // 1. Delete the rule
     db.run("DELETE FROM bulk_rules WHERE id = ?", [id], (err) => {
         if (err) return res.status(500).json({ success: false });
 
-        // 2. Re-validate active snipers for this user
         db.all("SELECT * FROM bulk_rules WHERE email = ?", [email], (err, remainingRules) => {
-            if (err || !runningSnipers[email]) return res.json({ success: true });
+            if (err) return res.json({ success: true });
 
-            const activeSniperDates = Object.keys(runningSnipers[email]);
+            db.all(
+                "SELECT date FROM snipers WHERE email = ? AND status = 'active'",
+                [email],
+                (err, sniperRows) => {
+                    if (err) return res.json({ success: true });
 
-            activeSniperDates.forEach(dateStr => {
-                const targetDate = new Date(dateStr);
-                const dayOfWeek = targetDate.getDay();
-                const month = targetDate.getMonth() + 1;
+                    sniperRows.forEach(({ date: dateStr }) => {
+                        const targetDate = new Date(dateStr);
+                        const dayOfWeek = targetDate.getDay();
+                        const month = targetDate.getMonth() + 1;
 
-                // Check if any REMAINING rule still covers this date
-                const isStillNeeded = remainingRules.some(rule => {
-                    const days = JSON.parse(rule.days_of_week);
-                    const months = JSON.parse(rule.months);
-                    return days.includes(dayOfWeek) && months.includes(month);
-                });
+                        const isStillNeeded = remainingRules.some(rule => {
+                            const days = JSON.parse(rule.days_of_week);
+                            const months = JSON.parse(rule.months);
+                            return days.includes(dayOfWeek) && months.includes(month);
+                        });
 
-                // 3. If no rule covers it anymore, stop the sniper
-                if (!isStillNeeded) {
-                    console.log(`🛑 Stopping orphaned sniper for ${dateStr} (Rule Deleted)`);
-                    clearInterval(runningSnipers[email][dateStr]);
-                    delete runningSnipers[email][dateStr];
+                        if (!isStillNeeded) {
+                            console.log(`🛑 Removing orphan sniper for ${dateStr} (Rule Deleted)`);
+
+                            // 🔐 DB first
+                            db.run(
+                                "DELETE FROM snipers WHERE email = ? AND date = ?",
+                                [email, dateStr]
+                            );
+
+                            // 🧠 Memory derives from DB
+                            if (runningSnipers[email]?.[dateStr]) {
+                                clearInterval(runningSnipers[email][dateStr]);
+                                delete runningSnipers[email][dateStr];
+                            }
+                        }
+                    });
+
+                    res.json({ success: true });
                 }
-            });
-
-            res.json({ success: true });
+            );
         });
     });
 });
+
 
 
 
@@ -520,7 +575,12 @@ async function resumeSnipersOnStartup() {
             for (const s of snipers) {
                 try {
                     await ensureLoggedIn(s.email);
-                    startSniperInternal(s.email, s.date, s.plate);
+
+                    // Defensive guard: avoid duplicate resume attempts
+                    if (!runningSnipers[s.email]?.[s.date]) {
+                        startSniperInternal(s.email, s.date, s.plate);
+                    }
+
                     console.log(`▶️ Resumed sniper ${s.email} ${s.date}`);
                 } catch (e) {
                     console.warn(
@@ -766,54 +826,52 @@ app.post('/api/sniper/start', (req, res) => {
     db.run(
         "INSERT OR IGNORE INTO snipers (email, date, plate, status) VALUES (?, ?, ?, 'active')",
         [email, date, plate],
-        () => {
-            db.run(
-                "INSERT OR IGNORE INTO snipers (email, date, plate, status) VALUES (?, ?, ?, 'active')",
-                [email, date, plate],
-                function () {
-                    if (this.changes === 0) {
-                        return res.json({
-                            success: true,
-                            message: "Sniper already running for this date"
-                        });
-                    }
+        function () {
+            if (this.changes === 0) {
+                return res.json({
+                    success: true,
+                    message: "Sniper already running for this date"
+                });
+            }
 
-                    startSniperInternal(email, date, plate);
-                    res.json({ success: true, message: `Sniper started for ${date}` });
-                }
-            );
-
+            // Runtime derives from DB
+            startSniperInternal(email, date, plate);
+            res.json({ success: true, message: `Sniper started for ${date}` });
         }
     );
-
 });
+
 
 app.post('/api/sniper/stop', (req, res) => {
     const { email, date } = req.body;
 
-    // Stop in-memory sniper if running
-    if (runningSnipers[email]?.[date]) {
-        clearInterval(runningSnipers[email][date]);
-        delete runningSnipers[email][date];
-    }
+    if (!requireFields(res, { email, date })) return;
+    if (!isValidEmail(email)) return res.status(400).json({ error: "Invalid email" });
+    if (!isValidISODate(date)) return res.status(400).json({ error: "Invalid date" });
 
-    // Persist stop state
     db.run(
-        "UPDATE snipers SET status = 'stopped' WHERE email = ? AND date = ?",
+        "DELETE FROM snipers WHERE email = ? AND date = ?",
         [email, date],
         (err) => {
             if (err) {
-                console.error("❌ Failed to stop sniper:", err);
+                console.error("❌ Failed to delete sniper:", err);
                 return res.status(500).json({ success: false });
             }
 
-            return res.json({
+            // Runtime cleanup derives from DB change
+            if (runningSnipers[email]?.[date]) {
+                clearInterval(runningSnipers[email][date]);
+                delete runningSnipers[email][date];
+            }
+
+            res.json({
                 success: true,
                 message: `Sniper stopped for ${date}`
             });
         }
     );
 });
+
 
 
 app.get('/api/sniper/active', async (req, res) => {
@@ -824,17 +882,26 @@ app.get('/api/sniper/active', async (req, res) => {
 
     try {
         await ensureLoggedIn(email);
-    }
-    catch {
+    } catch {
         return res.status(401).json({ error: "Session expired" });
     }
 
-    if (runningSnipers[email]) {
-        res.json(Object.keys(runningSnipers[email]));
-    } else {
-        res.json([]);
-    }
+    db.all(
+        "SELECT date FROM snipers WHERE email = ? AND status = 'active'",
+        [email],
+        (err, rows) => {
+            if (err) {
+                console.error("❌ Failed to fetch active snipers:", err);
+                return res.status(500).json([]);
+            }
+
+            res.json(rows.map(r => r.date));
+        }
+    );
 });
+
+
+
 
 
 

@@ -332,7 +332,7 @@ function App() {
       });
       const data = await response.json();
 
-      if (data.status === 'success' && data.status === 'success') {
+      if (data.status === 'success') {
         localStorage.setItem('parkpro_email', email);
         setIsLoggedIn(true);
         fetchData();
@@ -481,7 +481,7 @@ function App() {
     const dayNum = date.getDate();
     const dateStr = getDateStr(date);
 
-    if (date.getMonth() !== viewedDate.getMonth() || date.getFullYear() !== selectedDate.getFullYear()) {
+    if (date.getMonth() !== viewedDate.getMonth() || date.getFullYear() !== viewedDate.getFullYear()) {
       return 'vp-neighboring-day';
     }
     if (loading && availability.free.length === 0) return 'vp-tile-loading';
