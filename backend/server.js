@@ -8,6 +8,7 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 const { wrapper } = require('axios-cookiejar-support');
 const { CookieJar } = require('tough-cookie');
+const bcrypt = require('bcrypt');
 const runningSnipers = {};
 let nightlyAutomationInterval = null;
 
@@ -108,7 +109,8 @@ async function internalInstantReserve(email, date, plate, command = 'ADD') {
     if (!user) return { status: false, error_message: "User not found" };
 
     const session = getSession(email);
-    await ensureLoggedIn(email, user.password);
+    await ensureLoggedIn(email);
+
 
     const [year, month] = date.split('-');
     const pageUrl = `https://clients.villapro.eu/en/reserv_single/sk_ba_panoramacity2/${user.ticket_id}/${year}/${parseInt(month)}/`;
@@ -198,7 +200,8 @@ function startSniperInternal(email, date, plate) {
 
             try {
                 const session = getSession(email);
-                await ensureLoggedIn(user.email, user.password);
+                await ensureLoggedIn(user.email);
+
 
                 const [year, month] = date.split('-');
                 const pageUrl = `https://clients.villapro.eu/en/reserv_single/sk_ba_panoramacity2/${user.ticket_id}/${year}/${parseInt(month)}/`;
@@ -344,14 +347,14 @@ async function villaLogin(email, password) {
     session.isLogged = true;
 }
 
-async function ensureLoggedIn(email, password) {
+async function ensureLoggedIn(email) {
     const session = getSession(email);
     const cookies = await session.jar.getCookies('https://clients.villapro.eu');
     if (!session.isLogged || cookies.length === 0) {
-        console.log(`Session expired for ${email}. Re-logging...`);
-        await villaLogin(email, password);
+        throw new Error("Session expired — user must log in again");
     }
 }
+
 
 // --- API ENDPOINTS ---
 
@@ -380,8 +383,13 @@ app.post('/api/login', async (req, res) => {
         const artId = (scriptText.match(/var article_id = (\d+);/) || [null, "273"])[1];
 
         if (urlId) {
-            db.run(`INSERT OR REPLACE INTO users (email, password, ticket_id, long_ticket_id, article_id) VALUES (?, ?, ?, ?, ?)`,
-                [email, password, urlId, longId, artId]);
+            const passwordHash = await bcrypt.hash(password, 12);
+
+            db.run(
+                `INSERT OR REPLACE INTO users (email, password, ticket_id, long_ticket_id, article_id) VALUES (?, ?, ?, ?, ?)`,
+                [email, passwordHash, urlId, longId, artId]
+            );
+
             res.json({ status: 'success', email });
         } else {
             throw new Error("VillaPro ID not found");
@@ -400,7 +408,8 @@ app.get('/api/availability', async (req, res) => {
 
         try {
             const session = getSession(email);
-            await ensureLoggedIn(user.email, user.password);
+            await ensureLoggedIn(user.email);
+
 
             const targetMonth = month || (new Date().getMonth() + 1);
             const targetYear = year || new Date().getFullYear();
@@ -456,7 +465,8 @@ app.post('/api/reservations/instant', async (req, res) => {
 
         try {
             const session = getSession(email);
-            await ensureLoggedIn(user.email, user.password);
+            await ensureLoggedIn(user.email);
+
 
             const [year, month] = date.split('-');
             const pageUrl = `https://clients.villapro.eu/en/reserv_single/sk_ba_panoramacity2/${user.ticket_id}/${year}/${parseInt(month)}/`;
