@@ -3,6 +3,13 @@ import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
 import ParkingMapModal from "./components/ParkingMapModal";
 
+import { lazy, Suspense } from "react";
+import { useWeather } from "./hooks/useWeather";
+import WeatherButton from "./components/WeatherButton";
+const WeatherModal = lazy(() =>
+  import("./components/WeatherModal")
+);
+
 
 const API_BASE_URL = `https://api.vadovsky-tech.com`;
 
@@ -39,6 +46,11 @@ function App() {
 
   /* MOBILE SIDEBAR STATE */
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  /* WEATHER HOOK */
+  const weather = useWeather(isLoggedIn);
+  const [isWeatherOpen, setIsWeatherOpen] = useState(false);
+
 
   {/* 1. Calculate if the selected date is today or in the future */ }
   const today = new Date();
@@ -594,14 +606,23 @@ function App() {
             <h1 className="text-lg font-black text-slate-900 tracking-tight">
               PARK <span className="text-blue-600">PRO</span>
             </h1>
+            <div className="flex items-center gap-3">
+              <WeatherButton
+                weather={weather.data}
+                status={weather.status}
+                onClick={() => setIsWeatherOpen(true)}
+                className="opacity-70 hover:opacity-100 overflow-visible"
+              />
 
-            <button
-              onClick={() => setIsSidebarOpen(true)}
-              className="text-slate-900"
-              aria-label="Open menu"
-            >
-              ☰
-            </button>
+
+              <button
+                onClick={() => setIsSidebarOpen(true)}
+                className="text-slate-900 text-xl"
+                aria-label="Open menu"
+              >
+                ☰
+              </button>
+            </div>
           </div>
 
           {/* DESKTOP HEADER */}
@@ -634,7 +655,7 @@ function App() {
                   📄
                 </button>
 
-                
+
 
                 <button
                   onClick={() => {
@@ -648,35 +669,51 @@ function App() {
               </div>
             </div>
 
+
             {/* RIGHT */}
             <div className="flex items-center gap-4">
-              <div className="text-right">
-                <div className="flex items-center justify-end gap-2">
-                  <p className={`text-[10px] font-bold uppercase ${isStale() ? 'text-orange-500' : 'text-slate-400'}`}>
-                    Status: {isStale() ? 'Stale Data' : 'Connected'}
-                  </p>
 
-                  <button
-                    onClick={() => fetchData(viewedDate, false, true)}
-                    className="text-slate-400 hover:text-blue-600"
-                    title="Force Sync"
-                  >
-                    ⟳
-                  </button>
+
+              <div className="flex items-center gap-6">
+                {/* WEATHER — LEFT OF STATUS */}
+                <WeatherButton
+                  weather={weather.data}
+                  status={weather.status}
+                  onClick={() => setIsWeatherOpen(true)}
+                  className="opacity-70 hover:opacity-100 overflow-visible"
+                />
+
+
+                {/* STATUS + SYNC */}
+                <div className="text-right">
+                  <div className="flex items-center justify-end gap-2">
+                    <p className={`text-[10px] font-bold uppercase ${isStale() ? 'text-orange-500' : 'text-slate-400'}`}>
+                      Status: {isStale() ? 'Stale Data' : 'Connected'}
+                    </p>
+
+                    <button
+                      onClick={() => fetchData(viewedDate, false, true)}
+                      className="text-slate-400 hover:text-blue-600"
+                      title="Force Sync"
+                    >
+                      ⟳
+                    </button>
+                  </div>
+
+                  <p className="text-[9px] font-medium text-slate-400">
+                    Sync: {formatSyncTime()}
+                  </p>
+                  <p className="text-xs font-bold text-slate-600">{email}</p>
                 </div>
 
-                <p className="text-[9px] font-medium text-slate-400">
-                  Sync: {formatSyncTime()}
-                </p>
-                <p className="text-xs font-bold text-slate-600">{email}</p>
+                {/* LOGOUT */}
+                <button
+                  onClick={handleLogout}
+                  className="bg-red-50 text-red-600 px-6 py-2 rounded-xl font-bold text-xs hover:bg-red-600 hover:text-white"
+                >
+                  LOGOUT
+                </button>
               </div>
-
-              <button
-                onClick={handleLogout}
-                className="bg-red-50 text-red-600 px-6 py-2 rounded-xl font-bold text-xs hover:bg-red-600 hover:text-white"
-              >
-                LOGOUT
-              </button>
             </div>
           </div>
         </header>
@@ -1093,7 +1130,17 @@ function App() {
           dateLabel={mapContext.dateLabel}
         />
 
-      </div>
+        <Suspense fallback={null}>
+          <WeatherModal
+            isOpen={isWeatherOpen}
+            onClose={() => setIsWeatherOpen(false)}
+            weather={weather.data}
+          />
+        </Suspense>
+
+
+
+      </div >
     );
   }
 
