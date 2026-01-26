@@ -272,6 +272,11 @@ app.get('/api/logs', (req, res) => {
 app.post('/api/bulk/save', (req, res) => {
     const { email, days, months, plate, name, id } = req.body;
 
+    if (!requireFields(res, { email, days, months, plate })) return;
+    if (!isValidEmail(email)) return res.status(400).json({ error: "Invalid email" });
+    if (!isValidPlate(plate)) return res.status(400).json({ error: "Invalid plate" });
+
+
     if (id) {
         // Handle Edit
         db.run("UPDATE bulk_rules SET days_of_week=?, months=?, plate=?, name=? WHERE id=?",
@@ -379,11 +384,48 @@ async function ensureLoggedIn(email) {
     }
 }
 
+// --- INPUT VALIDATION HELPERS ---
+
+function isValidEmail(email) {
+    return typeof email === 'string' &&
+        email.length <= 255 &&
+        /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function isValidISODate(date) {
+    if (typeof date !== 'string') return false;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;
+    const d = new Date(date);
+    return !isNaN(d.getTime());
+}
+
+function isValidPlate(plate) {
+    return typeof plate === 'string' &&
+        plate.length >= 3 &&
+        plate.length <= 15 &&
+        /^[A-Z0-9\-]+$/i.test(plate);
+}
+
+function requireFields(res, fields) {
+    for (const [name, value] of Object.entries(fields)) {
+        if (!value) {
+            res.status(400).json({ error: `Missing field: ${name}` });
+            return false;
+        }
+    }
+    return true;
+}
+
+
 
 // --- API ENDPOINTS ---
 
 app.post('/api/login', async (req, res) => {
     const { email, password } = req.body;
+    if (!requireFields(res, { email, password })) return;
+    if (!isValidEmail(email)) {
+        return res.status(400).json({ error: "Invalid email format" });
+    }
 
     if (!WHITELIST.includes(email.toLowerCase())) {
         console.warn(`Blocked login attempt from unauthorized email: ${email}`);
@@ -425,15 +467,32 @@ app.post('/api/login', async (req, res) => {
 
 app.get('/api/availability', async (req, res) => {
     const { month, year, email } = req.query;
+
+    if (!isValidEmail(email)) {
+        return res.status(400).json({ error: "Invalid email" });
+    }
+
     if (!email) return res.status(400).json({ error: "Email required" });
+
+    if (month && (month < 1 || month > 12)) {
+        return res.status(400).json({ error: "Invalid month" });
+    }
+
+    if (year && (year < 2000 || year > 2100)) {
+        return res.status(400).json({ error: "Invalid year" });
+    }
 
     db.get("SELECT * FROM users WHERE email = ?", [email], async (err, user) => {
         if (!user) return res.status(404).json({ success: false });
 
         try {
             const session = getSession(email);
-            await ensureLoggedIn(user.email);
 
+            try {
+                await ensureLoggedIn(user.email);
+            } catch (e) {
+                return res.status(401).json({ error: "Session expired" });
+            }
 
             const targetMonth = month || (new Date().getMonth() + 1);
             const targetYear = year || new Date().getFullYear();
@@ -484,6 +543,12 @@ app.get('/api/availability', async (req, res) => {
 
 app.post('/api/reservations/instant', async (req, res) => {
     const { email, date, plate, command } = req.body;
+
+    if (!requireFields(res, { email, date, plate, command })) return;
+    if (!isValidEmail(email)) return res.status(400).json({ error: "Invalid email" });
+    if (!isValidISODate(date)) return res.status(400).json({ error: "Invalid date" });
+    if (!isValidPlate(plate)) return res.status(400).json({ error: "Invalid plate" });
+
     db.get("SELECT * FROM users WHERE email = ?", [email], async (err, user) => {
         if (!user) return res.status(404).json({ success: false });
 
@@ -529,12 +594,23 @@ app.use((req, res, next) => {
 
 app.post('/api/sniper/start', (req, res) => {
     const { email, date, plate } = req.body;
+
+    if (!requireFields(res, { email, date, plate })) return;
+    if (!isValidEmail(email)) return res.status(400).json({ error: "Invalid email" });
+    if (!isValidISODate(date)) return res.status(400).json({ error: "Invalid date" });
+    if (!isValidPlate(plate)) return res.status(400).json({ error: "Invalid plate" });
+
     startSniperInternal(email, date, plate)
     res.json({ success: true, message: `Sniper active for ${date}` });
 });
 
 app.post('/api/sniper/stop', (req, res) => {
-    const { email, date } = req.body; // Expecting date now
+    const { email, date } = req.body;
+
+    if (!requireFields(res, { email, date })) return;
+    if (!isValidEmail(email)) return res.status(400).json({ error: "Invalid email" });
+    if (!isValidISODate(date)) return res.status(400).json({ error: "Invalid date" });
+
     if (runningSnipers[email] && runningSnipers[email][date]) {
         clearInterval(runningSnipers[email][date]);
         delete runningSnipers[email][date];
