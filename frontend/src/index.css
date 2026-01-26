@@ -329,9 +329,28 @@ body,
 
 /* 4. Optional: Subtle background tint for the whole tile to make it stand out */
 .calendar-today-tile {
+  box-shadow:
+    inset 0 0 0 2px rgba(37, 99, 235, 0.35),
+    0 0 0 2px rgba(37, 99, 235, 0.15);
+  opacity: 1 !important;
+  filter: none !important;
+}
+
+/* If today is unavailable, keep it visually present */
+.calendar-today-tile.vp-unavailable {
   background-color: #f8fafc !important;
-  /* Slightly whiter than slate-100 */
-  box-shadow: inset 0 0 0 2px rgba(37, 99, 235, 0.1) !important;
+  opacity: 1 !important;
+}
+
+/* TODAY MUST NEVER BE FADED AS A NEIGHBORING DAY */
+.calendar-today-tile.vp-neighboring-day {
+  background-color: #f8fafc !important;
+  box-shadow:
+    inset 0 0 0 2px rgba(37, 99, 235, 0.3),
+    0 0 0 2px rgba(37, 99, 235, 0.15);
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  border: 4px solid white !important;
 }
 
 
@@ -406,6 +425,7 @@ body,
     padding: 6px 10px !important;
     border-radius: 9999px;
   }
+
   .react-calendar__month-view__weekdays__weekday {
     padding: 0 !important;
     font-size: 0.7rem;

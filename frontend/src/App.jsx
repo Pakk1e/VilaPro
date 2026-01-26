@@ -44,6 +44,8 @@ function App() {
   const [bulkRules, setBulkRules] = useState([]);             // To store your automation rules
   const [editingRule, setEditingRule] = useState(null);       // For the edit functionality
 
+  const fetchRequestIdRef = useRef(0);
+
   /* MOBILE SIDEBAR STATE */
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
@@ -219,44 +221,31 @@ function App() {
     const activeEmail = email || localStorage.getItem('parkpro_email');
     if (!activeEmail) return;
 
-    // 1. DEFINE THESE FIRST
     const targetMonth = targetDate.getMonth() + 1;
     const targetYear = targetDate.getFullYear();
-
-
-    // Updated Cache Key: Includes email to prevent cross-user data leaks
     const cacheKey = `parkpro_cache_${activeEmail}_${targetYear}_${targetMonth}`;
 
-    // --- NEW: Read from Cache ---
     const cachedData = sessionStorage.getItem(cacheKey);
-    let isFresh = false;
     if (cachedData && !force) {
       const { availability: cachedAvailability, timestamp } = JSON.parse(cachedData);
-      const isFresh = Date.now() - timestamp < 300000; // 5 minutes
+      const isFresh = Date.now() - timestamp < 300000;
 
-      // Update UI immediately with cached data
       setAvailability(cachedAvailability);
 
-      // If it's very fresh and we aren't forcing a refresh, we can even skip the API call
       if (isFresh && !isSilent) {
         setLoading(false);
         return;
       }
     }
-    // ---------------------------
 
-
-    // Guard Logic: 
-    // Only skip if: It's a silent background refresh AND the month is already loaded
-    const isCurrentlyDisplayed = targetMonth === (viewedDate.getMonth() + 1) &&
+    const isCurrentlyDisplayed =
+      targetMonth === viewedDate.getMonth() + 1 &&
       targetYear === viewedDate.getFullYear();
 
-    // ONLY guard if we are doing a silent refresh on the same month.
-    // If it's NOT silent (user clicked something), we WANT to allow the fetch.
     if (isSilent && availability.free.length > 0 && isCurrentlyDisplayed) {
       return;
     }
-    // 3. ABORT PREVIOUS REQUEST
+
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
@@ -264,11 +253,11 @@ function App() {
     const controller = new AbortController();
     abortControllerRef.current = controller;
     const { signal } = controller;
+    const requestId = ++fetchRequestIdRef.current;
 
     if (!isSilent) setLoading(true);
 
     try {
-      // Use the variables we defined at the top
       const url = `${API_BASE_URL}/api/availability?month=${targetMonth}&year=${targetYear}&email=${encodeURIComponent(activeEmail)}`;
       const response = await fetch(url, { signal });
 
@@ -284,40 +273,61 @@ function App() {
         return;
       }
 
-
       if (response.ok) {
         const data = await response.json();
-        const syncTimestamp = Date.now(); // CAPTURE CURRENT TIME
+        const backendTimestamp = Date.now();
 
-        const newAvailability = {
+        const backendAvailability = {
           reserved: data.reserved || [],
           free: data.free || [],
           full: data.full || [],
           noedit: data.noedit || []
         };
-        // --- NEW: Save to Cache ---
-        const cacheKey = `parkpro_cache_${activeEmail}_${targetYear}_${targetMonth}`;
-        sessionStorage.setItem(cacheKey, JSON.stringify({
-          availability: newAvailability,
-          timestamp: syncTimestamp
-        }));
-        // -------------------------
 
-        setAvailability(newAvailability);
+        if (fetchRequestIdRef.current === requestId) {
+          setAvailability(prev => {
+            const optimisticReserved = prev.reserved || [];
+            const backendReserved = backendAvailability.reserved || [];
+
+            const mergedReserved = optimisticReserved.map(opt => {
+              const backendMatch = backendReserved.find(b => b.day === opt.day);
+              return backendMatch ? { ...opt, ...backendMatch } : opt;
+            });
+
+            backendReserved.forEach(b => {
+              if (!mergedReserved.some(r => r.day === b.day)) {
+                mergedReserved.push(b);
+              }
+            });
+
+            const mergedAvailability = {
+              ...backendAvailability,
+              reserved: mergedReserved
+            };
+
+            // ✅ Cache EXACTLY what we apply
+            sessionStorage.setItem(cacheKey, JSON.stringify({
+              availability: mergedAvailability,
+              timestamp: backendTimestamp
+            }));
+
+            return mergedAvailability;
+          });
+        }
 
         if (data.activePlate) setGlobalPlate(data.activePlate);
-        setLoading(false);
       }
     } catch (error) {
-      // Only handle errors that aren't caused by us canceling the request
-      if (error.name === 'AbortError') {
-        console.log('Previous request cancelled - moving to new month.');
-      } else {
+      if (error.name !== 'AbortError') {
         console.error("Sync error:", error);
+      }
+    } finally {
+      if (fetchRequestIdRef.current === requestId && !isSilent) {
         setLoading(false);
       }
     }
   };
+
 
   // --- API: LOGIN ---
   const handleLogin = async (e) => {
@@ -408,8 +418,8 @@ function App() {
           return updatedState;
         });
         const activeEmail = email || localStorage.getItem('parkpro_email');
-        sessionStorage.removeItem(`parkpro_cache_${activeEmail}_${year}_${monthInt}`);
-        await fetchData(dateObj, true);
+        // Optional: silent background refresh
+        fetchData(dateObj, true, true);
       } else {
         alert(`VillaPro Message: ${result.message || "Action rejected"}`);
       }
@@ -1002,6 +1012,14 @@ function App() {
                           <p className="font-black text-slate-800">
                             Spot {res.lot || "..."}
                           </p>
+
+                          {(!res.lot || res.lot === "...") && (
+                            <p className="text-[10px] font-bold text-amber-500 uppercase tracking-wider flex items-center gap-1">
+                              <span className="animate-pulse">⏳</span>
+                              Confirming
+                            </p>
+                          )}
+
                         </div>
 
                         <span className="text-[9px] font-black px-2 py-1 rounded-md uppercase bg-green-100 text-green-600 border border-green-200">
