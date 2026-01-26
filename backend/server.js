@@ -22,17 +22,41 @@ const WHITELIST = [
     'svetozar.synak@jci.com'
 ];
 
-app.use((req, res, next) => {
-    res.header("Access-Control-Allow-Origin", "https://www.vadovsky-tech.com");
-    res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-    res.header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
-    res.header("Access-Control-Allow-Credentials", "true");
+const ALLOWED_ORIGINS = [
+    'https://www.vadovsky-tech.com'
+];
 
-    if (req.method === 'OPTIONS') {
-        return res.sendStatus(200);
+
+app.use(cors({
+    origin: function (origin, callback) {
+        // Allow server-to-server or curl (no origin)
+        if (!origin) return callback(null, true);
+
+        if (ALLOWED_ORIGINS.includes(origin)) {
+            return callback(null, true);
+        }
+
+        return callback(new Error('Not allowed by CORS'));
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+}));
+
+app.use('/api', (req, res, next) => {
+    const origin = req.headers.origin;
+
+    // Allow non-browser clients (curl, server-side, PM2, cron)
+    if (!origin) return next();
+
+    if (origin === 'https://www.vadovsky-tech.com') {
+        return next();
     }
-    next();
+
+    return res.status(403).json({ error: 'Forbidden origin' });
 });
+
+
 
 app.use(express.json());
 
@@ -529,5 +553,14 @@ app.get('/api/sniper/active', (req, res) => {
         res.json([]);
     }
 });
+
+
+app.use((err, req, res, next) => {
+    if (err.message === 'Not allowed by CORS') {
+        return res.status(403).json({ error: 'Origin not allowed' });
+    }
+    next(err);
+});
+
 
 app.listen(5000, '0.0.0.0', () => console.log('✅ Multi-User Server running on port 5000'));
