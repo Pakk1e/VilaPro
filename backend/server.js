@@ -303,14 +303,7 @@ app.post('/api/bulk/delete', (req, res) => {
     });
 });
 
-app.post('/api/bulk/delete', (req, res) => {
-    const { id, email } = req.body;
 
-    db.run("DELETE FROM bulk_rules WHERE id = ?", [id], () => res.json({ success: true }));
-    if (err) return res.status(500).json({ success: false });
-
-
-});
 
 app.get('/api/bulk/rules', (req, res) => {
     db.all("SELECT * FROM bulk_rules WHERE email = ?", [req.query.email], (err, rows) => res.json(rows || []));
