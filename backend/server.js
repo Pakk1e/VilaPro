@@ -9,6 +9,7 @@ const cheerio = require('cheerio');
 const { wrapper } = require('axios-cookiejar-support');
 const { CookieJar } = require('tough-cookie');
 const runningSnipers = {};
+let nightlyAutomationInterval = null;
 
 
 const app = express();
@@ -35,7 +36,8 @@ app.use((req, res, next) => {
 app.use(express.json());
 
 // --- DATABASE INITIALIZATION ---
-const db = new sqlite3.Database('./parking.db');
+const dbPath = path.join(__dirname, 'parking.db');
+const db = new sqlite3.Database(dbPath);
 
 
 db.serialize(() => {
@@ -122,7 +124,7 @@ async function internalInstantReserve(email, date, plate, command = 'ADD') {
 
     if (isAlreadyReservedByUser) {
         console.log(`ℹ️ Date ${date} is already reserved by user. Skipping POST.`);
-        return { status: true, message: "Already reserved"};
+        return { status: true, message: "Already reserved" };
     }
 
 
@@ -184,7 +186,8 @@ function startSniperInternal(email, date, plate) {
 
     // If a sniper for THIS SPECIFIC DATE is already running, clear it first
     if (runningSnipers[email][date]) {
-        clearInterval(runningSnipers[email][date]);
+        console.log(`ℹ️ Sniper already running for ${email} on ${date}`);
+        return true;
     }
 
     console.log(`🎯 Multi-Sniper engaged for ${email} on date: ${date}`);
@@ -309,12 +312,16 @@ app.get('/api/bulk/rules', (req, res) => {
     db.all("SELECT * FROM bulk_rules WHERE email = ?", [req.query.email], (err, rows) => res.json(rows || []));
 });
 
-setInterval(() => {
-    console.log("🤖 Running Nightly Automation...");
-    db.all("SELECT * FROM bulk_rules", [], (err, rules) => {
-        if (rules) rules.forEach(rule => executeRule(rule.email, rule));
-    });
-}, 1000 * 60 * 60 * 24);
+// --- NIGHTLY AUTOMATION ---
+if (!nightlyAutomationInterval) {
+    nightlyAutomationInterval = setInterval(() => {
+        console.log("🤖 Running Nightly Automation...");
+        db.all("SELECT * FROM bulk_rules", [], (err, rules) => {
+            if (rules) rules.forEach(rule => executeRule(rule.email, rule));
+        });
+    }, 1000 * 60 * 60 * 24);
+}
+
 
 // --- HELPERS ---
 async function villaLogin(email, password) {
@@ -489,7 +496,7 @@ app.use((req, res, next) => {
 app.post('/api/sniper/start', (req, res) => {
     const { email, date, plate } = req.body;
     startSniperInternal(email, date, plate)
-    res.json({ success: true, message: `Sniper started for ${date}` });
+    res.json({ success: true, message: `Sniper active for ${date}` });
 });
 
 app.post('/api/sniper/stop', (req, res) => {
