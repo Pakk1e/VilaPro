@@ -10,7 +10,7 @@ const { wrapper } = require('axios-cookiejar-support');
 const { CookieJar } = require('tough-cookie');
 const crypto = require('crypto');
 const runningSnipers = {};
-let nightlyAutomationInterval = null;
+let lastNightlyRunDate = null;
 
 
 const app = express();
@@ -95,6 +95,53 @@ db.serialize(() => {
         // It's okay if this fails because the column already exists
     });
 });
+
+
+
+// --- NIGHTLY AUTOMATION ---
+
+function getVillaProNow() {
+    // Europe/Bratislava (VillaPro)
+    return new Date(
+        new Date().toLocaleString("en-US", { timeZone: "Europe/Bratislava" })
+    );
+}
+
+function getVillaProTimestamp() {
+    const now = getVillaProNow();
+    return now.toISOString().replace('T', ' ').slice(0, 19);
+}
+
+
+async function runNightlyAutomation(force = false) {
+    const now = getVillaProNow();
+
+    
+    const todayKey = now.toISOString().slice(0, 10);
+
+    if (!force) {
+        const hours = now.getHours();
+        const minutes = now.getMinutes();
+
+        if (hours !== 23 || minutes < 55) return;
+        if (lastNightlyRunDate === todayKey) return;
+    }
+
+    lastNightlyRunDate = todayKey;
+
+    console.log("🌙 Nightly automation started");
+
+    db.all("SELECT * FROM bulk_rules", async (err, rules) => {
+        if (err || !rules) return;
+
+        for (const rule of rules) {
+            const target = new Date(now);
+            target.setDate(target.getDate() + 15);
+            await applyRuleToDate(rule.email, rule, target);
+        }
+    });
+}
+
 
 
 
@@ -204,51 +251,62 @@ async function internalInstantReserve(email, date, plate, command = 'ADD') {
 }
 
 
-async function executeRule(email, rule) {
+async function applyRuleToDate(email, rule, dateObj) {
     const days = JSON.parse(rule.days_of_week);
     const months = JSON.parse(rule.months);
 
+    const dayOfWeek = dateObj.getDay();
+    const month = dateObj.getMonth() + 1;
+
+    if (!days.includes(dayOfWeek) || !months.includes(month)) {
+        return;
+    }
+
+    const y = dateObj.getFullYear();
+    const m = String(month).padStart(2, '0');
+    const d = String(dateObj.getDate()).padStart(2, '0');
+    const dateStr = `${y}-${m}-${d}`;
+
+    const result = await internalInstantReserve(email, dateStr, rule.plate, 'ADD');
+
+    if (result.status === true) {
+        db.run(
+            "INSERT INTO activity_logs (email, message, timestamp) VALUES (?, ?,?)",
+            [email, `✅ Auto-Reserved: ${dateStr}`, getVillaProTimestamp()]
+        );
+    } else {
+        db.run(
+            "INSERT OR IGNORE INTO snipers (email, date, plate, status) VALUES (?, ?, ?, 'active')",
+            [email, dateStr, rule.plate],
+            function () {
+                if (this.changes > 0) {
+                    db.run(
+                        "INSERT INTO activity_logs (email, message, timestamp) VALUES (?, ?,?)",
+                        [email, `🎯 Full: Sniper started for ${dateStr}`,getVillaProTimestamp()]
+                    );
+                    startSniperInternal(email, dateStr, rule.plate);
+                }
+            }
+        );
+    }
+}
+
+
+
+async function executeRule(email, rule) {
     db.run(
-        "INSERT INTO activity_logs (email, message) VALUES (?, ?)",
-        [email, `🤖 Robot: Starting scan for plate ${rule.plate}`]
+        "INSERT INTO activity_logs (email, message, timestamp) VALUES (?, ?,?)",
+        [email, `🤖 Robot: Starting scan for plate ${rule.plate}`, getVillaProTimestamp()]
     );
 
     for (let i = 0; i <= 14; i++) {
         const target = new Date();
         target.setDate(target.getDate() + i);
 
-        const y = target.getFullYear();
-        const m = String(target.getMonth() + 1).padStart(2, '0');
-        const d = String(target.getDate()).padStart(2, '0');
-        const dateStr = `${y}-${m}-${d}`;
-
-        if (days.includes(target.getDay()) && months.includes(target.getMonth() + 1)) {
-            const result = await internalInstantReserve(email, dateStr, rule.plate, 'ADD');
-
-            if (result.status === true) {
-                db.run(
-                    "INSERT INTO activity_logs (email, message) VALUES (?, ?)",
-                    [email, `✅ Auto-Reserved: ${dateStr}`]
-                );
-            } else {
-                // 🔐 DB is authority — declare sniper intent first
-                db.run(
-                    "INSERT OR IGNORE INTO snipers (email, date, plate, status) VALUES (?, ?, ?, 'active')",
-                    [email, dateStr, rule.plate],
-                    function () {
-                        if (this.changes > 0) {
-                            db.run(
-                                "INSERT INTO activity_logs (email, message) VALUES (?, ?)",
-                                [email, `🎯 Full: Sniper started for ${dateStr}`]
-                            );
-                            startSniperInternal(email, dateStr, rule.plate);
-                        }
-                    }
-                );
-            }
-        }
+        await applyRuleToDate(email, rule, target);
     }
 }
+
 
 
 // Helper to bridge the gap between Rule and your existing Sniper
@@ -914,6 +972,14 @@ app.use((err, req, res, next) => {
 
 
 app.listen(5000, '0.0.0.0', async () => {
-    console.log('✅ Multi-User Server running on port 5000');
     await resumeSnipersOnStartup();
+
+    // 🔁 Catch up if server restarted after 23:55
+    const now = getVillaProNow();
+    if (now.getHours() === 23 && now.getMinutes() >= 55) {
+        await runNightlyAutomation(true);
+    }
+
+    setInterval(runNightlyAutomation, 60 * 1000);
 });
+
