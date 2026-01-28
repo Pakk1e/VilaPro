@@ -3,6 +3,7 @@ const frontendPath = path.join(__dirname, '..', 'frontend', 'dist');
 
 const express = require('express');
 const sqlite3 = require('sqlite3').verbose();
+const cookieParser = require('cookie-parser');
 const cors = require('cors');
 const axios = require('axios');
 const cheerio = require('cheerio');
@@ -38,16 +39,17 @@ app.use('/api', (req, res, next) => {
     // Allow non-browser clients (curl, server-side, PM2, cron)
     if (!origin) return next();
 
-    if (origin === 'https://www.vadovsky-tech.com') {
+    if (origin === 'https://www.vadovsky-tech.com' || origin === 'http://localhost:5173') {
         return next();
     }
-
+    console.log(`Blocked API request from origin: ${origin}`);
     return res.status(403).json({ error: 'Forbidden origin' });
 });
 
 
 
 app.use(express.json());
+app.use(cookieParser());
 
 // --- DATABASE INITIALIZATION ---
 const dbPath = path.join(__dirname, 'parking.db');
@@ -116,7 +118,7 @@ function getVillaProTimestamp() {
 async function runNightlyAutomation(force = false) {
     const now = getVillaProNow();
 
-    
+
     const todayKey = now.toISOString().slice(0, 10);
 
     if (!force) {
@@ -282,7 +284,7 @@ async function applyRuleToDate(email, rule, dateObj) {
                 if (this.changes > 0) {
                     db.run(
                         "INSERT INTO activity_logs (email, message, timestamp) VALUES (?, ?,?)",
-                        [email, `🎯 Full: Sniper started for ${dateStr}`,getVillaProTimestamp()]
+                        [email, `🎯 Full: Sniper started for ${dateStr}`, getVillaProTimestamp()]
                     );
                     startSniperInternal(email, dateStr, rule.plate);
                 }
@@ -689,6 +691,32 @@ function requireFields(res, fields) {
 
 // --- API ENDPOINTS ---
 
+
+app.get("/api/me", async (req, res) => {
+    console.log("🍪 cookies:", req.cookies);
+    const email = req.cookies?.app_user;
+
+    if (!email) {
+        return res.status(401).json({ authenticated: false });
+    }
+
+    try {
+        // Make sure user session exists / is hydrated
+        await getSession(email);
+
+        res.json({
+            authenticated: true,
+            email,
+            roles: email === "jakub.vadovsky@jci.com"
+                ? ["user", "calendar_user", "admin"]
+                : ["user", "calendar_user"],
+        });
+    } catch {
+        res.status(401).json({ authenticated: false });
+    }
+});
+
+
 app.post('/api/login', async (req, res) => {
     const { email, password } = req.body;
     if (!requireFields(res, { email, password })) return;
@@ -731,7 +759,14 @@ app.post('/api/login', async (req, res) => {
             );
 
 
+            res.cookie("app_user", email, {
+                httpOnly: true,
+                sameSite: "lax",
+                secure: process.env.NODE_ENV === "production",
+            });
+
             res.json({ status: 'success', email });
+
         } else {
             throw new Error("VillaPro ID not found");
         }
@@ -739,6 +774,17 @@ app.post('/api/login', async (req, res) => {
         res.status(401).json({ status: 'error', message: e.message });
     }
 });
+
+app.post("/api/logout", (req, res) => {
+    res.clearCookie("app_user", {
+        httpOnly: true,
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+    });
+
+    res.json({ status: "ok" });
+});
+
 
 app.get('/api/availability', async (req, res) => {
     const { month, year, email } = req.query;
