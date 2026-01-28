@@ -46,30 +46,37 @@ The format is based on **Keep a Changelog**, and this project adheres to **Seman
 
 ---
 
-## [v1.1.0] – Admin Panel & User Management
-
-**Release date:** TBD
-
-### ✨ Added
-
-* Admin dashboard with user list and role management
-* Role assignment flows (user, calendar_user, admin)
-* Ability for admins to approve or revoke Calendar access
-* UI controls to manage user status without redeploys
-
-### 🔐 Security
-
-* Admin-only route protection and server-side role enforcement
-* Safe role updates persisted in the database
-
-### 🧱 Architecture
-
-* Admin widget implemented as a standalone page
-* Shared auth/role guards reused across widgets
-
----
-
 ### Notes
 
 * This release establishes the v1 platform foundation.
 * Future widgets (Weather, Admin, Automation tools) will build on this architecture without breaking existing functionality.
+
+---
+
+## [v1.1.0] — Admin panel & user management
+
+**Released:** 2026-01-28
+
+### Added
+
+* Admin dashboard with user list and detail modal
+* Role management (`user`, `calendar_user`, `admin`) persisted in DB
+* User status management (`active` / `disabled`)
+* Backend admin API (`/api/admin/users` GET, PATCH)
+* Global enforcement of disabled accounts (login + all API routes)
+* Centralized client-side handling for disabled accounts (auto-logout)
+
+### Changed
+
+* Authentication now respects DB-backed roles and status
+* Dev/prod API routing aligned via Vite proxy
+
+### Security
+
+* Disabled users are blocked from login and all authenticated APIs
+* Self-admin demotion prevented (v1.1 safety)
+
+### Notes
+
+* DB schema extended safely (non-destructive migrations)
+* Admin authority is now fully enforced end-to-end

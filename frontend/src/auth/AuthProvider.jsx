@@ -49,7 +49,18 @@ export function AuthProvider({ children }) {
       });
 
 
-      if (!resp.ok) throw new Error("Login failed");
+      if (!resp.ok) {
+        const data = await resp.json();
+
+        if (data.message?.includes("disabled")) {
+          return {
+            success: false,
+            message: "Your account has been disabled."
+          };
+        }
+
+        throw new Error("Login failed");
+      }
 
       setUser({ email });
       setRoles(

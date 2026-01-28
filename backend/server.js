@@ -12,6 +12,10 @@ const { CookieJar } = require('tough-cookie');
 const crypto = require('crypto');
 const runningSnipers = {};
 let lastNightlyRunDate = null;
+const createAdminApi = require("./admin.api");
+
+
+
 
 
 const app = express();
@@ -57,6 +61,7 @@ const db = new sqlite3.Database(dbPath);
 
 
 db.serialize(() => {
+
     db.run(`CREATE TABLE IF NOT EXISTS users (
         email TEXT PRIMARY KEY,
         encrypted_password TEXT,
@@ -73,7 +78,12 @@ db.serialize(() => {
         days_of_week TEXT,
         months TEXT,
         plate TEXT,
-        name TEXT
+        name TEXT,
+        roles TEXT,
+        status TEXT DEFAULT 'active',
+        last_seen DATETIME
+
+
     )`);
     db.run(`CREATE TABLE IF NOT EXISTS activity_logs (
         email TEXT,
@@ -90,17 +100,46 @@ db.serialize(() => {
         UNIQUE(email, date)
     )`);
 
+
+
     console.log("Database initialized.");
 
-    //One time db.run for initalization of new Columns
-    db.run("ALTER TABLE bulk_rules ADD COLUMN name TEXT", (err) => {
-        // It's okay if this fails because the column already exists
-    });
+
 });
 
 
+app.use("/api", async (req, res, next) => {
+  // allow login endpoint
+  if (req.path === "/login") return next();
+
+  const email = req.cookies?.app_user;
+  if (!email) return res.status(401).json({ error: "Not authenticated" });
+
+  const row = await new Promise(resolve =>
+    db.get(
+      "SELECT status FROM users WHERE email = ?",
+      [email],
+      (_, row) => resolve(row)
+    )
+  );
+
+  if (!row || row.status === "disabled") {
+    return res.status(403).json({
+      error: "Account disabled"
+    });
+  }
+
+  next();
+});
+
+
+app.use("/api/admin", createAdminApi(db));
 
 // --- NIGHTLY AUTOMATION ---
+
+
+
+
 
 function getVillaProNow() {
     // Europe/Bratislava (VillaPro)
@@ -732,7 +771,24 @@ app.post('/api/login', async (req, res) => {
         });
     }
 
+
     try {
+
+        const userRow = await new Promise((resolve, reject) => {
+            db.get(
+                "SELECT status FROM users WHERE email = ?",
+                [email],
+                (err, row) => (err ? reject(err) : resolve(row))
+            );
+        });
+
+        if (userRow && userRow.status === "disabled") {
+            return res.status(403).json({
+                status: "error",
+                message: "Your account has been disabled. Please contact the administrator."
+            });
+        }
+
         const session = await getSession(email);
         await villaLogin(email, password);
 

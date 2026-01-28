@@ -39,9 +39,9 @@ export default function LoginPage() {
         </p>
 
         {error && (
-          <div className="mb-4 text-sm text-red-600 text-center font-semibold">
+          <p className="text-red-600 text-sm text-center mt-4">
             {error}
-          </div>
+          </p>
         )}
 
         <input
