@@ -197,15 +197,45 @@ export default function CalendarPage() {
     return (Date.now() - timestamp) > 900000; // 15 minutes in ms
   };
 
+  function getVillaProTodayStart() {
+    const nowInVillaPro = new Date(
+      new Date().toLocaleString("en-US", {
+        timeZone: "Europe/Bratislava",
+      })
+    );
+
+    nowInVillaPro.setHours(0, 0, 0, 0);
+    return nowInVillaPro;
+  }
+
+
+
   // --- RENDER LOT ID TAGS ---
   const renderTileContent = ({ date, view }) => {
-    if (view !== 'month') return null;
+    if (view !== "month") return null;
+
+    // ensure correct month
+    if (
+      date.getMonth() !== viewedDate.getMonth() ||
+      date.getFullYear() !== viewedDate.getFullYear()
+    ) {
+      return null;
+    }
+
+    // normalize tile date
+    const tileDate = new Date(date);
+    tileDate.setHours(0, 0, 0, 0);
+
+    const villaToday = getVillaProTodayStart();
+
+    // ❌ hide lot tags for past days
+    if (tileDate < villaToday) return null;
+
     const dayNumber = date.getDate();
+    const reservedEntry = availability.reserved?.find(
+      (r) => r.day === dayNumber
+    );
 
-    // Fix: Always use viewedDate for month comparison so navigation works
-    if (date.getMonth() !== viewedDate.getMonth() || date.getFullYear() !== viewedDate.getFullYear()) return null;
-
-    const reservedEntry = availability.reserved?.find(r => r.day === dayNumber);
     if (reservedEntry && reservedEntry.lot) {
       return (
         <div className="lot-tag-container">
@@ -213,8 +243,10 @@ export default function CalendarPage() {
         </div>
       );
     }
+
     return null;
   };
+
 
 
   // --- API: FETCH AVAILABILITY ---
