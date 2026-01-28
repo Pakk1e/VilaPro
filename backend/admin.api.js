@@ -7,18 +7,28 @@ module.exports = function createAdminApi(db) {
 
     function requireAdmin(req, res, next) {
         const email = req.cookies?.app_user;
-
         if (!email) {
             return res.status(401).json({ error: "Not authenticated" });
         }
 
-        // v1.1 rule: single admin
-        if (email !== "jakub.vadovsky@jci.com") {
-            return res.status(403).json({ error: "Admin access required" });
-        }
+        db.get(
+            "SELECT roles FROM users WHERE email = ?",
+            [email],
+            (err, row) => {
+                if (err || !row) {
+                    return res.status(403).json({ error: "Forbidden" });
+                }
 
-        next();
+                const roles = row.roles ? JSON.parse(row.roles) : [];
+                if (!roles.includes("admin")) {
+                    return res.status(403).json({ error: "Admin access required" });
+                }
+
+                next();
+            }
+        );
     }
+
 
 
     // Apply admin check middleware to all admin routes

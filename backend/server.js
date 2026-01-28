@@ -109,27 +109,33 @@ db.serialize(() => {
 
 
 app.use("/api", async (req, res, next) => {
-  // allow login endpoint
-  if (req.path === "/login") return next();
+    // allow login endpoint
+    if (req.path === "/login") return next();
 
-  const email = req.cookies?.app_user;
-  if (!email) return res.status(401).json({ error: "Not authenticated" });
+    const email = req.cookies?.app_user;
+    if (!email) return res.status(401).json({ error: "Not authenticated" });
 
-  const row = await new Promise(resolve =>
-    db.get(
-      "SELECT status FROM users WHERE email = ?",
-      [email],
-      (_, row) => resolve(row)
-    )
-  );
+    const row = await new Promise(resolve =>
+        db.get(
+            "SELECT status FROM users WHERE email = ?",
+            [email],
+            (_, row) => resolve(row)
+        )
+    );
 
-  if (!row || row.status === "disabled") {
-    return res.status(403).json({
-      error: "Account disabled"
-    });
-  }
+    if (!row || row.status === "disabled") {
+        return res.status(403).json({
+            error: "Account disabled"
+        });
+    }
 
-  next();
+    // ✅ UPDATE last_seen (fire-and-forget)
+    db.run(
+        "UPDATE users SET last_seen = ? WHERE email = ?",
+        [getVillaProTimestamp(), email]
+    );
+
+    next();
 });
 
 
