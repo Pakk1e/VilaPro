@@ -46,6 +46,29 @@ The format is based on **Keep a Changelog**, and this project adheres to **Seman
 
 ---
 
+## [v1.1.0] – Admin Panel & User Management
+
+**Release date:** TBD
+
+### ✨ Added
+
+* Admin dashboard with user list and role management
+* Role assignment flows (user, calendar_user, admin)
+* Ability for admins to approve or revoke Calendar access
+* UI controls to manage user status without redeploys
+
+### 🔐 Security
+
+* Admin-only route protection and server-side role enforcement
+* Safe role updates persisted in the database
+
+### 🧱 Architecture
+
+* Admin widget implemented as a standalone page
+* Shared auth/role guards reused across widgets
+
+---
+
 ### Notes
 
 * This release establishes the v1 platform foundation.
