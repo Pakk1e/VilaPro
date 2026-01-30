@@ -85,9 +85,8 @@ export default function CalendarPage() {
     try {
       const resp = await await apiFetch(`/api/logs?email=${email}`);
 
-      if (resp.status === 401) {
-        alert("VillaPro session expired. Please log in again.");
-        setIsLoggedIn(false);
+      if (resp.status === 401 || resp.status === 403) {
+        navigate("/hub");
         return;
       }
 
@@ -102,9 +101,8 @@ export default function CalendarPage() {
   const fetchBulkRules = async () => {
     const resp = await apiFetch(`/api/bulk/rules?email=${email}`);
 
-    if (resp.status === 401) {
-      alert("VillaPro session expired. Please log in again.");
-      setIsLoggedIn(false);
+    if (resp.status === 401 || resp.status === 403) {
+      navigate("/hub");
       return;
     }
 
@@ -297,9 +295,8 @@ export default function CalendarPage() {
 
 
 
-      if (response.status === 401) {
-        alert("VillaPro session expired. Please log in again.");
-        setIsLoggedIn(false);
+      if (response.status === 401 || response.status === 403) {
+        navigate("/hub");
         return;
       }
 
@@ -503,9 +500,8 @@ export default function CalendarPage() {
     try {
       const resp = await apiFetch(`/api/sniper/active?email=${email}`);
 
-      if (resp.status === 401) {
-        alert("VillaPro session expired. Please log in again.");
-        setIsLoggedIn(false);
+      if (resp.status === 401 || resp.status === 403) {
+        navigate("/hub");
         return;
       }
 

@@ -80,3 +80,14 @@ The format is based on **Keep a Changelog**, and this project adheres to **Seman
 
 * DB schema extended safely (non-destructive migrations)
 * Admin authority is now fully enforced end-to-end
+
+
+
+## v1.2.0 — Registration, approvals & widgets (Planned)
+
+### Planned
+- User self-registration (pending approval)
+- Admin approval workflow
+- Widget-level permissions
+- Dashboard tiles enhancements
+- Admin audit log

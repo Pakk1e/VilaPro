@@ -2,7 +2,7 @@ const express = require("express");
 
 
 
-module.exports = function createAdminApi(db) {
+module.exports = function createAdminApi(db, getVillaProTimestamp) {
     const router = express.Router();
 
     function requireAdmin(req, res, next) {
@@ -45,7 +45,16 @@ module.exports = function createAdminApi(db) {
      */
     router.get("/users", (req, res) => {
         db.all(
-            `SELECT email, roles, status, last_seen FROM users ORDER BY email ASC`,
+            `
+            SELECT
+              email,
+              roles,
+              status,
+              last_seen,
+              approved_at
+            FROM users
+            ORDER BY email ASC
+            `,
             [],
             (err, rows) => {
                 if (err) {
@@ -60,10 +69,11 @@ module.exports = function createAdminApi(db) {
                         email: row.email,
                         roles,
                         status: row.status || "active",
-                        calendarAccess: roles.includes("calendar_user"),
+                        approved: !!row.approved_at,   // 👈 ADD THIS
                         lastSeen: row.last_seen
                     };
                 });
+
 
                 res.json({ users });
             }
@@ -115,6 +125,36 @@ module.exports = function createAdminApi(db) {
             }
         );
     });
+
+    /**
+     * PATCH /api/admin/users/:email/approve
+     * Approve user account
+     */
+    router.patch("/users/:email/approve", (req, res) => {
+        const targetEmail = req.params.email;
+
+        db.run(
+            `
+        UPDATE users
+        SET approved_at = ?
+        WHERE email = ?
+        `,
+            [getVillaProTimestamp(), targetEmail],
+            function (err) {
+                if (err) {
+                    console.error("Failed to approve user:", err);
+                    return res.status(500).json({ error: "Failed to approve user" });
+                }
+
+                if (this.changes === 0) {
+                    return res.status(404).json({ error: "User not found" });
+                }
+
+                res.json({ success: true });
+            }
+        );
+    });
+
 
 
 

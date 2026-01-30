@@ -1,37 +1,87 @@
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 
-function Tile({ title, description, onClick }) {
+
+
+import { useState } from "react";
+
+import VillaProModal from "../components/VillaProModal";
+
+
+function Tile({ title, description, onClick, disabled, status }) {
   return (
     <button
-      onClick={onClick}
-      className="group bg-white rounded-3xl p-6 shadow-lg hover:shadow-xl transition-all text-left"
+      onClick={disabled ? undefined : onClick}
+      className={`group bg-white rounded-3xl p-6 shadow-lg hover:shadow-xl transition-all text-left 
+        ${disabled ? "bg-slate-200 text-slate-400 cursor-not-allowed" : "bg-white hover:shadow-xl"}`}
     >
-      <h2 className="text-lg font-black text-slate-900 mb-2 group-hover:text-blue-600 transition">
-        {title}
-      </h2>
+      <div className="flex items-center justify-between mb-2">
+        <h2 className="text-lg font-black text-slate-900 mb-2 group-hover:text-blue-600 transition">
+          {title}
+        </h2>
+        <span
+          className={`h-3 w-3 rounded-full
+            ${status === "connected" && "bg-green-500"}
+            ${status === "pending" && "bg-yellow-400"}
+            ${status === "disabled" && "bg-slate-400"}
+          `}
+        />
+      </div>
       <p className="text-sm text-slate-500">
         {description}
       </p>
-    </button>
+    </button >
   );
 }
 
 export default function HubPage() {
   const navigate = useNavigate();
-  const { roles, user, logout } = useAuth();
+  const { roles, user, logout, refreshMe, approved, villaProConnected } = useAuth();
+  const [showVillaProModal, setShowVillaProModal] = useState(false);
+
+
+  /* ---------- Calendar tile state ---------- */
+  let calendarStatus = "disabled";
+  let calendarDescription = "Waiting for approval";
+
+  if (approved) {
+    if (villaProConnected) {
+      calendarStatus = "connected";
+      calendarDescription = "Manage parking reservations.";
+    } else {
+      calendarStatus = "pending";
+      calendarDescription = "Connect your VillaPro account.";
+    }
+  }
+
+
 
   return (
+
     <div className="min-h-screen bg-slate-100 p-10">
+
+      {
+        showVillaProModal && (
+          <VillaProModal
+            onClose={() => setShowVillaProModal(false)}
+            onSuccess={async () => {
+              await refreshMe();   // 👈 THIS IS THE FIX
+              setShowVillaProModal(false);
+              navigate("/calendar");
+            }}
+          />
+        )
+      }
       {/* Header */}
       <div className="flex items-center justify-between mb-10">
         <div>
-          <h1 className="text-2xl font-black text-slate-900">
-            Automation Hub
-          </h1>
-          <p className="text-sm text-slate-500">
-            Welcome, {user.email}
-          </p>
+          <h1 className="text-2xl font-black text-slate-900">Automation Hub</h1>
+          <p className="text-sm text-slate-500">Welcome, {user.email}</p>
+          {!approved && (
+            <p className="text-sm text-slate-800 mt-2 font-semibold italic">
+              More tools will appear once your account is approved.
+            </p>
+          )}
         </div>
 
         <button
@@ -48,10 +98,21 @@ export default function HubPage() {
         {roles.includes("calendar_user") && (
           <Tile
             title="Calendar"
-            description="Manage parking reservations, snipers, and availability."
-            onClick={() => navigate("/calendar")}
+            status={calendarStatus}
+            disabled={!approved}
+            description={calendarDescription}
+            onClick={() => {
+              if (!villaProConnected) {
+                setShowVillaProModal(true);
+              } else {
+                navigate("/calendar");
+              }
+            }}
           />
         )}
+
+
+
 
         {/* Weather (placeholder for now) */}
         <Tile
@@ -78,3 +139,7 @@ export default function HubPage() {
     </div>
   );
 }
+
+
+
+

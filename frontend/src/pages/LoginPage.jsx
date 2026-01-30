@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 
@@ -9,6 +9,13 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState(null);
+  const { user, initializing } = useAuth();
+
+  useEffect(() => {
+    if (!initializing && user) {
+      navigate("/hub", { replace: true });
+    }
+  }, [user, initializing]);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -69,7 +76,20 @@ export default function LoginPage() {
         >
           {loading ? "Authenticating..." : "Sign In"}
         </button>
+        <p className="text-center text-sm text-slate-500 mt-6">
+          Don’t have an account?{" "}
+          <button
+            type="button"
+            onClick={() => navigate("/register")}
+            className="font-bold text-blue-600 hover:underline"
+          >
+            Create account
+          </button>
+        </p>
       </form>
+
+
     </div>
+
   );
 }

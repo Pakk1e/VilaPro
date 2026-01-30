@@ -35,6 +35,8 @@ if (!COOKIE_SECRET) {
 
 
 app.use(cors());
+app.use(express.json());
+app.use(cookieParser());
 
 
 app.use('/api', (req, res, next) => {
@@ -43,17 +45,81 @@ app.use('/api', (req, res, next) => {
     // Allow non-browser clients (curl, server-side, PM2, cron)
     if (!origin) return next();
 
-    if (origin === 'https://www.vadovsky-tech.com' || origin === 'http://localhost:5173') {
+    if (origin === 'https://www.vadovsky-tech.com' || origin === 'http://localhost:5173' || origin === 'http://localhost:5174') {
         return next();
     }
-    console.log(`Blocked API request from origin: ${origin}`);
     return res.status(403).json({ error: 'Forbidden origin' });
+});
+
+app.use("/api", async (req, res, next) => {
+    const openPaths = [
+        "/login",
+        "/register",
+        "/me"
+    ];
+
+    if (openPaths.includes(req.path)) {
+        return next();
+    }
+
+    const email = req.cookies?.app_user;
+    if (!email) {
+        return res.status(401).json({ error: "Not authenticated" });
+    }
+
+    try {
+        const user = await new Promise((resolve, reject) => {
+            db.get(
+                `
+                SELECT status, approved_at
+                FROM users
+                WHERE email = ?
+                `,
+                [email],
+                (err, row) => (err ? reject(err) : resolve(row))
+            );
+        });
+
+        if (!user) {
+            return res.status(401).json({ error: "Invalid session" });
+        }
+
+        if (user.status === "disabled") {
+            return res.status(403).json({ error: "Account disabled" });
+        }
+
+        // Block ONLY automation endpoints for pending users
+        const restrictedPaths = [
+            "/availability",
+            "/reservations",
+            "/sniper",
+            "/bulk"
+        ];
+
+        if (!user.approved_at && restrictedPaths.some(p => req.path.startsWith(p))) {
+            return res.status(403).json({ error: "Account pending approval" });
+        }
+
+
+        // ✅ Approved & active — update last_seen
+        db.run(
+            "UPDATE users SET last_seen = ? WHERE email = ?",
+            [getVillaProTimestamp(), email]
+        );
+
+        next();
+
+
+    } catch (err) {
+        console.error("Approval middleware error:", err);
+        res.status(500).json({ error: "Authorization failed" });
+    }
 });
 
 
 
-app.use(express.json());
-app.use(cookieParser());
+
+
 
 // --- DATABASE INITIALIZATION ---
 const dbPath = path.join(__dirname, 'parking.db');
@@ -64,13 +130,25 @@ db.serialize(() => {
 
     db.run(`CREATE TABLE IF NOT EXISTS users (
         email TEXT PRIMARY KEY,
+
         encrypted_password TEXT,
+        villapro_encrypted_password TEXT,
+
+        roles TEXT NOT NULL DEFAULT '["user"]',
+        permissions TEXT NOT NULL DEFAULT '[]',
+        status TEXT NOT NULL DEFAULT 'active',
+        
+        last_seen DATETIME,
+        approved_at DATETIME NULL,
+        created_at DATETIME NOT NULL,
+
         ticket_id TEXT,
         long_ticket_id TEXT,
         article_id TEXT,
         last_csrf TEXT,
         session_cookies TEXT
-    )`);
+        )`
+    );
 
     db.run(`CREATE TABLE IF NOT EXISTS bulk_rules (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -78,10 +156,8 @@ db.serialize(() => {
         days_of_week TEXT,
         months TEXT,
         plate TEXT,
-        name TEXT,
-        roles TEXT,
-        status TEXT DEFAULT 'active',
-        last_seen DATETIME
+        name TEXT
+
 
 
     )`);
@@ -101,6 +177,16 @@ db.serialize(() => {
     )`);
 
 
+    // approval gate
+    db.run(`ALTER TABLE users ADD COLUMN approved_at DATETIME`, () => { });
+
+    // access control
+    db.run(`ALTER TABLE users ADD COLUMN roles TEXT DEFAULT '["user"]'`, () => { });
+    db.run(`ALTER TABLE users ADD COLUMN permissions TEXT DEFAULT '[]'`, () => { });
+    db.run(`ALTER TABLE users ADD COLUMN status TEXT DEFAULT 'active'`, () => { });
+
+    // audit
+    db.run(`ALTER TABLE users ADD COLUMN created_at DATETIME`, () => { });
 
     console.log("Database initialized.");
 
@@ -108,40 +194,17 @@ db.serialize(() => {
 });
 
 
-app.use("/api", async (req, res, next) => {
-    // allow login endpoint
-    if (req.path === "/login") return next();
-
-    const email = req.cookies?.app_user;
-    if (!email) return res.status(401).json({ error: "Not authenticated" });
-
-    const row = await new Promise(resolve =>
-        db.get(
-            "SELECT status FROM users WHERE email = ?",
-            [email],
-            (_, row) => resolve(row)
-        )
-    );
-
-    if (!row || row.status === "disabled") {
-        return res.status(403).json({
-            error: "Account disabled"
-        });
-    }
-
-    // ✅ UPDATE last_seen (fire-and-forget)
-    db.run(
-        "UPDATE users SET last_seen = ? WHERE email = ?",
-        [getVillaProTimestamp(), email]
-    );
-
-    next();
-});
 
 
-app.use("/api/admin", createAdminApi(db));
+
+
+
+
+app.use("/api/admin", createAdminApi(db, getVillaProTimestamp));
 
 // --- NIGHTLY AUTOMATION ---
+
+
 
 
 
@@ -189,7 +252,14 @@ async function runNightlyAutomation(force = false) {
     });
 }
 
-
+db.run(
+    `
+  UPDATE users
+  SET created_at = ?
+  WHERE created_at IS NULL
+  `,
+    [getVillaProTimestamp()]
+);
 
 
 
@@ -640,17 +710,17 @@ async function ensureLoggedIn(email) {
 
     const user = await new Promise(r =>
         db.get(
-            "SELECT encrypted_password FROM users WHERE email = ?",
+            "SELECT villapro_encrypted_password FROM users WHERE email = ?",
             [email],
             (_, row) => r(row)
         )
     );
 
-    if (!user?.encrypted_password) {
+    if (!user?.villapro_encrypted_password) {
         throw new Error("No stored credentials");
     }
 
-    const password = decrypt(user.encrypted_password);
+    const password = decrypt(user.villapro_encrypted_password);
     await villaLogin(email, password);
 
     // refresh cookies after login
@@ -738,104 +808,340 @@ function requireFields(res, fields) {
 
 
 app.get("/api/me", async (req, res) => {
-    console.log("🍪 cookies:", req.cookies);
     const email = req.cookies?.app_user;
-
     if (!email) {
         return res.status(401).json({ authenticated: false });
     }
 
-    try {
-        // Make sure user session exists / is hydrated
-        await getSession(email);
+    db.get(
+        `
+        SELECT
+          roles,
+          approved_at,
+          ticket_id,
+          villapro_encrypted_password,
+          status
+        FROM users
+        WHERE email = ?
+        `,
+        [email],
+        (err, user) => {
+            if (err || !user) {
+                return res.status(401).json({ authenticated: false });
+            }
 
-        res.json({
-            authenticated: true,
-            email,
-            roles: email === "jakub.vadovsky@jci.com"
-                ? ["user", "calendar_user", "admin"]
-                : ["user", "calendar_user"],
+            if (user.status === "disabled") {
+                return res.status(403).json({ authenticated: false });
+            }
+
+            res.json({
+                authenticated: true,
+                email,
+                roles: JSON.parse(user.roles || '["user"]'),
+                approved: !!user.approved_at,
+                villaProConnected: !!user.ticket_id && !!user.villapro_encrypted_password
+            });
+        }
+    );
+});
+
+
+
+app.post("/api/register", async (req, res) => {
+    const { email, password } = req.body;
+
+    if (!requireFields(res, { email, password })) return;
+
+    if (!isValidEmail(email)) {
+        return res.status(400).json({ error: "Invalid email format" });
+    }
+
+    if (password.length < 8) {
+        return res.status(400).json({ error: "Password must be at least 8 characters" });
+    }
+
+    try {
+        // check if user already exists
+        const existing = await new Promise((resolve) => {
+            db.get(
+                "SELECT email FROM users WHERE email = ?",
+                [email],
+                (_, row) => resolve(row)
+            );
         });
-    } catch {
-        res.status(401).json({ authenticated: false });
+
+        if (existing) {
+            return res.status(409).json({ error: "User already exists" });
+        }
+
+        const encryptedPassword = encrypt(password);
+        const createdAt = getVillaProTimestamp();
+
+        db.run(
+            `
+            INSERT INTO users (
+              email,
+              encrypted_password,
+              roles,
+              permissions,
+              status,
+              approved_at,
+              created_at
+            )
+            VALUES (?, ?, ?, ?, ?, NULL, ?)
+            `,
+            [
+                email,
+                encryptedPassword,
+                JSON.stringify(["user"]),
+                JSON.stringify([]),
+                "active",
+                createdAt
+            ]
+        );
+        res.cookie("app_user", email, {
+            httpOnly: true,
+            sameSite: "lax",
+            secure: process.env.NODE_ENV === "production",
+        });
+
+
+        return res.json({
+            success: true,
+            status: "pending",
+            email
+        });
+    } catch (err) {
+        console.error("Register error:", err);
+        return res.status(500).json({ error: "Registration failed" });
     }
 });
 
 
+
 app.post('/api/login', async (req, res) => {
     const { email, password } = req.body;
+
     if (!requireFields(res, { email, password })) return;
     if (!isValidEmail(email)) {
         return res.status(400).json({ error: "Invalid email format" });
     }
 
-    if (!WHITELIST.includes(email.toLowerCase())) {
-        console.warn(`Blocked login attempt from unauthorized email: ${email}`);
-        return res.status(403).json({
-            status: 'error',
-            message: "You don't have access to this site. Please contact the administrator."
-        });
-    }
-
-
     try {
-
+        // 🔍 Load user state
         const userRow = await new Promise((resolve, reject) => {
             db.get(
-                "SELECT status FROM users WHERE email = ?",
+                `
+                SELECT
+                    encrypted_password,
+                    status,
+                    approved_at
+                FROM users
+                WHERE email = ?
+                `,
                 [email],
                 (err, row) => (err ? reject(err) : resolve(row))
             );
         });
 
-        if (userRow && userRow.status === "disabled") {
+        if (!userRow) {
+            return res.status(401).json({
+                status: "error",
+                message: "Invalid credentials"
+            });
+        }
+
+        if (userRow.status === "disabled") {
             return res.status(403).json({
                 status: "error",
                 message: "Your account has been disabled. Please contact the administrator."
             });
         }
 
-        const session = await getSession(email);
-        await villaLogin(email, password);
+        // 🔐 Password check (unchanged model)
+        const decryptedPassword = decrypt(userRow.encrypted_password);
+        if (password !== decryptedPassword) {
+            return res.status(401).json({
+                status: "error",
+                message: "Invalid credentials"
+            });
+        }
 
-        const resPage = await session.client.get('https://clients.villapro.eu/en/reserv_single/sk_ba_panoramacity2/');
-        const html = resPage.data;
-        const $ = cheerio.load(html);
-
-        const urlId = (resPage.request.res.responseUrl.match(/sk_ba_panoramacity2\/(\d+)\//) || [])[1];
-        const scriptText = $('script').text();
-        const longId = (scriptText.match(/var ticket_id = "(\d+)";/) || [null, '1506424268'])[1];
-        const artId = (scriptText.match(/var article_id = (\d+);/) || [null, "273"])[1];
-
-        if (urlId) {
-            const cookiesJson = await serializeCookies(session.jar);
-            const encryptedCookies = encrypt(cookiesJson);
-
-            const encryptedPassword = encrypt(password);
-
-            db.run(
-                `INSERT OR REPLACE INTO users 
-                (email, encrypted_password, ticket_id, long_ticket_id, article_id, session_cookies)
-                VALUES (?, ?, ?, ?, ?, ?)`,
-                [email, encryptedPassword, urlId, longId, artId, encryptedCookies]
-            );
-
-
+        // 🚧 APPROVAL GATE (NEW)
+        if (!userRow.approved_at) {
             res.cookie("app_user", email, {
                 httpOnly: true,
                 sameSite: "lax",
                 secure: process.env.NODE_ENV === "production",
             });
 
-            res.json({ status: 'success', email });
+            return res.json({
+                status: "pending",
+                email
+            });
+        }
 
-        } else {
+
+        /*
+        // ✅ APPROVED — EXISTING FLOW UNTOUCHED
+        const session = await getSession(email);
+        await villaLogin(email, password);
+
+        const resPage = await session.client.get(
+            'https://clients.villapro.eu/en/reserv_single/sk_ba_panoramacity2/'
+        );
+
+        const html = resPage.data;
+        const $ = cheerio.load(html);
+
+        const urlId =
+            (resPage.request.res.responseUrl.match(/sk_ba_panoramacity2\/(\d+)\//) || [])[1];
+
+        const scriptText = $('script').text();
+        const longId =
+            (scriptText.match(/var ticket_id = "(\d+)";/) || [null, '1506424268'])[1];
+        const artId =
+            (scriptText.match(/var article_id = (\d+);/) || [null, "273"])[1];
+
+        if (!urlId) {
             throw new Error("VillaPro ID not found");
         }
+
+        const cookiesJson = await serializeCookies(session.jar);
+        const encryptedCookies = encrypt(cookiesJson);
+
+
+        db.run(`
+            UPDATE users
+            SET
+                encrypted_password = ?,
+                ticket_id = ?,
+                long_ticket_id = ?,
+                article_id = ?,
+                session_cookies = ?
+            WHERE email = ?
+            `,
+            [
+                encryptedPassword,
+                urlId,
+                longId,
+                artId,
+                encryptedCookies,
+                email
+            ]
+        );
+
+        */
+        res.cookie("app_user", email, {
+            httpOnly: true,
+            sameSite: "lax",
+            secure: process.env.NODE_ENV === "production",
+        });
+
+        return res.json({ status: "success", email });
+
     } catch (e) {
-        res.status(401).json({ status: 'error', message: e.message });
+        console.error("Login error:", e);
+        return res.status(401).json({
+            status: "error",
+            message: e.message
+        });
     }
 });
+
+app.post("/api/villapro/connect", async (req, res) => {
+    const email = req.cookies?.app_user;
+    const { password } = req.body;
+
+    if (!email) {
+        return res.status(401).json({ error: "Not authenticated" });
+    }
+
+    if (!password) {
+        return res.status(400).json({ error: "Password required" });
+    }
+
+    const user = await new Promise(resolve =>
+        db.get(
+            "SELECT approved_at, status FROM users WHERE email = ?",
+            [email],
+            (_, row) => resolve(row)
+        )
+    );
+
+    if (!user) {
+        return res.status(401).json({ error: "Invalid session" });
+    }
+
+    if (!user.approved_at) {
+        return res.status(403).json({ error: "Account not approved" });
+    }
+
+    if (user.status === "disabled") {
+        return res.status(403).json({ error: "Account disabled" });
+    }
+
+    try {
+        // 🔐 Try VillaPro login
+        const session = await getSession(email);
+        await villaLogin(email, password);
+
+        const resPage = await session.client.get(
+            "https://clients.villapro.eu/en/reserv_single/sk_ba_panoramacity2/"
+        );
+
+        const html = resPage.data;
+        const $ = cheerio.load(html);
+
+        const urlId =
+            (resPage.request.res.responseUrl.match(/sk_ba_panoramacity2\/(\d+)\//) || [])[1];
+
+        if (!urlId) {
+            throw new Error("VillaPro account not detected");
+        }
+
+        const scriptText = $("script").text();
+        const longId =
+            (scriptText.match(/var ticket_id = "(\d+)";/) || [null, "1506424268"])[1];
+        const artId =
+            (scriptText.match(/var article_id = (\d+);/) || [null, "273"])[1];
+
+        const cookiesJson = serializeCookies(session.jar);
+        const encryptedCookies = encrypt(cookiesJson);
+        const encryptedVillaProPassword = encrypt(password);
+
+        db.run(
+            `
+            UPDATE users
+            SET
+              villapro_encrypted_password = ?,
+              ticket_id = ?,
+              long_ticket_id = ?,
+              article_id = ?,
+              session_cookies = ?
+            WHERE email = ?
+            `,
+            [
+                encryptedVillaProPassword,
+                urlId,
+                longId,
+                artId,
+                encryptedCookies,
+                email
+            ]
+        );
+        return res.json({ success: true });
+
+    } catch (e) {
+        console.error("VillaPro connect failed:", e.message);
+        return res.status(401).json({
+            error: "VillaPro authentication failed"
+        });
+    }
+});
+
+
+
 
 app.post("/api/logout", (req, res) => {
     res.clearCookie("app_user", {
@@ -874,8 +1180,12 @@ app.get('/api/availability', async (req, res) => {
             try {
                 await ensureLoggedIn(user.email);
             } catch (e) {
+                if (e.message.includes("VillaPro")) {
+                    return res.status(403).json({ error: "VillaPro not connected" });
+                }
                 return res.status(401).json({ error: "Session expired" });
             }
+
 
             const targetMonth = month || (new Date().getMonth() + 1);
             const targetYear = year || new Date().getFullYear();
@@ -940,9 +1250,13 @@ app.post('/api/reservations/instant', async (req, res) => {
 
             try {
                 await ensureLoggedIn(user.email);
-            } catch {
+            } catch (e) {
+                if (e.message.includes("VillaPro")) {
+                    return res.status(403).json({ error: "VillaPro not connected" });
+                }
                 return res.status(401).json({ error: "Session expired" });
             }
+
 
 
 

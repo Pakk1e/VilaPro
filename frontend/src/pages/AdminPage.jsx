@@ -14,24 +14,42 @@ export default function AdminPage() {
   const [editedStatus, setEditedStatus] = useState("active");
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    async function loadUsers() {
-      try {
-        const resp = await apiFetch("/api/admin/users");
-        if (!resp.ok) throw new Error("Failed to load users");
+  async function loadUsers() {
+    try {
+      const resp = await apiFetch("/api/admin/users");
+      if (!resp.ok) throw new Error("Failed to load users");
 
-        const data = await resp.json();
+      const data = await resp.json();
+      setUsers(data.users);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }
 
-        setUsers(data.users);
-      } catch (e) {
-        setError(e.message);
-      } finally {
-        setLoading(false);
-      }
+  async function approveUser(email) {
+    const resp = await apiFetch(
+      `/api/admin/users/${encodeURIComponent(email)}/approve`,
+      { method: "PATCH" }
+    );
+
+    if (!resp.ok) {
+      const err = await resp.json();
+      throw new Error(err.error || "Approval failed");
     }
 
+    // refresh list
+    await loadUsers();
+  }
+
+  useEffect(() => {
     loadUsers();
   }, []);
+
+
+
+
 
   return (
     <div className="min-h-screen bg-slate-100 p-6">
@@ -64,9 +82,24 @@ export default function AdminPage() {
                   key={user.email}
                   className="border-t border-slate-200 hover:bg-slate-50"
                 >
-                  <td className="px-6 py-4 font-medium text-slate-900">
-                    {user.email}
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-slate-900">
+                        {user.email}
+                      </span>
+
+                      {user.approved ? (
+                        <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-700">
+                          Approved
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-yellow-100 text-yellow-700">
+                          Pending
+                        </span>
+                      )}
+                    </div>
                   </td>
+
 
                   <td className="px-6 py-4">
                     <div className="flex gap-2 flex-wrap">
@@ -93,7 +126,7 @@ export default function AdminPage() {
                   </td>
 
                   <td className="px-6 py-4">
-                    {user.calendarAccess ? "✅ Enabled" : "❌ Disabled"}
+                    {user.roles.includes("calendar_user") ? "✅ Enabled" : "❌ Disabled"}
                   </td>
 
                   <td className="px-6 py-4 text-right">
@@ -138,6 +171,7 @@ export default function AdminPage() {
             </div>
 
             <div className="p-6 space-y-4">
+
               <div>
                 <label className="text-xs font-bold text-slate-500 uppercase">
                   Email
@@ -146,6 +180,51 @@ export default function AdminPage() {
                   {selectedUser.email}
                 </div>
               </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-500 uppercase">
+                  Approval
+                </label>
+
+                <div className="mt-2 flex items-center justify-between">
+                  {selectedUser.approved ? (
+                    <span className="text-sm font-bold text-emerald-600">
+                      Approved
+                    </span>
+                  ) : (
+                    <button
+                      onClick={async () => {
+                        try {
+                          await approveUser(selectedUser.email);
+
+                          // update local state
+                          setUsers(users =>
+                            users.map(u =>
+                              u.email === selectedUser.email
+                                ? { ...u, approved: true, approvedAt: new Date().toISOString() }
+                                : u
+                            )
+                          );
+
+                          setSelectedUser(u => ({
+                            ...u,
+                            approved: true,
+                            approvedAt: new Date().toISOString(),
+                          }));
+                        } catch (e) {
+                          alert(e.message);
+                        }
+                      }}
+                      className="px-3 py-1.5 rounded-lg text-xs font-bold
+                   bg-emerald-600 text-white
+                   hover:bg-emerald-500"
+                    >
+                      Approve user
+                    </button>
+                  )}
+                </div>
+              </div>
+
 
               <div>
                 <label className="text-xs font-bold text-slate-500 uppercase">
@@ -225,7 +304,7 @@ export default function AdminPage() {
                     }
                   );
                   setSaving(false);
-                  
+
                   if (!resp.ok) {
                     alert("Failed to save user");
                     return;

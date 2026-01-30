@@ -8,6 +8,9 @@ export function AuthProvider({ children }) {
   const [roles, setRoles] = useState([]);
   const [loading, setLoading] = useState(false);
   const [initializing, setInitializing] = useState(true); // 👈 REQUIRED
+  const [approved, setApproved] = useState(false);
+  const [villaProConnected, setVillaProConnected] = useState(false);
+
 
   // 🔁 SESSION REHYDRATION (THIS WAS MISSING / NOT FIRING)
   useEffect(() => {
@@ -26,8 +29,11 @@ export function AuthProvider({ children }) {
         console.log("✅ /api/me response:", data);
 
         if (data.authenticated) {
-          setUser({ email: data.email });
+          setUser({ email: data.email, approved: data.approved, villaProConnected: data.villaProConnected });
           setRoles(data.roles || []);
+          setApproved(!!data.approved);
+          setVillaProConnected(!!data.villaProConnected);
+          console.log("✅ User session restored");
         }
       } catch (e) {
         console.error("❌ /api/me failed", e);
@@ -38,6 +44,10 @@ export function AuthProvider({ children }) {
 
     restoreSession();
   }, []);
+
+
+
+
 
   async function login(email, password) {
     setLoading(true);
@@ -62,12 +72,21 @@ export function AuthProvider({ children }) {
         throw new Error("Login failed");
       }
 
-      setUser({ email });
-      setRoles(
-        email === "jakub.vadovsky@jci.com"
-          ? ["user", "calendar_user", "admin"]
-          : ["user", "calendar_user"]
-      );
+      const meResp = await apiFetch("/api/me");
+      const me = await meResp.json();
+
+      if (!meResp.ok) {
+        throw new Error("Failed to fetch user data");
+      }
+
+      if (me.authenticated) {
+        setUser({ email: me.email, approved: me.approved, villaProConnected: me.villaProConnected });
+        setRoles(me.roles || []);
+        setApproved(!!me.approved);
+        setVillaProConnected(!!me.villaProConnected);
+      }
+
+
 
       return { success: true };
     } catch (e) {
@@ -84,10 +103,39 @@ export function AuthProvider({ children }) {
     setRoles([]);
   }
 
+  async function refreshMe() {
+    const resp = await apiFetch("/api/me");
+    if (!resp.ok) return;
+
+    const data = await resp.json();
+
+    if (data.authenticated) {
+      setUser({
+        email: data.email,
+        approved: data.approved,
+        villaProConnected: data.villaProConnected
+      });
+      setRoles(data.roles || []);
+      setApproved(!!data.approved);
+      setVillaProConnected(!!data.villaProConnected);
+    }
+  }
+
   return (
     <AuthContext.Provider
-      value={{ user, roles, loading, initializing, login, logout }}
+      value={{
+        user,
+        roles,
+        approved,
+        villaProConnected,
+        loading,
+        initializing,
+        login,
+        logout,
+        refreshMe
+      }}
     >
+
       {children}
     </AuthContext.Provider>
   );
