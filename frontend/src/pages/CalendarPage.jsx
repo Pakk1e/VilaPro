@@ -5,13 +5,10 @@ import { useAuth } from "../auth/AuthProvider";
 import { apiFetch } from "../lib/api"
 
 import ParkingMapModal from "../components/ParkingMapModal";
-import WeatherButton from "../components/WeatherButton";
-import { useWeather } from "../hooks/useWeather";
+
 import { useNavigate } from "react-router-dom";
 
-const WeatherModal = lazy(() => import("../components/WeatherModal"));
 
-//const API_BASE_URL = `https://api.vadovsky-tech.com`;
 
 // --- LEGEND COMPONENT ---
 const LegendItem = ({ color, label }) => (
@@ -51,9 +48,7 @@ export default function CalendarPage() {
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-  /* WEATHER */
-  const weather = useWeather(true);
-  const [isWeatherOpen, setIsWeatherOpen] = useState(false);
+
 
   /* MAP MODAL */
   const [isMapOpen, setIsMapOpen] = useState(false);
@@ -676,13 +671,6 @@ export default function CalendarPage() {
             PARK <span className="text-blue-600">PRO</span>
           </h1>
           <div className="flex items-center gap-3">
-            <WeatherButton
-              weather={weather.data}
-              status={weather.status}
-              onClick={() => setIsWeatherOpen(true)}
-              className="opacity-70 hover:opacity-100 overflow-visible"
-            />
-
             <button
               onClick={() => navigate("/hub")}
               className="text-sm font-bold text-slate-500 hover:text-slate-900 transition"
@@ -751,13 +739,6 @@ export default function CalendarPage() {
 
 
             <div className="flex items-center gap-6">
-              {/* WEATHER — LEFT OF STATUS */}
-              <WeatherButton
-                weather={weather.data}
-                status={weather.status}
-                onClick={() => setIsWeatherOpen(true)}
-                className="opacity-70 hover:opacity-100 overflow-visible"
-              />
               <button
                 onClick={() => navigate("/hub")}
                 className="text-sm font-bold text-slate-500 hover:text-slate-900 transition"
@@ -1220,13 +1201,6 @@ export default function CalendarPage() {
         dateLabel={mapContext.dateLabel}
       />
 
-      <Suspense fallback={null}>
-        <WeatherModal
-          isOpen={isWeatherOpen}
-          onClose={() => setIsWeatherOpen(false)}
-          weather={weather.data}
-        />
-      </Suspense>
 
 
 
