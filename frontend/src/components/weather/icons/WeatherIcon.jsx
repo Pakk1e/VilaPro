@@ -89,7 +89,20 @@ function renderIconPath(type, isNight = false) {
     const moonPath = "M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.389 5.389 0 0 1-4.4 2.26 5.403 5.403 0 0 1-3.14-9.8c-.44-.06-.9-.1-1.36-.1z";
 
     switch (type) {
-        // --- CLEAR ---
+        case 'temp':
+        case 'temperature':
+            return (
+                <g stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                    {/* Thermometer Tube */}
+                    <path d="M14 4.5V14a3.5 3.5 0 1 1-4 0V4.5a2 2 0 1 1 4 0z" />
+                    {/* Level line */}
+                    <path d="M10 14h4" />
+                    {/* Mercury Fill */}
+                    <path d="M12 17v-4" strokeWidth="2" stroke="currentColor" />
+                    <circle cx="12" cy="17" r="1.5" fill="currentColor" />
+                </g>
+            );
+
         case 'pressure':
             return (
                 <g stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round">

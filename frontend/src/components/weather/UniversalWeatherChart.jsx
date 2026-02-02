@@ -1,6 +1,4 @@
 import React from "react";
-
-
 import {
     ResponsiveContainer,
     AreaChart,
@@ -8,8 +6,6 @@ import {
     XAxis,
     YAxis,
 } from "recharts";
-
-import WeatherIcon from './icons/WeatherIcon'
 
 /* ------------------ DAY SEGMENTS ------------------ */
 const DAY_SEGMENTS = [
@@ -22,17 +18,16 @@ const DAY_SEGMENTS = [
 /* ------------------ HELPERS ------------------ */
 const CustomDot = (props) => {
     const { cx, cy, payload } = props;
-    // Only show the dot for the "NOW" point
     if (payload.label !== "NOW") return null;
 
     return (
         <g>
-            <circle cx={cx} cy={cy} r={10} fill="#3b82f6" fillOpacity={0.15} />
+            <circle cx={cx} cy={cy} r={10} fill="#2DD4BF" fillOpacity={0.15} />
             <circle
                 cx={cx}
                 cy={cy}
                 r={5}
-                fill="#3b82f6"
+                fill="#2DD4BF"
                 stroke="#fff"
                 strokeWidth={3}
                 className="drop-shadow-lg"
@@ -41,92 +36,86 @@ const CustomDot = (props) => {
     );
 };
 
-function getCurrentSegmentIndex(hour) {
-    return DAY_SEGMENTS.findIndex(seg =>
-        seg.start < seg.end
-            ? hour >= seg.start && hour < seg.end
-            : hour >= seg.start || hour < seg.end
-    );
-}
+function averageValueForSegment(hourly, segment, key) {
+    if (!hourly || hourly.length === 0) return 0;
+    const baseDate = new Date(hourly[0].time);
 
-function rotateSegments(segments, startIndex) {
-    return [
-        ...segments.slice(startIndex),
-        ...segments.slice(0, startIndex),
-    ];
-}
-
-function averageTempForSegment(hourly, segment) {
-    if (!hourly) return 0;
-    const temps = hourly
+    const values = hourly
         .filter(h => {
             const date = new Date(h.time);
             const hour = date.getHours();
-            return segment.start < segment.end
+            const isInSegment = segment.start < segment.end
                 ? hour >= segment.start && hour < segment.end
                 : hour >= segment.start || hour < segment.end;
+            const isWithin24h = (date - baseDate) < 24 * 60 * 60 * 1000;
+            return isInSegment && isWithin24h;
         })
-        .map(h => h.temperature);
+        .map(h => h[key]);
 
-    return temps.length
-        ? Math.round(temps.reduce((a, b) => a + b, 0) / temps.length)
+    return values.length
+        ? Math.round(values.reduce((a, b) => a + b, 0) / values.length)
         : 0;
 }
 
-/* ------------------ COMPONENT ------------------ */
-
-const CustomTick = ({ x, y, payload, chartData }) => {
+const CustomTick = ({ x, y, payload, chartData, unit }) => {
     if (!payload.value) return null;
     const dataPoint = chartData.find((d) => d.label === payload.value);
     if (!dataPoint) return null;
 
     return (
         <g transform={`translate(${x},${y})`}>
-            <text
-                x={0}
-                y={20}
-                textAnchor="middle"
-                fill="#94a3b8"
-                fontSize={10}
-                fontWeight={800}
-                className="uppercase tracking-tighter"
-            >
+            <text x={0} y={20} textAnchor="middle" fill="#94a3b8" fontSize={10} fontWeight={800} className="uppercase tracking-tighter">
                 {payload.value}
             </text>
-            <text
-                x={0}
-                y={42}
-                textAnchor="middle"
-                fill="#1e293b"
-                fontSize={15}
-                fontWeight={900}
-            >
-                {dataPoint.temp}°
+            <text x={0} y={42} textAnchor="middle" fill="#1e293b" fontSize={15} fontWeight={900}>
+                {dataPoint.displayVal}{unit}
             </text>
         </g>
     );
 };
 
-export default function TemperatureDayPartChart({ hourly, currentTemp, currentMetrics }) {
-    const currentHour = new Date().getHours();
-    const startIndex = getCurrentSegmentIndex(currentHour);
-    const rotatedSegments = rotateSegments(DAY_SEGMENTS, startIndex);
+/* ------------------ COMPONENT ------------------ */
 
+export default function UniversalWeatherChart({ hourly, activeMetricId, currentVal }) {
+    if (!hourly || hourly.length === 0) return null;
+
+    const currentHour = new Date().getHours();
+    const startIndex = DAY_SEGMENTS.findIndex(seg =>
+        seg.start < seg.end
+            ? currentHour >= seg.start && currentHour < seg.end
+            : currentHour >= seg.start || currentHour < seg.end
+    );
+
+    // Create the logical flow of time segments
+    const rotatedSegments = [
+        ...DAY_SEGMENTS.slice(startIndex),
+        ...DAY_SEGMENTS.slice(0, startIndex),
+    ];
+
+    const metricKeyMap = {
+        temperature: { key: 'temperature', unit: '°' },
+        pressure: { key: 'pressure', unit: ' hPa' },
+        humidity: { key: 'humidity', unit: '%' },
+        wind: { key: 'windSpeed', unit: ' km/h' }
+    };
+
+    const config = metricKeyMap[activeMetricId] || metricKeyMap.temperature;
+
+    // Fixed: All points now use 'displayVal'
     const actualData = [
-        { label: "NOW", temp: Math.round(currentTemp) },
-        ...rotatedSegments.slice(0, 3).map((seg) => ({
+        { label: "NOW", displayVal: Math.round(currentVal) || 0 },
+        ...rotatedSegments.slice(1, 4).map((seg) => ({
             label: seg.label,
-            temp: averageTempForSegment(hourly, seg) || Math.round(currentTemp),
+            displayVal: averageValueForSegment(hourly, seg, config.key),
         })),
     ];
 
+    // Padding points for the curve
     const chartData = [
-        { label: "", temp: actualData[0].temp - 1.5 },
+        { label: "", displayVal: actualData[0].displayVal },
         ...actualData,
-        { label: "", temp: actualData[actualData.length - 1].temp - 1 },
+        { label: "", displayVal: actualData[actualData.length - 1].displayVal },
     ];
-
-    if (!hourly || hourly.length === 0) return null;
 
     return (
         <div className="flex flex-col h-full w-full">
@@ -144,24 +133,23 @@ export default function TemperatureDayPartChart({ hourly, currentTemp, currentMe
                             interval={0}
                             axisLine={false}
                             tickLine={false}
-                            tick={<CustomTick chartData={chartData} />}
+                            tick={<CustomTick chartData={chartData} unit={config.unit} />}
                         />
+                        {/* Domain adjusted to handle large numbers like Pressure */}
                         <YAxis hide domain={["dataMin - 5", "dataMax + 5"]} />
                         <Area
                             type="monotone"
-                            dataKey="temp"
+                            dataKey="displayVal"
                             stroke="#2DD4BF"
                             strokeWidth={5}
                             fill="url(#colorMint)"
-                            dot={<CustomDot />} // Ensure CustomDot uses fill="#2DD4BF"
+                            dot={<CustomDot />}
                             isAnimationActive={true}
+                            animationDuration={1000}
                         />
                     </AreaChart>
                 </ResponsiveContainer>
             </div>
-
-            {/* METRICS FOOTER: Updated with deep slate text and subtle icons */}
-
         </div>
     );
 }

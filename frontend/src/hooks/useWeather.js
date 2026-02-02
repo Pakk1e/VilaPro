@@ -31,6 +31,7 @@ export function useWeather({ name, lat, lon }) {
                         "weather_code",
                         "wind_speed_10m",
                         "relative_humidity_2m",
+                        "surface_pressure",
                         "cloud_cover"
                     ].join(","),
 
@@ -39,7 +40,10 @@ export function useWeather({ name, lat, lon }) {
                         "temperature_2m",
                         "precipitation_probability",
                         "weather_code",
-                        "cloud_cover"
+                        "cloud_cover",
+                        "relative_humidity_2m",
+                        "wind_speed_10m",
+                        "surface_pressure"
                     ].join(","),
 
                     daily: [
@@ -80,6 +84,7 @@ export function useWeather({ name, lat, lon }) {
                         icon: mapWeatherCode(raw.current.weather_code).icon,
                         windSpeed: Math.round(raw.current.wind_speed_10m),
                         humidity: raw.current.relative_humidity_2m,
+                        pressure: Math.round(raw.current.surface_pressure),
                         cloudCover: raw.current.cloud_cover ?? 0,
                         uvIndex: raw.daily.uv_index_max[0],
                         precipitationChance:
@@ -91,6 +96,9 @@ export function useWeather({ name, lat, lon }) {
                     hourly: raw.hourly.time.map((time, i) => ({
                         time: new Date(time),
                         temperature: Math.round(raw.hourly.temperature_2m[i]),
+                        humidity: raw.hourly.relative_humidity_2m[i],
+                        windSpeed: Math.round(raw.hourly.wind_speed_10m[i]),
+                        pressure: Math.round(raw.hourly.surface_pressure[i]),
                         precipitationChance:
                             raw.hourly.precipitation_probability[i] ?? 0,
                         ...mapWeatherCode(raw.hourly.weather_code[i])

@@ -4,7 +4,7 @@ import WeatherSidePanel from "../components/weather/WeatherSidePanel";
 import WeatherNav from "../components/weather/WeatherNav";
 import WeeklyForecast from "../components/weather/WeeklyForecast";
 import WeatherTopBar from "../components/weather/WeatherTopBar";
-import TemperatureDayPartChart from "../components/weather/TemperatureDayPartChart";
+import UniversalWeatherChart from "../components/weather/UniversalWeatherChart";
 
 import WindMetric from "../components/weather/metrics/WindMetric";
 import RainMetric from "../components/weather/metrics/RainMetric";
@@ -32,6 +32,9 @@ function loadCity() {
 export default function WeatherPage() {
   const [city] = useState(loadCity);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [activeMetric, setActiveMetric] = useState('temperature'); // options: 'temperature', 'pressure', 'humidity', 'wind'
+
+
   const { data, loading, error } = useWeather(city);
 
   useEffect(() => {
@@ -44,6 +47,21 @@ export default function WeatherPage() {
 
   const { current, hourly, dailyForecast, location } = data;
   const isNight = currentTime.getHours() >= 20 || currentTime.getHours() < 6;
+
+  // inside WeatherPage component
+
+
+  // Define the available metrics and their data mappings
+  const metricConfigs = {
+    temperature: { label: 'Temperature', unit: '°', icon: 'temp', key: 'temperature' },
+    pressure: { label: 'Pressure', unit: ' hPa', icon: 'pressure', key: 'pressure' },
+    humidity: { label: 'Humidity', unit: '%', icon: 'humidity', key: 'humidity' },
+    wind: { label: 'Wind Speed', unit: ' km/h', icon: 'wind-metric', key: 'windSpeed' }
+  };
+
+  // Determine which 3 metrics should be in the "mini" slots
+  const activeConfig = metricConfigs[activeMetric];
+  const standbyKeys = Object.keys(metricConfigs).filter(key => key !== activeMetric);
 
   // Manual Ordinal logic for "16th January, 2026"
   const getOrdinal = (n) => {
@@ -58,7 +76,7 @@ export default function WeatherPage() {
 
   return (
     <div className="h-screen max-h-screen bg-[#0F172A] p-6 lg:p-8 text-white overflow-hidden font-sans">
-      <div className="h-full grid grid-cols-[240px_1.6fr_0.8fr] grid-rows-[60px_1fr_200px] gap-6">
+      <div className="h-full grid grid-cols-[240px_1.6fr_0.8fr] grid-rows-[60px_1fr_auto] gap-6">
 
         {/* SIDEBAR */}
         <aside className="row-span-3 flex flex-col">
@@ -94,16 +112,16 @@ export default function WeatherPage() {
                 <h2 className="text-3xl font-[1000] text-[#1E293B] tracking-tighter leading-tight">
                   {location.name}, {location.countryCode || 'SK'}
                 </h2>
-                <p className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mt-2">
+                <p className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mt-4">
                   Feels like <span className="text-[#2DD4BF] font-[1000]">{Math.round(current.feelsLike)}°</span>
                 </p>
               </div>
 
               {/* TWO ROW DATE/TIME SECTION - Pinned to bottom */}
-              <div className="mt-auto w-full space-y-5 pb-3">
+              <div className="mt-4 w-full space-y-5 pb-3">
                 <div className="w-full h-[2px] bg-slate-300" />
 
-                <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-2">
                   {/* Row 1: Date */}
                   <div className="flex items-center gap-4 text-slate-500">
                     <svg className="w-6 h-6 opacity-60" fill="none" stroke="black" strokeWidth="2.5" viewBox="0 0 24 24">
@@ -130,17 +148,38 @@ export default function WeatherPage() {
             {/* Right Panel: Chart Area stays consistent */}
             <div className="flex-1 p-10 flex flex-col h-full bg-[#F8FAFC]">
               <div className="flex justify-between items-center mb-8">
-                <h2 className="text-2xl font-[1000] text-[#1E293B] tracking-tight">Temperature Flow</h2>
+                {/* DYNAMIC LABEL BASED ON ACTIVE METRIC */}
+                <h2 className="text-2xl font-[1000] text-[#1E293B] tracking-tight">
+                  {activeConfig.label} Forecast
+                </h2>
               </div>
 
               <div className="flex-1 min-h-0 w-full">
-                <TemperatureDayPartChart hourly={hourly} currentTemp={current.temperature} />
+                <UniversalWeatherChart
+                  hourly={hourly}
+                  activeMetricId={activeMetric}
+                  // Pass the dynamic value based on the config key
+                  currentVal={current[activeConfig.key]}
+                />
               </div>
 
-              <div className="grid grid-cols-3 gap-6 pt-6 border-t border-slate-100 mt-6">
-                <MetricMini label="Pressure" icon="pressure" value="1015 hPa" />
-                <MetricMini label="Humidity" icon="humidity" value="90%" />
-                <MetricMini label="Wind" icon="wind-metric" value="8 km/h" />
+              <div className="grid grid-cols-3 gap-8 pt-8 border-t border-slate-50 mt-8">
+                {standbyKeys.map((key) => {
+                  const config = metricConfigs[key];
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => setActiveMetric(key)}
+                      className="text-left hover:bg-slate-50 p-2 rounded-xl transition-colors group"
+                    >
+                      <MetricMini
+                        label={config.label}
+                        value={`${Math.round(current[config.key])}${config.unit}`}
+                        icon={config.icon}
+                      />
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>
