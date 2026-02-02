@@ -21,12 +21,15 @@ export default function CityModal({
                             key={c.name}
                             onClick={() => onSelect(c)}
                             className={`w-full text-left px-4 py-3 rounded-xl border
-                ${selectedCity.name === c.name
-                                    ? "border-blue-500 bg-blue-50 text-blue-600"
+                                ${selectedCity.name === c.name
+                                    ? "border-blue-500 bg-blue-50 text-blue-700 flex items-center justify-between"
                                     : "border-slate-200 hover:bg-slate-100"
                                 }`}
                         >
-                            {c.name}
+                            <span>{c.name}</span>
+                            {selectedCity.name === c.name && (
+                                <span className="text-blue-600">✓</span>
+                            )}
                         </button>
                     ))}
                 </div>
