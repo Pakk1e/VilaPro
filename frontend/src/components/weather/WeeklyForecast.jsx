@@ -1,7 +1,7 @@
 import React, { useRef } from "react";
 import WeatherIcon from "./icons/WeatherIcon";
 
-export default function WeeklyForecast({ hourly = [], daily = [] }) {
+export default function WeeklyForecast({ hourly = [], daily = [], timezone }) {
     const scrollRef = useRef(null);
 
     const handleWheel = (e) => {
@@ -10,15 +10,31 @@ export default function WeeklyForecast({ hourly = [], daily = [] }) {
         }
     };
 
-    const currentHour = new Date().getHours();
+    const cityHourNow = parseInt(
+        new Intl.DateTimeFormat('en-GB', {
+            hour: 'numeric',
+            hour12: false,
+            timeZone: timezone
+        }).format(new Date())
+    );
+
+    // 2. FIX: Find startIndex based on the city's current hour
     const startIndex = hourly.findIndex(h => {
         const d = h.time instanceof Date ? h.time : new Date(h.time);
-        return d.getHours() >= currentHour;
+        // We compare the hour of the data point in the city's TZ
+        const hourOfPoint = parseInt(
+            new Intl.DateTimeFormat('en-GB', {
+                hour: 'numeric',
+                hour12: false,
+                timeZone: timezone
+            }).format(d)
+        );
+        return hourOfPoint >= cityHourNow;
     });
 
     const displayHourly = hourly.slice(
         startIndex !== -1 ? startIndex : 0,
-        (startIndex !== -1 ? startIndex : 0) + 12
+        (startIndex !== -1 ? startIndex : 0) + 24 // Show full 24h if you want
     );
 
     return (
@@ -42,6 +58,13 @@ export default function WeeklyForecast({ hourly = [], daily = [] }) {
                 >
                     {displayHourly.map((h, index) => {
                         const date = h.time instanceof Date ? h.time : new Date(h.time);
+
+                        const timeString = new Intl.DateTimeFormat('en-US', {
+                            hour: 'numeric',
+                            hour12: true,
+                            timeZone: timezone
+                        }).format(date).toLowerCase().replace(' ', '');
+
                         return (
                             <div
                                 key={index}
@@ -51,7 +74,7 @@ export default function WeeklyForecast({ hourly = [], daily = [] }) {
                                     }`}
                             >
                                 <p className={`text-[11px] font-black uppercase tracking-tight mb-2 ${index === 0 ? "text-[#2DD4BF]" : "text-slate-400"}`}>
-                                    {index === 0 ? "Now" : date.toLocaleTimeString('en-US', { hour: 'numeric', hour12: true }).toLowerCase().replace(' ', '')}
+                                    {index === 0 ? "Now" : timeString}
                                 </p>
                                 {/* Icon - Slightly smaller to save vertical space */}
                                 <div className="mb-2">
@@ -74,10 +97,10 @@ export default function WeeklyForecast({ hourly = [], daily = [] }) {
 
                         <div className="flex flex-col gap-1">
                             <span className="text-[16px] font-[1000] text-white group-hover:text-[#2DD4BF] transition-colors tracking-tight">
-                                {index === 0 ? "Tomorrow" : formatDay(d.date)}
+                                {index === 0 ? "Tomorrow" : formatDay(d.date, timezone)}
                             </span>
                             <span className="text-[11px] font-black text-slate-500 uppercase tracking-widest leading-none">
-                                {formatDate(d.date)}
+                                {formatDate(d.date, timezone)}
                             </span>
                         </div>
 
@@ -101,12 +124,12 @@ export default function WeeklyForecast({ hourly = [], daily = [] }) {
 }
 
 /* Helpers */
-function formatDay(date) {
+function formatDay(date, timezone) {
     const d = date instanceof Date ? date : new Date(date);
-    return d.toLocaleDateString('en-US', { weekday: "long" });
+    return d.toLocaleDateString('en-US', { weekday: "long", timeZone: timezone });
 }
 
-function formatDate(date) {
+function formatDate(date, timezone) {
     const d = date instanceof Date ? date : new Date(date);
-    return d.toLocaleDateString('en-US', { day: "numeric", month: "short" });
+    return d.toLocaleDateString('en-US', { day: "numeric", month: "short", timeZone: timezone });
 }

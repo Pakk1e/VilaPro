@@ -36,18 +36,27 @@ const CustomDot = (props) => {
     );
 };
 
-function averageValueForSegment(hourly, segment, key) {
+function averageValueForSegment(hourly, segment, key, timezone) {
     if (!hourly || hourly.length === 0) return 0;
-    const baseDate = new Date(hourly[0].time);
 
     const values = hourly
         .filter(h => {
             const date = new Date(h.time);
-            const hour = date.getHours();
+            // Get hour relative to city timezone
+            const hourInCity = parseInt(
+                new Intl.DateTimeFormat('en-GB', {
+                    hour: 'numeric',
+                    hour12: false,
+                    timeZone: timezone
+                }).format(date)
+            );
+
             const isInSegment = segment.start < segment.end
-                ? hour >= segment.start && hour < segment.end
-                : hour >= segment.start || hour < segment.end;
-            const isWithin24h = (date - baseDate) < 24 * 60 * 60 * 1000;
+                ? hourInCity >= segment.start && hourInCity < segment.end
+                : hourInCity >= segment.start || hourInCity < segment.end;
+
+            // Limit to next 24 hours
+            const isWithin24h = (date - new Date()) < 24 * 60 * 60 * 1000;
             return isInSegment && isWithin24h;
         })
         .map(h => h[key]);
@@ -76,14 +85,21 @@ const CustomTick = ({ x, y, payload, chartData, unit }) => {
 
 /* ------------------ COMPONENT ------------------ */
 
-export default function UniversalWeatherChart({ hourly, activeMetricId, currentVal }) {
+export default function UniversalWeatherChart({ hourly, activeMetricId, currentVal, timezone }) {
     if (!hourly || hourly.length === 0) return null;
 
-    const currentHour = new Date().getHours();
+    const currentHourInCity = parseInt(
+        new Intl.DateTimeFormat('en-GB', {
+            hour: 'numeric',
+            hour12: false,
+            timeZone: timezone || 'UTC'
+        }).format(new Date())
+    );
+
     const startIndex = DAY_SEGMENTS.findIndex(seg =>
         seg.start < seg.end
-            ? currentHour >= seg.start && currentHour < seg.end
-            : currentHour >= seg.start || currentHour < seg.end
+            ? currentHourInCity >= seg.start && currentHourInCity < seg.end
+            : currentHourInCity >= seg.start || currentHourInCity < seg.end
     );
 
     // Create the logical flow of time segments
@@ -106,7 +122,7 @@ export default function UniversalWeatherChart({ hourly, activeMetricId, currentV
         { label: "NOW", displayVal: Math.round(currentVal) || 0 },
         ...rotatedSegments.slice(1, 4).map((seg) => ({
             label: seg.label,
-            displayVal: averageValueForSegment(hourly, seg, config.key),
+            displayVal: averageValueForSegment(hourly, seg, config.key, timezone),
         })),
     ];
 

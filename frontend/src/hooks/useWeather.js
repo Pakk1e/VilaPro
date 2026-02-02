@@ -4,26 +4,35 @@ import { useEffect, useState } from "react";
  * Normalized weather hook using Open-Meteo
  * Single source of truth for WeatherPage
  */
-export function useWeather({ name, lat, lon }) {
+export function useWeather({ name, lat, lon, country }) {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
     useEffect(() => {
-        if (!lat || !lon) return;
+        if (!lat || !lon) {
+            setLoading(false);
+            return;
+        }
 
         let cancelled = false;
 
-        async function fetchWeather() {
+        const fetchWeather = async (tz = "auto") => {
             setLoading(true);
             setError(null);
 
             try {
+                const latitude = parseFloat(lat);
+                const longitude = parseFloat(lon);
+                if (isNaN(latitude) || isNaN(longitude)) {
+                    throw new Error("Invalid coordinates");
+                }
+
                 const url = new URL("https://api.open-meteo.com/v1/forecast");
                 url.search = new URLSearchParams({
                     latitude: lat,
                     longitude: lon,
-                    timezone: "auto",
+                    timezone: tz,
 
                     current: [
                         "temperature_2m",
@@ -59,8 +68,15 @@ export function useWeather({ name, lat, lon }) {
                 });
 
                 const res = await fetch(url.toString());
+                if (!res.ok && tz === "auto") {
+                    return fetchWeather("GMT");
+                }
+
                 if (!res.ok) {
-                    throw new Error("Weather API request failed");
+                    // Log the actual error body from the API to see what's wrong
+                    const errorData = await res.json();
+                    console.error("Open-Meteo Error:", errorData);
+                    throw new Error(errorData.reason || "Weather API request failed");
                 }
 
                 const raw = await res.json();
@@ -72,6 +88,7 @@ export function useWeather({ name, lat, lon }) {
                 const normalized = {
                     location: {
                         name,
+                        country,
                         lat,
                         lon,
                         timezone: raw.timezone
@@ -94,7 +111,12 @@ export function useWeather({ name, lat, lon }) {
 
 
                     hourly: raw.hourly.time.map((time, i) => ({
-                        time: new Date(time),
+                        time: time,
+                        formattedTime: new Intl.DateTimeFormat('en-GB', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            timeZone: raw.timezone
+                        }).format(new Date(time)),
                         temperature: Math.round(raw.hourly.temperature_2m[i]),
                         humidity: raw.hourly.relative_humidity_2m[i],
                         windSpeed: Math.round(raw.hourly.wind_speed_10m[i]),
@@ -130,7 +152,7 @@ export function useWeather({ name, lat, lon }) {
         return () => {
             cancelled = true;
         };
-    }, [name, lat, lon]);
+    }, [name, lat, lon, country]);
 
     return { data, loading, error };
 }
