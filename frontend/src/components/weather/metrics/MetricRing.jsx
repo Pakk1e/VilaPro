@@ -1,36 +1,38 @@
-// MetricRing.jsx refactor
-export default function MetricRing({ value, max = 100, size = 64, stroke = 8, color = "#2DD4BF" }) {
-    const radius = (size - stroke - 4) / 2;
-    const circumference = 2 * Math.PI * radius;
-    const progress = Math.min(value / max, 1);
-    const offset = circumference * (1 - progress);
+export default function MetricRing({ value, max, size, stroke, color }) {
+    const radius = (size - stroke) / 2;
+    const circumference = radius * 2 * Math.PI;
+
+    // Ensure we don't divide by zero and clamp the percentage between 0-100
+    const safeMax = max || 100;
+    const percentage = Math.min(Math.max((value / safeMax) * 100, 0), 100);
+    const offset = circumference - (percentage / 100) * circumference;
 
     return (
-        <div className="flex items-center justify-center relative">
-            <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="overflow-visible">
-                <defs>
-                    <filter id="mint-glow" x="-50%" y="-50%" width="200%" height="200%">
-                        <feGaussianBlur stdDeviation="3" result="blur" />
-                        <feComposite in="blur" in2="SourceGraphic" operator="over" />
-                    </filter>
-                </defs>
-                {/* Background Track */}
-                <circle
-                    cx={size / 2} cy={size / 2} r={radius}
-                    stroke="#334155" strokeWidth={stroke} fill="none"
-                />
-                {/* Progress Track */}
-                <circle
-                    cx={size / 2} cy={size / 2} r={radius}
-                    stroke={color} strokeWidth={stroke} fill="none"
-                    strokeDasharray={circumference}
-                    strokeDashoffset={offset}
-                    strokeLinecap="round"
-                    transform={`rotate(-90 ${size / 2} ${size / 2})`}
-                    className="transition-all duration-1000 ease-out"
-                    filter="url(#mint-glow)"
-                />
-            </svg>
-        </div>
+        <svg width={size} height={size} className="rotate-[-90deg]">
+            <circle
+                cx={size / 2}
+                cy={size / 2}
+                r={radius}
+                stroke="currentColor"
+                strokeWidth={stroke}
+                fill="transparent"
+                className="text-white/5"
+            />
+            <circle
+                cx={size / 2}
+                cy={size / 2}
+                r={radius}
+                stroke={color}
+                strokeWidth={stroke}
+                fill="transparent"
+                strokeDasharray={circumference}
+                style={{
+                    strokeDashoffset: offset,
+                    // ADD THIS: Makes the ring "slide" when you switch EU/US
+                    transition: "stroke-dashoffset 0.8s cubic-bezier(0.4, 0, 0.2, 1), stroke 0.5s ease"
+                }}
+                strokeLinecap="round"
+            />
+        </svg>
     );
 }

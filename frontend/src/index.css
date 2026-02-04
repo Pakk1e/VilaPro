@@ -13,6 +13,30 @@
   /* Firefox */
 }
 
+@layer utilities {
+  .animate-pulse-slow {
+    animation: tech-pulse 3s ease-in-out infinite;
+  }
+
+  .animate-pulse-fast {
+    animation: tech-pulse 1.2s ease-in-out infinite;
+  }
+
+  @keyframes tech-pulse {
+
+    0%,
+    100% {
+      opacity: 0.3;
+      filter: drop-shadow(0 0 1px currentColor);
+    }
+
+    50% {
+      opacity: 1;
+      filter: drop-shadow(0 0 6px currentColor);
+    }
+  }
+}
+
 /* 1. RESET & LOCK VIEWPORT */
 html,
 body,

@@ -15,6 +15,10 @@ import CloudMetric from "../components/weather/metrics/CloudMetric";
 import MetricMini from "../components/weather/metrics/MetricMini";
 import WeatherIcon from "../components/weather/icons/WeatherIcon";
 
+import WeatherDashboard from "../components/weather/dashboards/WeatherDashboard";
+import WeatherLayout from "../components/weather/dashboards/WeatherLayout";
+import AirQualityDashboard from "../components/weather/dashboards/AirQualityDashboard";
+
 /* ------------------ CONSTANTS ------------------ */
 const CITIES = [
   { name: "Bratislava", lat: 48.1486, lon: 17.1077, country: "Slovakia" },
@@ -64,9 +68,14 @@ export default function WeatherPage() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [activeMetric, setActiveMetric] = useState('temperature'); // options: 'temperature', 'pressure', 'humidity', 'wind'
   const [isVisuallyLoading, setIsVisuallyLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState("Dashboard");
 
   const { data, loading, error } = useWeather(city);
+  const [subView, setSubView] = useState("primary");
 
+  useEffect(() => {
+    setSubView("primary");
+  }, [activeTab]);
 
 
   useEffect(() => {
@@ -165,181 +174,42 @@ export default function WeatherPage() {
   const isLongName = locationLabel.length > 20;
 
   return (
+    <WeatherLayout
+      activeTab={activeTab}
+      setActiveTab={setActiveTab}
+      subView={subView}
+      setSubView={setSubView}
+      location={data.location.name}
+      temperature={data.current.temperature}
+      onCitySelect={handleCitySelect}
+    >
+      {/* SWITCH CONTENT BASED ON TAB */}
+      {activeTab === "Dashboard" && (
+        <WeatherDashboard
+          data={data}
+          activeMetric={activeMetric}
+          setActiveMetric={setActiveMetric}
+          isNight={isNight}
+          finalDateString={finalDateString}
+          localizedTime={localizedTime}
+          locationLabel={locationLabel}
+          isLongName={isLongName}
+          viewMode={subView}
+        />
+      )}
+      {activeTab === "Air Quality" && (
+        <AirQualityDashboard
+          city={city}
+          standard={subView}
+        />
+      )}
 
-
-    <div className="h-screen max-h-screen bg-[#0F172A] p-6 lg:p-8 text-white overflow-hidden font-sans">
-
-      {/* GLOBAL FADE OVERLAY */}
-      <div
-        className={`absolute inset-0 z-50 flex flex-col items-center justify-center bg-[#0F172A]/70 backdrop-blur-md transition-all duration-500 ease-in-out ${isVisuallyLoading ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
-          }`}
-      >
-        <div className="flex flex-col items-center gap-4">
-          {/* Subtle glowing ring loader */}
-          <div className="relative w-12 h-12">
-            <div className="absolute inset-0 border-4 border-[#2DD4BF]/10 rounded-full" />
-            <div className="absolute inset-0 border-4 border-t-[#2DD4BF] rounded-full animate-spin" />
-          </div>
-          <span className="text-[10px] font-black uppercase tracking-[0.5em] text-[#2DD4BF] animate-pulse">
-            Updating {location.name}
-          </span>
+      {/* Fallback for other tabs */}
+      {!["Dashboard", "Air Quality"].includes(activeTab) && (
+        <div className="col-start-2 row-start-2 flex items-center justify-center bg-white/5 rounded-[4rem]">
+          <h2 className="text-3xl font-bold opacity-20">{activeTab} Coming Soon</h2>
         </div>
-      </div>
-
-
-      <div className={`h-full grid grid-cols-[240px_1.6fr_0.8fr] grid-rows-[60px_1fr_auto] gap-6 transition-opacity duration-300 ${isVisuallyLoading ? "opacity-0" : "opacity-100"
-        }`}>
-        {/* SIDEBAR */}
-        <aside className="row-span-3 flex flex-col">
-          <WeatherNav />
-        </aside>
-
-        {/* TOP BAR */}
-        <header className="col-start-2 col-span-2 flex items-center">
-          <WeatherTopBar
-            location={location.name}
-            temperature={current.temperature}
-            onCitySelect={handleCitySelect} // Pass the setter down
-            timezone={data.timezone}
-          />
-        </header>
-
-        {/* MASTER CARD */}
-        <main className="col-start-2 row-start-2 h-full min-h-0">
-          {error ? (
-            <div className="h-full flex flex-col items-center justify-center bg-white/5 rounded-[4rem] border border-white/10">
-              <p className="text-red-400 font-bold">Error: {error}</p>
-              <button
-                onClick={() => handleCitySelect(CITIES[0])}
-                className="mt-4 px-6 py-2 bg-[#2DD4BF] text-black rounded-full font-bold"
-              >
-                Back to Bratislava
-              </button>
-            </div>
-          ) : !data ? (
-            <div className="h-full animate-pulse bg-white/5 rounded-[4rem]" />
-          ) : (
-            <div className="bg-white rounded-[4rem] shadow-2xl overflow-hidden flex relative border border-white/50 h-full">
-
-              {/* Left Panel: Scaled UP Hero Content */}
-              <div className="w-[32%] flex flex-col h-full bg-gradient-to-b from-white to-slate-50/50 p-10 items-start text-left border-r border-slate-100/50">
-
-                {/* ICON */}
-                <div className="w-40 h-40 mb4 drop-shadow-2xl">
-                  <WeatherIcon type={current.icon} size="100%" isNight={isNight} />
-                </div>
-
-                {/* TEMPERATURE */}
-                <div className="w-full">
-                  <span className="text-[96px] font-[1000] text-[#1E293B] leading-[0.65] tracking-[-0.08em] block">
-                    {Math.round(current.temperature)}°
-                  </span>
-                </div>
-
-                {/* CITY NAME */}
-                <div className="mt-12 w-full">
-                  <h2 className={`font-[1000] text-[#1E293B] tracking-tighter leading-tight ${isLongName ? "text-xl" : "text-3xl"} `}>
-                    {locationLabel}
-                  </h2>
-
-
-                  {/*Feels Like Temp*/}
-
-                  <p className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mt-4">
-                    Feels like <span className="text-[#2DD4BF] font-[1000]">{Math.round(current.feelsLike)}°</span>
-                  </p>
-                </div>
-
-                {/* TWO ROW DATE/TIME SECTION - Pinned to bottom */}
-                <div className="mt-4 w-full space-y-5 pb-3">
-                  <div className="w-full h-[2px] bg-slate-300" />
-
-                  <div className="flex flex-col gap-2">
-                    {/* Row 1: Date */}
-                    <div className="flex items-center gap-4 text-slate-500">
-                      <svg className="w-6 h-6 opacity-60" fill="none" stroke="black" strokeWidth="2.5" viewBox="0 0 24 24">
-                        <path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                      <span className="text-[16px] font-[700] tracking-tight">
-                        {finalDateString}
-                      </span>
-                    </div>
-
-                    {/* Row 2: Time */}
-                    <div className="flex items-center gap-4 text-slate-800">
-                      <svg className="w-6 h-6 opacity-60" fill="none" stroke="black" strokeWidth="2.5" viewBox="0 0 24 24">
-                        <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      <span className="text-xl font-[900] tabular-nums">
-                        {localizedTime}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Right Panel: Chart Area stays consistent */}
-              <div className="flex-1 p-10 flex flex-col h-full bg-[#F8FAFC]">
-                <div className="flex justify-between items-center mb-8">
-                  {/* DYNAMIC LABEL BASED ON ACTIVE METRIC */}
-                  <h2 className="text-2xl font-[1000] text-[#1E293B] tracking-tight">
-                    {activeConfig.label} Forecast
-                  </h2>
-                </div>
-
-                <div className="flex-1 min-h-0 w-full">
-                  <UniversalWeatherChart
-                    hourly={hourly}
-                    activeMetricId={activeMetric}
-                    currentVal={current[activeConfig.key]}
-                    timezone={data.location.timezone}
-                  />
-                </div>
-
-                <div className="grid grid-cols-3 gap-8 pt-8 border-t border-slate-50 mt-8">
-                  {standbyKeys.map((key) => {
-                    const config = metricConfigs[key];
-                    return (
-                      <button
-                        key={key}
-                        onClick={() => setActiveMetric(key)}
-                        className="text-left hover:bg-slate-50 p-2 rounded-xl transition-colors group"
-                      >
-                        <MetricMini
-                          label={config.label}
-                          value={`${Math.round(current[config.key])}${config.unit}`}
-                          icon={config.icon}
-                        />
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          )}
-        </main>
-
-
-        {/* BOTTOM METRICS */}
-        <div className="col-start-2 row-start-3 grid grid-cols-4 gap-6 self-center">
-          <WindMetric speed={current.windSpeed} />
-          <RainMetric chance={current.precipitationChance} />
-          <UVMetric uv={current.uvIndex} />
-          <CloudMetric coverage={current.cloudCover} />
-        </div>
-
-        {/* RIGHT FORECAST SIDEBAR */}
-        <aside className="col-start-3 row-start-2 row-span-2 bg-[#1E293B]/50 rounded-[3rem] p-8 border border-white/5 flex flex-col h-full overflow-hidden backdrop-blur-md">
-
-
-          <WeeklyForecast
-            hourly={hourly}
-            daily={dailyForecast}
-            timezone={data.location.timezone} // <--- PASS HERE
-          />
-        </aside>
-      </div >
-    </div >
-
+      )}
+    </WeatherLayout>
   );
 }
