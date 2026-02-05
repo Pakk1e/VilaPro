@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import MetricRing from "../metrics/MetricRing";
 import PollutantMetric from "../metrics/PollutantMetric";
 import HealthAdvisory from "../HealthAdvisory";
-import { getPollutantSeverity } from "../../utils/airQualityHelpers";
+import { getPollutantSeverity } from "../utils/airQualityHelpers";
 
 
 
@@ -14,7 +14,7 @@ export default function AirQualityDashboard({ city, standard }) {
 
     // Map the generic subView 'primary/secondary' to Open-Meteo keys
     const currentStandardKey = standard === "secondary" ? "us_aqi" : "european_aqi";
-    const standardLabel = standard === "secondary" ? "USA Standard" : "EU Standard";
+
 
     useEffect(() => {
         async function fetchAQI() {

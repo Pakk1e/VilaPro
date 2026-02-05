@@ -1,11 +1,5 @@
 import React from "react";
-import {
-    ResponsiveContainer,
-    AreaChart,
-    Area,
-    XAxis,
-    YAxis,
-} from "recharts";
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis } from "recharts";
 
 /* ------------------ DAY SEGMENTS ------------------ */
 const DAY_SEGMENTS = [
@@ -19,30 +13,21 @@ const DAY_SEGMENTS = [
 const CustomDot = (props) => {
     const { cx, cy, payload } = props;
     if (payload.label !== "NOW") return null;
-
     return (
         <g>
             <circle cx={cx} cy={cy} r={10} fill="#2DD4BF" fillOpacity={0.15} />
-            <circle
-                cx={cx}
-                cy={cy}
-                r={5}
-                fill="#2DD4BF"
-                stroke="#fff"
-                strokeWidth={3}
-                className="drop-shadow-lg"
-            />
+            <circle cx={cx} cy={cy} r={5} fill="#2DD4BF" stroke="#fff" strokeWidth={3} className="drop-shadow-lg" />
         </g>
     );
 };
 
+// 🟢 Simplified: Just averages the numbers provided by the API
 function averageValueForSegment(hourly, segment, key, timezone) {
     if (!hourly || hourly.length === 0) return 0;
 
     const values = hourly
         .filter(h => {
             const date = new Date(h.time);
-            // Get hour relative to city timezone
             const hourInCity = parseInt(
                 new Intl.DateTimeFormat('en-GB', {
                     hour: 'numeric',
@@ -55,15 +40,13 @@ function averageValueForSegment(hourly, segment, key, timezone) {
                 ? hourInCity >= segment.start && hourInCity < segment.end
                 : hourInCity >= segment.start || hourInCity < segment.end;
 
-            // Limit to next 24 hours
             const isWithin24h = (date - new Date()) < 24 * 60 * 60 * 1000;
             return isInSegment && isWithin24h;
         })
         .map(h => h[key]);
 
-    return values.length
-        ? Math.round(values.reduce((a, b) => a + b, 0) / values.length)
-        : 0;
+    if (!values.length) return 0;
+    return Math.round(values.reduce((a, b) => a + b, 0) / values.length);
 }
 
 const CustomTick = ({ x, y, payload, chartData, unit }) => {
@@ -85,7 +68,7 @@ const CustomTick = ({ x, y, payload, chartData, unit }) => {
 
 /* ------------------ COMPONENT ------------------ */
 
-export default function UniversalWeatherChart({ hourly, activeMetricId, currentVal, timezone }) {
+const UniversalWeatherChart = React.memo(function UniversalWeatherChart({ hourly, activeMetricId, currentVal, timezone, units }) {
     if (!hourly || hourly.length === 0) return null;
 
     const currentHourInCity = parseInt(
@@ -102,22 +85,22 @@ export default function UniversalWeatherChart({ hourly, activeMetricId, currentV
             : currentHourInCity >= seg.start || currentHourInCity < seg.end
     );
 
-    // Create the logical flow of time segments
     const rotatedSegments = [
         ...DAY_SEGMENTS.slice(startIndex),
         ...DAY_SEGMENTS.slice(0, startIndex),
     ];
 
+    // 🟢 Updated Labels to match current units setting
     const metricKeyMap = {
-        temperature: { key: 'temperature', unit: '°' },
+        temperature: { key: 'temperature', unit: units === 'imperial' ? '°' : '°' },
         pressure: { key: 'pressure', unit: ' hPa' },
         humidity: { key: 'humidity', unit: '%' },
-        wind: { key: 'windSpeed', unit: ' km/h' }
+        wind: { key: 'windSpeed', unit: units === 'imperial' ? ' mph' : ' km/h' }
     };
 
     const config = metricKeyMap[activeMetricId] || metricKeyMap.temperature;
 
-    // Fixed: All points now use 'displayVal'
+    // 🟢 No conversion needed here, API numbers are correct
     const actualData = [
         { label: "NOW", displayVal: Math.round(currentVal) || 0 },
         ...rotatedSegments.slice(1, 4).map((seg) => ({
@@ -126,7 +109,6 @@ export default function UniversalWeatherChart({ hourly, activeMetricId, currentV
         })),
     ];
 
-    // Padding points for the curve
     const chartData = [
         { label: "", displayVal: actualData[0].displayVal },
         ...actualData,
@@ -151,7 +133,6 @@ export default function UniversalWeatherChart({ hourly, activeMetricId, currentV
                             tickLine={false}
                             tick={<CustomTick chartData={chartData} unit={config.unit} />}
                         />
-                        {/* Domain adjusted to handle large numbers like Pressure */}
                         <YAxis hide domain={["dataMin - 5", "dataMax + 5"]} />
                         <Area
                             type="monotone"
@@ -161,11 +142,12 @@ export default function UniversalWeatherChart({ hourly, activeMetricId, currentV
                             fill="url(#colorMint)"
                             dot={<CustomDot />}
                             isAnimationActive={true}
-                            animationDuration={1000}
                         />
                     </AreaChart>
                 </ResponsiveContainer>
             </div>
         </div>
     );
-}
+});
+
+export default UniversalWeatherChart;

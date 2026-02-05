@@ -1,10 +1,13 @@
 import MetricTile from "./MetricTile";
 import MetricRing from "./MetricRing";
 import { getPollutantSeverity } from "../utils/airQualityHelpers";
+import { getStatusConfig } from "../utils/weatherMetricsHelper";
 
 export default function PollutantMetric({ label, value, unit, max, isActive, onClick, standard }) {
 
     const styles = getPollutantSeverity(label, value, max, standard);
+    console.log(styles)
+    const { color, bgClass } = getStatusConfig(styles.label)
 
     return (
         <button
@@ -17,8 +20,7 @@ export default function PollutantMetric({ label, value, unit, max, isActive, onC
                 label={label}
                 className={isActive ? 'border-white/20 bg-white/10 shadow-2xl shadow-black/20' : ''}
                 sub={
-                    /* Bumped to 10px and font-black for better badge legibility */
-                    <span className={`${styles.bgClass} px-2.5 py-1 rounded-lg border text-[10px] font-black uppercase tracking-wider transition-all duration-500 ease-in-out`}>
+                    <span className={`${bgClass} px-2.5 py-1 rounded-lg border text-[10px] font-black uppercase tracking-wider transition-colors duration-500`}>
                         {styles.label}
                     </span>
                 }
@@ -28,7 +30,7 @@ export default function PollutantMetric({ label, value, unit, max, isActive, onC
                         <MetricRing
                             value={value}
                             max={max}
-                            color={styles.color}
+                            color={color}
                             size={120}
                             stroke={10}
                         />
@@ -45,6 +47,6 @@ export default function PollutantMetric({ label, value, unit, max, isActive, onC
                     </div>
                 </div>
             </MetricTile>
-        </button>
+        </button >
     );
 }

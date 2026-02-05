@@ -1,4 +1,4 @@
-import { getPollutantSeverity } from "../utils/airQualityHelpers";
+import { getPollutantSeverity } from "./utils/airQualityHelpers";
 
 export default function HealthAdvisory({ aqi, pm2_5, forecastData, standard }) {
     // 1. WHO Comparison (Kept as is - separate from AQI standards)

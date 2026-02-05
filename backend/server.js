@@ -188,6 +188,15 @@ db.serialize(() => {
     // audit
     db.run(`ALTER TABLE users ADD COLUMN created_at DATETIME`, () => { });
 
+
+    db.run(`CREATE TABLE IF NOT EXISTS user_settings (
+    email TEXT PRIMARY KEY,
+    aqi_standard TEXT DEFAULT 'primary',
+    units TEXT DEFAULT 'metric',
+    glassmorphism INTEGER DEFAULT 50,
+    auto_refresh INTEGER DEFAULT 1
+)`);
+
     console.log("Database initialized.");
 
 
@@ -1381,6 +1390,37 @@ app.get('/api/sniper/active', async (req, res) => {
 });
 
 
+// GET user settings
+app.get('/api/settings', (req, res) => {
+    const email = req.cookies?.app_user;
+    if (!email) return res.status(401).json({ error: "Unauthorized" });
+
+    db.get("SELECT * FROM user_settings WHERE email = ?", [email], (err, row) => {
+        if (err) return res.status(500).json({ error: err.message });
+        // If no settings exist yet, return defaults
+        res.json(row || { aqi_standard: 'primary', units: 'metric', glassmorphism: 50, auto_refresh: 1 });
+    });
+});
+
+// UPDATE user settings (PATCH)
+app.patch('/api/settings', (req, res) => {
+    const email = req.cookies?.app_user;
+    const { key, value } = req.body; // e.g., { key: 'aqi_standard', value: 'secondary' }
+
+    if (!email) return res.status(401).json({ error: "Unauthorized" });
+
+    // Use INSERT OR REPLACE (Upsert) to handle new users automatically
+    const sql = `
+        INSERT INTO user_settings (email, ${key}) 
+        VALUES (?, ?) 
+        ON CONFLICT(email) DO UPDATE SET ${key} = excluded.${key}
+    `;
+
+    db.run(sql, [email, value], function (err) {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ success: true });
+    });
+});
 
 
 

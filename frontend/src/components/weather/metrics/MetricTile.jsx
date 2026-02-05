@@ -16,7 +16,7 @@ export default function MetricTile({ label, sub, children, className = "" }) {
             </div>
 
             {/* Content Area */}
-            <div className="flex-1 flex items-end justify-between leading-none">
+            <div className="flex-1 flex items-center justify-center leading-none">
                 {children}
             </div>
         </div>

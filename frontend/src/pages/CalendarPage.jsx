@@ -78,7 +78,7 @@ export default function CalendarPage() {
 
   const fetchLogs = async () => {
     try {
-      const resp = await await apiFetch(`/api/logs?email=${email}`);
+      const resp = await apiFetch(`/api/logs?email=${email}`);
 
       if (resp.status === 401 || resp.status === 403) {
         navigate("/hub");

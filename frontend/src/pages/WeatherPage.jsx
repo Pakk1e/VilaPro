@@ -1,5 +1,7 @@
 import { useWeather } from "../hooks/useWeather";
 import { useState, useEffect } from "react";
+import { apiFetch } from "../lib/api";
+import { useAuth } from "../auth/AuthProvider";
 
 
 import countriesData from "../components/weather/utils/countries.json";
@@ -18,6 +20,7 @@ import WeatherIcon from "../components/weather/icons/WeatherIcon";
 import WeatherDashboard from "../components/weather/dashboards/WeatherDashboard";
 import WeatherLayout from "../components/weather/dashboards/WeatherLayout";
 import AirQualityDashboard from "../components/weather/dashboards/AirQualityDashboard";
+import SettingsDashboard from "../components/weather/dashboards/SettingsDashboard";
 
 /* ------------------ CONSTANTS ------------------ */
 const CITIES = [
@@ -66,29 +69,44 @@ const getCountryShortcut = (countryName) => {
 export default function WeatherPage() {
   const [city, setCity] = useState(loadCity);
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [activeMetric, setActiveMetric] = useState('temperature'); // options: 'temperature', 'pressure', 'humidity', 'wind'
-  const [isVisuallyLoading, setIsVisuallyLoading] = useState(false);
+  const [activeMetric, setActiveMetric] = useState('temperature');
   const [activeTab, setActiveTab] = useState("Dashboard");
-
-  const { data, loading, error } = useWeather(city);
   const [subView, setSubView] = useState("primary");
 
-  useEffect(() => {
-    setSubView("primary");
-  }, [activeTab]);
+  const [settings, setSettings] = useState({
+    units: 'metric',
+    refreshRate: '15M',
+    aqi_standard: 'primary',
+    timeFormat: '24H',
+    theme: 'auto',
+    glassmorphism: 50
+  });
 
 
+
+
+  const { user } = useAuth();
+
+  // 1. Pass settings to useWeather so the API knows which units to send
+  const { data, loading, error } = useWeather(city, settings);
+
   useEffect(() => {
-    if (loading) {
-      setIsVisuallyLoading(true);
-    } else {
-      // We only fade out if the API is done AND we've had a moment to show the overlay
-      const timer = setTimeout(() => {
-        setIsVisuallyLoading(false);
-      }, 900); // Increased slightly to ensure the "switch" is hidden
-      return () => clearTimeout(timer);
-    }
-  }, [loading]);
+    apiFetch('/api/settings')
+      .then(res => res.json())
+      .then(data => {
+        if (data && !data.error) setSettings(data);
+      })
+      .catch(err => console.error("Sync error:", err));
+  }, []);
+
+  const updatePersistentSetting = async (key, value) => {
+    setSettings(prev => ({ ...prev, [key]: value }));
+    await apiFetch('/api/settings', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key, value })
+    });
+  };
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -97,50 +115,15 @@ export default function WeatherPage() {
 
   if (!data) return <div className="min-h-screen bg-[#0F172A]" />;
 
-  const { current, hourly, dailyForecast, location } = data;
+  const { current, location } = data;
 
-  // inside WeatherPage component
-
-
-  // Define the available metrics and their data mappings
-  const metricConfigs = {
-    temperature: { label: 'Temperature', unit: '°', icon: 'temp', key: 'temperature' },
-    pressure: { label: 'Pressure', unit: ' hPa', icon: 'pressure', key: 'pressure' },
-    humidity: { label: 'Humidity', unit: '%', icon: 'humidity', key: 'humidity' },
-    wind: { label: 'Wind Speed', unit: ' km/h', icon: 'wind-metric', key: 'windSpeed' }
-  };
-
-  // Determine which 3 metrics should be in the "mini" slots
-  const activeConfig = metricConfigs[activeMetric];
-  const standbyKeys = Object.keys(metricConfigs).filter(key => key !== activeMetric);
-
-  // Manual Ordinal logic for "16th January, 2026"
-  const getOrdinal = (n) => {
-    const s = ["th", "st", "nd", "rd"];
-    const v = n % 100;
-    return n + (s[(v - 20) % 10] || s[v] || s[0]);
-  };
-
-
-  const handleCitySelect = (newCity) => {
-    if (newCity.lat === city.lat && newCity.lon === city.lon) {
-      setIsVisuallyLoading(false);
-      return;
-    }
-    setIsVisuallyLoading(true);
-    setCity(newCity);
-    localStorage.setItem("weather_city", JSON.stringify(newCity));
-  };
-
-  // Replace your existing localizedTime and localHour logic with this:
-
-  // 1. Create a formatter for the specific city timezone
+  // 2. Format localized time respecting the timeFormat setting
   const cityTimeFormatter = new Intl.DateTimeFormat('en-GB', {
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
-    hour12: false,
-    timeZone: data.location.timezone // Use the timezone returned by API
+    hour12: settings.timeFormat === '12H', // 🟢 Reactive to settings
+    timeZone: data.location.timezone
   });
 
   const cityDateFormatter = new Intl.DateTimeFormat('en-GB', {
@@ -150,10 +133,8 @@ export default function WeatherPage() {
     timeZone: data.location.timezone
   });
 
-  // 2. Get the current string for that city
   const localizedTime = cityTimeFormatter.format(currentTime);
 
-  // 3. Extract the hour for Night Mode logic
   const cityHour = parseInt(
     new Intl.DateTimeFormat('en-GB', {
       hour: 'numeric',
@@ -164,7 +145,12 @@ export default function WeatherPage() {
 
   const isNight = cityHour >= 20 || cityHour < 6;
 
-  // 4. Handle the Date with Ordinals
+  // Date Logic
+  const getOrdinal = (n) => {
+    const s = ["th", "st", "nd", "rd"];
+    const v = n % 100;
+    return n + (s[(v - 20) % 10] || s[v] || s[0]);
+  };
   const dateParts = cityDateFormatter.formatToParts(currentTime);
   const dayVal = parseInt(dateParts.find(p => p.type === 'day').value);
   const monthYearStr = `${dateParts.find(p => p.type === 'month').value} ${dateParts.find(p => p.type === 'year').value}`;
@@ -181,12 +167,15 @@ export default function WeatherPage() {
       setSubView={setSubView}
       location={data.location.name}
       temperature={data.current.temperature}
-      onCitySelect={handleCitySelect}
+      onCitySelect={(newCity) => {
+        setCity(newCity);
+        localStorage.setItem("weather_city", JSON.stringify(newCity));
+      }}
     >
-      {/* SWITCH CONTENT BASED ON TAB */}
       {activeTab === "Dashboard" && (
         <WeatherDashboard
           data={data}
+          settings={settings} // 🟢 Pass the full settings object
           activeMetric={activeMetric}
           setActiveMetric={setActiveMetric}
           isNight={isNight}
@@ -200,12 +189,20 @@ export default function WeatherPage() {
       {activeTab === "Air Quality" && (
         <AirQualityDashboard
           city={city}
-          standard={subView}
+          standard={settings.aqi_standard}
+        />
+      )}
+      {activeTab === "Settings" && (
+        <SettingsDashboard
+          settings={settings}
+          updateSetting={updatePersistentSetting}
+          email={user?.email}
+          lastUpdated={data?.current?.updatedAt}
         />
       )}
 
       {/* Fallback for other tabs */}
-      {!["Dashboard", "Air Quality"].includes(activeTab) && (
+      {!["Dashboard", "Air Quality", "Settings"].includes(activeTab) && (
         <div className="col-start-2 row-start-2 flex items-center justify-center bg-white/5 rounded-[4rem]">
           <h2 className="text-3xl font-bold opacity-20">{activeTab} Coming Soon</h2>
         </div>
