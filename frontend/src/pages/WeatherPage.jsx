@@ -72,15 +72,8 @@ export default function WeatherPage() {
   const [activeMetric, setActiveMetric] = useState('temperature');
   const [activeTab, setActiveTab] = useState("Dashboard");
   const [subView, setSubView] = useState("primary");
-
-  const [settings, setSettings] = useState({
-    units: 'metric',
-    refreshRate: '15M',
-    aqi_standard: 'primary',
-    timeFormat: '24H',
-    theme: 'auto',
-    glassmorphism: 50
-  });
+  const [settings, setSettings] = useState(null)
+  const [hasLoadedSettings, setHasLoadedSettings] = useState(false);
 
 
 
@@ -88,7 +81,7 @@ export default function WeatherPage() {
   const { user } = useAuth();
 
   // 1. Pass settings to useWeather so the API knows which units to send
-  const { data, loading, error } = useWeather(city, settings);
+
 
   useEffect(() => {
     apiFetch('/api/settings')
@@ -96,8 +89,11 @@ export default function WeatherPage() {
       .then(data => {
         if (data && !data.error) setSettings(data);
       })
-      .catch(err => console.error("Sync error:", err));
+      .catch(err => console.error("Sync error:", err))
+      .finally(() => setHasLoadedSettings(true));
   }, []);
+
+  const { data, loading, error } = useWeather(city, settings);
 
   const updatePersistentSetting = async (key, value) => {
     setSettings(prev => ({ ...prev, [key]: value }));
@@ -113,9 +109,18 @@ export default function WeatherPage() {
     return () => clearInterval(timer);
   }, []);
 
+  if (!hasLoadedSettings || (!data && loading)) {
+    return <div className="min-h-screen bg-[#0F172A] flex items-center justify-center">
+      <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-[#2DD4BF]" />
+    </div>;
+  }
+
   if (!data) return <div className="min-h-screen bg-[#0F172A]" />;
 
+
   const { current, location } = data;
+
+
 
   // 2. Format localized time respecting the timeFormat setting
   const cityTimeFormatter = new Intl.DateTimeFormat('en-GB', {

@@ -5,13 +5,17 @@ export function useWeather({ name, lat, lon, country }, settings) {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
+    //Settings Guardian
+    const currentUnits = settings?.units || 'metric';
+    const currentRefresh = settings?.refreshRate || '30M';
+
     // Dynamic refresh rate calculation
-    const refreshInterval = settings.refreshRate === "5M" ? 300000
-        : settings.refreshRate === "15M" ? 900000
+    const refreshInterval = currentRefresh === "5M" ? 300000
+        : currentRefresh === "15M" ? 900000
             : 1800000;
 
     const fetchWeather = useCallback(async (tz = "auto") => {
-        if (!lat || !lon) return;
+        if (!lat || !lon || !settings) return;
         setError(null);
 
         try {
@@ -19,9 +23,9 @@ export function useWeather({ name, lat, lon, country }, settings) {
 
             // 🟢 Prepare Unit Parameters
             const unitParams = {
-                temperature_unit: settings.units === 'imperial' ? 'fahrenheit' : 'celsius',
-                wind_speed_unit: settings.units === 'imperial' ? 'mph' : 'kmh',
-                precipitation_unit: settings.units === 'imperial' ? 'inch' : 'mm',
+                temperature_unit: currentUnits === 'imperial' ? 'fahrenheit' : 'celsius',
+                wind_speed_unit: currentUnits === 'imperial' ? 'mph' : 'kmh',
+                precipitation_unit: currentUnits === 'imperial' ? 'inch' : 'mm',
             };
 
             url.search = new URLSearchParams({
@@ -126,7 +130,7 @@ export function useWeather({ name, lat, lon, country }, settings) {
             setLoading(false);
         }
 
-    }, [name, lat, lon, country, settings.units]); // 🟢 Fetch again if units change
+    }, [name, lat, lon, country, currentUnits]); // 🟢 Fetch again if units change
 
     useEffect(() => {
         setLoading(true);
