@@ -1,0 +1,4 @@
+*.bin
+*.txt
+data*
+temp.grib2
