@@ -312,6 +312,8 @@ export default function CalendarPage() {
           noedit: data.noedit || []
         };
 
+        console.log(backendAvailability, fetchRequestIdRef)
+
         if (fetchRequestIdRef.current === requestId) {
           setAvailability(prev => {
             const optimisticReserved = prev.reserved || [];
@@ -330,7 +332,7 @@ export default function CalendarPage() {
 
             const mergedAvailability = {
               ...backendAvailability,
-              reserved: mergedReserved
+              reserved: backendReserved
             };
 
             // ✅ Cache EXACTLY what we apply

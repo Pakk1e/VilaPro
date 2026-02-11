@@ -5,12 +5,64 @@
   display: none;
 }
 
+.weather-borders {
+  filter:
+    brightness(0) drop-shadow(0 0 1px rgba(0, 0, 0, 0.6)) drop-shadow(0 0 3px rgba(0, 0, 0, 0.4));
+}
+
+.weather-lines {
+  filter:
+    brightness(0)
+    /* black */
+    contrast(200%);
+}
+
+
+canvas {
+  /* Overlay allows the dark hillshading of the mountains 
+     to "burn through" the weather colors */
+  mix-blend-mode: overlay;
+  opacity: 0.85;
+  filter: saturate(0.9) brightness(1.1);
+  pointer-events: none;
+
+}
+
+.base-terrain {
+  /* Boost mountain contrast */
+  filter: brightness(0.6) contrast(1.4) grayscale(0.3);
+}
+
+.weather-canvas {
+  /* 'overlay' preserves the dark shadows of the mountains below */
+  mix-blend-mode: overlay;
+  /* 'saturate' boost makes the colors pop against the dark ground */
+  filter: saturate(1.2) brightness(1.1);
+}
+
+/* Make labels crisp and floating */
+.leaflet-tile-pane [src*="dark_only_labels"] {
+  filter: brightness(1.2) contrast(1.2);
+}
+
+
 /* Hide scrollbar for IE, Edge and Firefox */
 .scrollbar-hide {
   -ms-overflow-style: none;
   /* IE and Edge */
   scrollbar-width: none;
   /* Firefox */
+}
+
+/* Hide the attribution to prevent layout shifting at the bottom edge */
+.leaflet-control-attribution {
+  display: none !important;
+}
+
+/* Ensure the map respects the rounded corners of its parent */
+.leaflet-container {
+  border-radius: inherit !important;
+  background: #0F172A !important;
 }
 
 @layer utilities {

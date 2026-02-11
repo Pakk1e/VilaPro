@@ -195,7 +195,16 @@ db.serialize(() => {
     units TEXT DEFAULT 'metric',
     glassmorphism INTEGER DEFAULT 50,
     auto_refresh INTEGER DEFAULT 1
-)`);
+    )`);
+
+
+    db.run(`CREATE TABLE IF NOT EXISTS weather_cache (
+    city_name TEXT PRIMARY KEY,
+    lat REAL,
+    lon REAL,
+    data TEXT,
+    last_updated DATETIME
+    )`);
 
     console.log("Database initialized.");
 
@@ -211,10 +220,37 @@ db.serialize(() => {
 
 app.use("/api/admin", createAdminApi(db, getVillaProTimestamp));
 
-// --- NIGHTLY AUTOMATION ---
 
 
 
+
+async function updateWeatherCache(cityName, lat, lon) {
+    try {
+        //console.log(`🌤️ Refreshing weather for ${cityName}...`);
+
+        // Fetching 24h forecast for multiple layers at once
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,relative_humidity_2m,precipitation,cloud_cover,wind_speed_10m&forecast_days=1`;
+        const response = await axios.get(url);
+
+        const jsonData = JSON.stringify(response.data);
+        const now = getVillaProTimestamp();
+
+        db.run(
+            `INSERT INTO weather_cache (city_name, lat, lon, data, last_updated) 
+             VALUES (?, ?, ?, ?, ?)
+             ON CONFLICT(city_name) DO UPDATE SET data=excluded.data, last_updated=excluded.last_updated`,
+            [cityName, lat, lon, jsonData, now]
+        );
+    } catch (err) {
+        console.error("❌ Weather update failed:", err.message);
+    }
+}
+
+// Start the 30-minute interval
+setInterval(() => {
+    // You can pull these coordinates from your settings or a hardcoded list
+    updateWeatherCache("Bratislava", 48.1486, 17.1077);
+}, 30 * 60 * 1000);
 
 
 
@@ -255,7 +291,7 @@ async function runNightlyAutomation(force = false) {
 
         for (const rule of rules) {
             const target = new Date(now);
-            target.setDate(target.getDate() + 15);
+            target.setDate(target.getDate() + 14);
             await applyRuleToDate(rule.email, rule, target);
         }
     });
@@ -425,7 +461,7 @@ async function executeRule(email, rule) {
         [email, `🤖 Robot: Starting scan for plate ${rule.plate}`, getVillaProTimestamp()]
     );
 
-    for (let i = 0; i <= 14; i++) {
+    for (let i = 0; i < 14; i++) {
         const target = new Date();
         target.setDate(target.getDate() + i);
 
@@ -1421,6 +1457,12 @@ app.patch('/api/settings', (req, res) => {
         res.json({ success: true });
     });
 });
+
+
+
+
+
+
 
 
 

@@ -1,0 +1,103 @@
+.
+├── backend
+│   ├── admin.api.js
+│   ├── package.json
+│   ├── package-lock.json
+│   ├── parking.db
+│   ├── parking.db-shm
+│   └── server.js
+├── CHANGELOG.md
+├── deploy.sh
+├── ecosystem.config.js
+├── frontend
+│   ├── eslint.config.js
+│   ├── index.html
+│   ├── package.json
+│   ├── package-lock.json
+│   ├── postcss.config.js
+│   ├── public
+│   │   ├── borders.geojson
+│   │   ├── park_map.geojson
+│   │   ├── park_pro.svg
+│   │   ├── shaders
+│   │   │   └── weather.frag
+│   │   ├── temperature_lut.png
+│   │   └── vite.svg
+│   ├── README.md
+│   ├── src
+│   │   ├── App.css
+│   │   ├── App.jsx
+│   │   ├── App.old.jsx
+│   │   ├── assets
+│   │   │   └── react.svg
+│   │   ├── auth
+│   │   │   └── AuthProvider.jsx
+│   │   ├── components
+│   │   │   ├── CityModal.jsx
+│   │   │   ├── PageHeader.jsx
+│   │   │   ├── ParkingMapModal.jsx
+│   │   │   ├── ParkingMapSvg.jsx
+│   │   │   ├── VillaProModal.jsx
+│   │   │   ├── weather
+│   │   │   └── ZoomableSvg.jsx
+│   │   ├── config.js
+│   │   ├── engine
+│   │   │   ├── components
+│   │   │   ├── Core.js
+│   │   │   ├── MarkerManager.js
+│   │   │   ├── Renderer.js
+│   │   │   ├── TileManager.js
+│   │   │   ├── Viewport.js
+│   │   │   └── WeatherLayer.js
+│   │   ├── guards
+│   │   │   ├── RequireApproved.jsx
+│   │   │   ├── RequireAuth.jsx
+│   │   │   └── RequireRole.jsx
+│   │   ├── Header.jsx
+│   │   ├── hooks
+│   │   │   └── useWeather.js
+│   │   ├── index.css
+│   │   ├── lib
+│   │   │   └── api.js
+│   │   ├── main.jsx
+│   │   ├── pages
+│   │   │   ├── AdminPage.jsx
+│   │   │   ├── CalendarPage.jsx
+│   │   │   ├── HubPage.jsx
+│   │   │   ├── LoginPage.jsx
+│   │   │   ├── RegisterPage.jsx
+│   │   │   └── WeatherPage.jsx
+│   │   ├── router
+│   │   │   └── AppRouter.jsx
+│   │   └── utils
+│   │       └── daySegments.js
+│   └── vite.config.js
+├── package.json
+├── package-lock.json
+├── parking.db
+├── README.md
+├── structure.txt
+├── test_weather.grib2
+├── weather_dump.json
+├── weather_engine
+│   ├── data
+│   ├── scripts
+│   │   ├── data_stream.txt
+│   │   ├── gfs_f000.bin
+│   │   ├── gfs_f003.bin
+│   │   ├── gfs_f006.bin
+│   │   ├── gfs_f009.bin
+│   │   ├── gfs_f012.bin
+│   │   ├── gfs_f015.bin
+│   │   ├── gfs_f018.bin
+│   │   ├── gfs_f021.bin
+│   │   ├── gfs_f024.bin
+│   │   ├── pack_binary.js
+│   │   ├── temp.grib2
+│   │   └── update_weather.sh
+│   ├── service.js
+│   └── weather_log.txt
+└── weather_service
+    └── weather_server.js
+
+22 directories, 79 files

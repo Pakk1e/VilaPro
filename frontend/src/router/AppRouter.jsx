@@ -9,6 +9,7 @@ import WeatherPage from "../pages/WeatherPage";
 import AdminPage from "../pages/AdminPage";
 import RegisterPage from "../pages/RegisterPage";
 import RequireApproved from "../guards/RequireApproved";
+import WeatherMapPage from "../pages/WeatherMapPage";
 
 export default function AppRouter() {
   return (
@@ -48,6 +49,16 @@ export default function AppRouter() {
             </RequireAuth>
           }
         />
+
+        <Route
+          path="/weather/map"
+          element={
+            <RequireAuth>
+              <WeatherMapPage />
+            </RequireAuth>
+          }
+        />
+
 
         <Route
           path="/admin"

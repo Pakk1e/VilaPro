@@ -2,9 +2,16 @@ import WeatherNav from "../WeatherNav";
 import WeatherTopBar from "../WeatherTopBar";
 
 export default function WeatherLayout({ children, activeTab, setActiveTab, subView, setSubView, location, onCitySelect }) {
+    const isWeatherDashboard = activeTab === "Dashboard";
     return (
         <div className="h-screen max-h-screen bg-[#0F172A] p-6 lg:p-8 text-white overflow-hidden font-sans">
-            <div className="h-full grid grid-cols-[240px_1.6fr_0.8fr] grid-rows-[60px_1fr_auto] gap-6">
+            <div
+                className={`h-full grid grid-rows-[60px_1fr_auto] gap-6 ${isWeatherDashboard
+                        ? "grid-cols-[240px_1.6fr_0.8fr]"
+                        : "grid-cols-[240px_1fr]"
+                    }`}
+            >
+
 
                 <aside className="row-span-3 flex flex-col">
                     <WeatherNav activeTab={activeTab} onTabChange={setActiveTab} />

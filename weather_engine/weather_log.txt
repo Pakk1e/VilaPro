@@ -1,0 +1,456 @@
+--- Checking Cycle 18z ---
+Failed to get f000 for 18z
+--- Checking Cycle 12z ---
+Failed to get f000 for 12z
+No data found for today's cycles.
+--- Checking Cycle 18z ---
+Failed to get f000 for 18z
+--- Checking Cycle 12z ---
+Failed to get f000 for 12z
+No data found for today's cycles.
+--- Attempting: Date 20260207, Cycle 18z ---
+Cycle 18z on 20260207 not available yet.
+--- Attempting: Date 20260207, Cycle 12z ---
+Cycle 12z on 20260207 not available yet.
+--- Attempting: Date 20260207, Cycle 06z ---
+✅ Packed 5191200 values into gfs_f000.bin
+Created gfs_f000.bin (20M)
+✅ Packed 5191200 values into gfs_f003.bin
+Created gfs_f003.bin (20M)
+✅ Packed 5191200 values into gfs_f006.bin
+Created gfs_f006.bin (20M)
+✅ Packed 5191200 values into gfs_f009.bin
+Created gfs_f009.bin (20M)
+✅ Packed 5191200 values into gfs_f012.bin
+Created gfs_f012.bin (20M)
+✅ Packed 5191200 values into gfs_f015.bin
+Created gfs_f015.bin (20M)
+✅ Packed 5191200 values into gfs_f018.bin
+Created gfs_f018.bin (20M)
+✅ Packed 5191200 values into gfs_f021.bin
+Created gfs_f021.bin (20M)
+✅ Packed 5191200 values into gfs_f024.bin
+Created gfs_f024.bin (20M)
+Successfully updated to Today's 06z run.
+--- Attempting: Date 20260207, Cycle 18z ---
+Cycle 18z on 20260207 not available yet.
+--- Attempting: Date 20260207, Cycle 12z ---
+✅ Packed 5191200 values into gfs_f000.bin
+Created gfs_f000.bin (20M)
+✅ Packed 5191200 values into gfs_f003.bin
+Created gfs_f003.bin (20M)
+✅ Packed 5191200 values into gfs_f006.bin
+Created gfs_f006.bin (20M)
+✅ Packed 5191200 values into gfs_f009.bin
+Created gfs_f009.bin (20M)
+✅ Packed 5191200 values into gfs_f012.bin
+Created gfs_f012.bin (20M)
+✅ Packed 5191200 values into gfs_f015.bin
+Created gfs_f015.bin (20M)
+✅ Packed 5191200 values into gfs_f018.bin
+Created gfs_f018.bin (20M)
+✅ Packed 5191200 values into gfs_f021.bin
+Created gfs_f021.bin (20M)
+✅ Packed 5191200 values into gfs_f024.bin
+Created gfs_f024.bin (20M)
+Successfully updated to Today's 12z run.
+--- Attempting: Date 20260208, Cycle 18z ---
+Cycle 18z on 20260208 not available yet.
+--- Attempting: Date 20260208, Cycle 12z ---
+Cycle 12z on 20260208 not available yet.
+--- Attempting: Date 20260208, Cycle 06z ---
+Cycle 06z on 20260208 not available yet.
+--- Attempting: Date 20260208, Cycle 00z ---
+Cycle 00z on 20260208 not available yet.
+--- Attempting: Date 20260207, Cycle 18z ---
+✅ Packed 5191200 values into gfs_f000.bin
+Created gfs_f000.bin (20M)
+✅ Packed 5191200 values into gfs_f003.bin
+Created gfs_f003.bin (20M)
+✅ Packed 5191200 values into gfs_f006.bin
+Created gfs_f006.bin (20M)
+✅ Packed 5191200 values into gfs_f009.bin
+Created gfs_f009.bin (20M)
+✅ Packed 5191200 values into gfs_f012.bin
+Created gfs_f012.bin (20M)
+✅ Packed 5191200 values into gfs_f015.bin
+Created gfs_f015.bin (20M)
+✅ Packed 5191200 values into gfs_f018.bin
+Created gfs_f018.bin (20M)
+✅ Packed 5191200 values into gfs_f021.bin
+Created gfs_f021.bin (20M)
+✅ Packed 5191200 values into gfs_f024.bin
+Created gfs_f024.bin (20M)
+Successfully updated to Yesterday's 18z run.
+--- Attempting: Date 20260208, Cycle 18z ---
+Cycle 18z on 20260208 not available yet.
+--- Attempting: Date 20260208, Cycle 12z ---
+Cycle 12z on 20260208 not available yet.
+--- Attempting: Date 20260208, Cycle 06z ---
+Cycle 06z on 20260208 not available yet.
+--- Attempting: Date 20260208, Cycle 00z ---
+✅ Packed 5191200 values into gfs_f000.bin
+Created gfs_f000.bin (20M)
+✅ Packed 5191200 values into gfs_f003.bin
+Created gfs_f003.bin (20M)
+✅ Packed 5191200 values into gfs_f006.bin
+Created gfs_f006.bin (20M)
+✅ Packed 5191200 values into gfs_f009.bin
+Created gfs_f009.bin (20M)
+✅ Packed 5191200 values into gfs_f012.bin
+Created gfs_f012.bin (20M)
+✅ Packed 5191200 values into gfs_f015.bin
+Created gfs_f015.bin (20M)
+✅ Packed 5191200 values into gfs_f018.bin
+Created gfs_f018.bin (20M)
+✅ Packed 5191200 values into gfs_f021.bin
+Created gfs_f021.bin (20M)
+✅ Packed 5191200 values into gfs_f024.bin
+Created gfs_f024.bin (20M)
+Successfully updated to Today's 00z run.
+--- Attempting: Date 20260208, Cycle 18z ---
+Cycle 18z on 20260208 not available yet.
+--- Attempting: Date 20260208, Cycle 12z ---
+Cycle 12z on 20260208 not available yet.
+--- Attempting: Date 20260208, Cycle 06z ---
+✅ Packed 5191200 values into gfs_f000.bin
+Created gfs_f000.bin (20M)
+✅ Packed 5191200 values into gfs_f003.bin
+Created gfs_f003.bin (20M)
+✅ Packed 5191200 values into gfs_f006.bin
+Created gfs_f006.bin (20M)
+✅ Packed 5191200 values into gfs_f009.bin
+Created gfs_f009.bin (20M)
+✅ Packed 5191200 values into gfs_f012.bin
+Created gfs_f012.bin (20M)
+✅ Packed 5191200 values into gfs_f015.bin
+Created gfs_f015.bin (20M)
+✅ Packed 5191200 values into gfs_f018.bin
+Created gfs_f018.bin (20M)
+✅ Packed 5191200 values into gfs_f021.bin
+Created gfs_f021.bin (20M)
+✅ Packed 5191200 values into gfs_f024.bin
+Created gfs_f024.bin (20M)
+Successfully updated to Today's 06z run.
+--- Attempting: Date 20260208, Cycle 18z ---
+Cycle 18z on 20260208 not available yet.
+--- Attempting: Date 20260208, Cycle 12z ---
+✅ Packed 5191200 values into gfs_f000.bin
+Created gfs_f000.bin (20M)
+✅ Packed 5191200 values into gfs_f003.bin
+Created gfs_f003.bin (20M)
+✅ Packed 5191200 values into gfs_f006.bin
+Created gfs_f006.bin (20M)
+✅ Packed 5191200 values into gfs_f009.bin
+Created gfs_f009.bin (20M)
+✅ Packed 5191200 values into gfs_f012.bin
+Created gfs_f012.bin (20M)
+✅ Packed 5191200 values into gfs_f015.bin
+Created gfs_f015.bin (20M)
+✅ Packed 5191200 values into gfs_f018.bin
+Created gfs_f018.bin (20M)
+✅ Packed 5191200 values into gfs_f021.bin
+Created gfs_f021.bin (20M)
+✅ Packed 5191200 values into gfs_f024.bin
+Created gfs_f024.bin (20M)
+Successfully updated to Today's 12z run.
+--- Attempting: Date 20260209, Cycle 18z ---
+Cycle 18z on 20260209 not available yet.
+--- Attempting: Date 20260209, Cycle 12z ---
+Cycle 12z on 20260209 not available yet.
+--- Attempting: Date 20260209, Cycle 06z ---
+Cycle 06z on 20260209 not available yet.
+--- Attempting: Date 20260209, Cycle 00z ---
+Cycle 00z on 20260209 not available yet.
+--- Attempting: Date 20260208, Cycle 18z ---
+✅ Packed 5191200 values into gfs_f000.bin
+Created gfs_f000.bin (20M)
+✅ Packed 5191200 values into gfs_f003.bin
+Created gfs_f003.bin (20M)
+✅ Packed 5191200 values into gfs_f006.bin
+Created gfs_f006.bin (20M)
+✅ Packed 5191200 values into gfs_f009.bin
+Created gfs_f009.bin (20M)
+✅ Packed 5191200 values into gfs_f012.bin
+Created gfs_f012.bin (20M)
+✅ Packed 5191200 values into gfs_f015.bin
+Created gfs_f015.bin (20M)
+✅ Packed 5191200 values into gfs_f018.bin
+Created gfs_f018.bin (20M)
+✅ Packed 5191200 values into gfs_f021.bin
+Created gfs_f021.bin (20M)
+✅ Packed 5191200 values into gfs_f024.bin
+Created gfs_f024.bin (20M)
+Successfully updated to Yesterday's 18z run.
+--- Attempting: Date 20260209, Cycle 18z ---
+Cycle 18z on 20260209 not available yet.
+--- Attempting: Date 20260209, Cycle 12z ---
+Cycle 12z on 20260209 not available yet.
+--- Attempting: Date 20260209, Cycle 06z ---
+Cycle 06z on 20260209 not available yet.
+--- Attempting: Date 20260209, Cycle 00z ---
+✅ Packed 5191200 values into gfs_f000.bin
+Created gfs_f000.bin (20M)
+✅ Packed 5191200 values into gfs_f003.bin
+Created gfs_f003.bin (20M)
+✅ Packed 5191200 values into gfs_f006.bin
+Created gfs_f006.bin (20M)
+✅ Packed 5191200 values into gfs_f009.bin
+Created gfs_f009.bin (20M)
+✅ Packed 5191200 values into gfs_f012.bin
+Created gfs_f012.bin (20M)
+✅ Packed 5191200 values into gfs_f015.bin
+Created gfs_f015.bin (20M)
+✅ Packed 5191200 values into gfs_f018.bin
+Created gfs_f018.bin (20M)
+✅ Packed 5191200 values into gfs_f021.bin
+Created gfs_f021.bin (20M)
+✅ Packed 5191200 values into gfs_f024.bin
+Created gfs_f024.bin (20M)
+Successfully updated to Today's 00z run.
+--- Attempting: Date 20260209, Cycle 18z ---
+Cycle 18z on 20260209 not available yet.
+--- Attempting: Date 20260209, Cycle 12z ---
+Cycle 12z on 20260209 not available yet.
+--- Attempting: Date 20260209, Cycle 06z ---
+✅ Packed 5191200 values into gfs_f000.bin
+Created gfs_f000.bin (20M)
+✅ Packed 5191200 values into gfs_f003.bin
+Created gfs_f003.bin (20M)
+✅ Packed 5191200 values into gfs_f006.bin
+Created gfs_f006.bin (20M)
+✅ Packed 5191200 values into gfs_f009.bin
+Created gfs_f009.bin (20M)
+✅ Packed 5191200 values into gfs_f012.bin
+Created gfs_f012.bin (20M)
+✅ Packed 5191200 values into gfs_f015.bin
+Created gfs_f015.bin (20M)
+✅ Packed 5191200 values into gfs_f018.bin
+Created gfs_f018.bin (20M)
+✅ Packed 5191200 values into gfs_f021.bin
+Created gfs_f021.bin (20M)
+✅ Packed 5191200 values into gfs_f024.bin
+Created gfs_f024.bin (20M)
+Successfully updated to Today's 06z run.
+--- Attempting: Date 20260209, Cycle 18z ---
+Cycle 18z on 20260209 not available yet.
+--- Attempting: Date 20260209, Cycle 12z ---
+✅ Packed 5191200 values into gfs_f000.bin
+Created gfs_f000.bin (20M)
+✅ Packed 5191200 values into gfs_f003.bin
+Created gfs_f003.bin (20M)
+✅ Packed 5191200 values into gfs_f006.bin
+Created gfs_f006.bin (20M)
+✅ Packed 5191200 values into gfs_f009.bin
+Created gfs_f009.bin (20M)
+✅ Packed 5191200 values into gfs_f012.bin
+Created gfs_f012.bin (20M)
+✅ Packed 5191200 values into gfs_f015.bin
+Created gfs_f015.bin (20M)
+✅ Packed 5191200 values into gfs_f018.bin
+Created gfs_f018.bin (20M)
+✅ Packed 5191200 values into gfs_f021.bin
+Created gfs_f021.bin (20M)
+✅ Packed 5191200 values into gfs_f024.bin
+Created gfs_f024.bin (20M)
+Successfully updated to Today's 12z run.
+--- Attempting: Date 20260210, Cycle 18z ---
+Cycle 18z on 20260210 not available yet.
+--- Attempting: Date 20260210, Cycle 12z ---
+Cycle 12z on 20260210 not available yet.
+--- Attempting: Date 20260210, Cycle 06z ---
+Cycle 06z on 20260210 not available yet.
+--- Attempting: Date 20260210, Cycle 00z ---
+Cycle 00z on 20260210 not available yet.
+--- Attempting: Date 20260209, Cycle 18z ---
+✅ Packed 5191200 values into gfs_f000.bin
+Created gfs_f000.bin (20M)
+✅ Packed 5191200 values into gfs_f003.bin
+Created gfs_f003.bin (20M)
+✅ Packed 5191200 values into gfs_f006.bin
+Created gfs_f006.bin (20M)
+✅ Packed 5191200 values into gfs_f009.bin
+Created gfs_f009.bin (20M)
+✅ Packed 5191200 values into gfs_f012.bin
+Created gfs_f012.bin (20M)
+✅ Packed 5191200 values into gfs_f015.bin
+Created gfs_f015.bin (20M)
+✅ Packed 5191200 values into gfs_f018.bin
+Created gfs_f018.bin (20M)
+✅ Packed 5191200 values into gfs_f021.bin
+Created gfs_f021.bin (20M)
+✅ Packed 5191200 values into gfs_f024.bin
+Created gfs_f024.bin (20M)
+Successfully updated to Yesterday's 18z run.
+--- Attempting: Date 20260210, Cycle 18z ---
+Cycle 18z on 20260210 not available yet.
+--- Attempting: Date 20260210, Cycle 12z ---
+Cycle 12z on 20260210 not available yet.
+--- Attempting: Date 20260210, Cycle 06z ---
+Cycle 06z on 20260210 not available yet.
+--- Attempting: Date 20260210, Cycle 00z ---
+✅ Packed 5191200 values into gfs_f000.bin
+Created gfs_f000.bin (20M)
+✅ Packed 5191200 values into gfs_f003.bin
+Created gfs_f003.bin (20M)
+✅ Packed 5191200 values into gfs_f006.bin
+Created gfs_f006.bin (20M)
+✅ Packed 5191200 values into gfs_f009.bin
+Created gfs_f009.bin (20M)
+✅ Packed 5191200 values into gfs_f012.bin
+Created gfs_f012.bin (20M)
+✅ Packed 5191200 values into gfs_f015.bin
+Created gfs_f015.bin (20M)
+✅ Packed 5191200 values into gfs_f018.bin
+Created gfs_f018.bin (20M)
+✅ Packed 5191200 values into gfs_f021.bin
+Created gfs_f021.bin (20M)
+✅ Packed 5191200 values into gfs_f024.bin
+Created gfs_f024.bin (20M)
+Successfully updated to Today's 00z run.
+--- Attempting: Date 20260210, Cycle 18z ---
+Cycle 18z on 20260210 not available yet.
+--- Attempting: Date 20260210, Cycle 12z ---
+Cycle 12z on 20260210 not available yet.
+--- Attempting: Date 20260210, Cycle 06z ---
+✅ Packed 5191200 values into gfs_f000.bin
+Created gfs_f000.bin (20M)
+✅ Packed 5191200 values into gfs_f003.bin
+Created gfs_f003.bin (20M)
+✅ Packed 5191200 values into gfs_f006.bin
+Created gfs_f006.bin (20M)
+✅ Packed 5191200 values into gfs_f009.bin
+Created gfs_f009.bin (20M)
+✅ Packed 5191200 values into gfs_f012.bin
+Created gfs_f012.bin (20M)
+✅ Packed 5191200 values into gfs_f015.bin
+Created gfs_f015.bin (20M)
+✅ Packed 5191200 values into gfs_f018.bin
+Created gfs_f018.bin (20M)
+✅ Packed 5191200 values into gfs_f021.bin
+Created gfs_f021.bin (20M)
+✅ Packed 5191200 values into gfs_f024.bin
+Created gfs_f024.bin (20M)
+Successfully updated to Today's 06z run.
+--- Attempting: Date 20260210, Cycle 18z ---
+Cycle 18z on 20260210 not available yet.
+--- Attempting: Date 20260210, Cycle 12z ---
+✅ Packed 5191200 values into gfs_f000.bin
+Created gfs_f000.bin (20M)
+✅ Packed 5191200 values into gfs_f003.bin
+Created gfs_f003.bin (20M)
+✅ Packed 5191200 values into gfs_f006.bin
+Created gfs_f006.bin (20M)
+✅ Packed 5191200 values into gfs_f009.bin
+Created gfs_f009.bin (20M)
+✅ Packed 5191200 values into gfs_f012.bin
+Created gfs_f012.bin (20M)
+✅ Packed 5191200 values into gfs_f015.bin
+Created gfs_f015.bin (20M)
+✅ Packed 5191200 values into gfs_f018.bin
+Created gfs_f018.bin (20M)
+✅ Packed 5191200 values into gfs_f021.bin
+Created gfs_f021.bin (20M)
+✅ Packed 5191200 values into gfs_f024.bin
+Created gfs_f024.bin (20M)
+Successfully updated to Today's 12z run.
+--- Attempting: Date 20260211, Cycle 18z ---
+Cycle 18z on 20260211 not available yet.
+--- Attempting: Date 20260211, Cycle 12z ---
+Cycle 12z on 20260211 not available yet.
+--- Attempting: Date 20260211, Cycle 06z ---
+Cycle 06z on 20260211 not available yet.
+--- Attempting: Date 20260211, Cycle 00z ---
+Cycle 00z on 20260211 not available yet.
+--- Attempting: Date 20260210, Cycle 18z ---
+✅ Packed 5191200 values into gfs_f000.bin
+Created gfs_f000.bin (20M)
+✅ Packed 5191200 values into gfs_f003.bin
+Created gfs_f003.bin (20M)
+✅ Packed 5191200 values into gfs_f006.bin
+Created gfs_f006.bin (20M)
+✅ Packed 5191200 values into gfs_f009.bin
+Created gfs_f009.bin (20M)
+✅ Packed 5191200 values into gfs_f012.bin
+Created gfs_f012.bin (20M)
+✅ Packed 5191200 values into gfs_f015.bin
+Created gfs_f015.bin (20M)
+✅ Packed 5191200 values into gfs_f018.bin
+Created gfs_f018.bin (20M)
+✅ Packed 5191200 values into gfs_f021.bin
+Created gfs_f021.bin (20M)
+✅ Packed 5191200 values into gfs_f024.bin
+Created gfs_f024.bin (20M)
+Successfully updated to Yesterday's 18z run.
+--- Attempting: Date 20260211, Cycle 18z ---
+Cycle 18z on 20260211 not available yet.
+--- Attempting: Date 20260211, Cycle 12z ---
+Cycle 12z on 20260211 not available yet.
+--- Attempting: Date 20260211, Cycle 06z ---
+Cycle 06z on 20260211 not available yet.
+--- Attempting: Date 20260211, Cycle 00z ---
+✅ Packed 5191200 values into gfs_f000.bin
+Created gfs_f000.bin (20M)
+✅ Packed 5191200 values into gfs_f003.bin
+Created gfs_f003.bin (20M)
+✅ Packed 5191200 values into gfs_f006.bin
+Created gfs_f006.bin (20M)
+✅ Packed 5191200 values into gfs_f009.bin
+Created gfs_f009.bin (20M)
+✅ Packed 5191200 values into gfs_f012.bin
+Created gfs_f012.bin (20M)
+✅ Packed 5191200 values into gfs_f015.bin
+Created gfs_f015.bin (20M)
+✅ Packed 5191200 values into gfs_f018.bin
+Created gfs_f018.bin (20M)
+✅ Packed 5191200 values into gfs_f021.bin
+Created gfs_f021.bin (20M)
+✅ Packed 5191200 values into gfs_f024.bin
+Created gfs_f024.bin (20M)
+Successfully updated to Today's 00z run.
+--- Attempting: Date 20260211, Cycle 18z ---
+Cycle 18z on 20260211 not available yet.
+--- Attempting: Date 20260211, Cycle 12z ---
+Cycle 12z on 20260211 not available yet.
+--- Attempting: Date 20260211, Cycle 06z ---
+✅ Packed 5191200 values into gfs_f000.bin
+Created gfs_f000.bin (20M)
+✅ Packed 5191200 values into gfs_f003.bin
+Created gfs_f003.bin (20M)
+✅ Packed 5191200 values into gfs_f006.bin
+Created gfs_f006.bin (20M)
+✅ Packed 5191200 values into gfs_f009.bin
+Created gfs_f009.bin (20M)
+✅ Packed 5191200 values into gfs_f012.bin
+Created gfs_f012.bin (20M)
+✅ Packed 5191200 values into gfs_f015.bin
+Created gfs_f015.bin (20M)
+✅ Packed 5191200 values into gfs_f018.bin
+Created gfs_f018.bin (20M)
+✅ Packed 5191200 values into gfs_f021.bin
+Created gfs_f021.bin (20M)
+✅ Packed 5191200 values into gfs_f024.bin
+Created gfs_f024.bin (20M)
+Successfully updated to Today's 06z run.
+--- Attempting: Date 20260211, Cycle 18z ---
+Cycle 18z on 20260211 not available yet.
+--- Attempting: Date 20260211, Cycle 12z ---
+✅ Packed 5191200 values into gfs_f000.bin
+Created gfs_f000.bin (20M)
+✅ Packed 5191200 values into gfs_f003.bin
+Created gfs_f003.bin (20M)
+✅ Packed 5191200 values into gfs_f006.bin
+Created gfs_f006.bin (20M)
+✅ Packed 5191200 values into gfs_f009.bin
+Created gfs_f009.bin (20M)
+✅ Packed 5191200 values into gfs_f012.bin
+Created gfs_f012.bin (20M)
+✅ Packed 5191200 values into gfs_f015.bin
+Created gfs_f015.bin (20M)
+✅ Packed 5191200 values into gfs_f018.bin
+Created gfs_f018.bin (20M)
+✅ Packed 5191200 values into gfs_f021.bin
+Created gfs_f021.bin (20M)
+✅ Packed 5191200 values into gfs_f024.bin
+Created gfs_f024.bin (20M)
+Successfully updated to Today's 12z run.
