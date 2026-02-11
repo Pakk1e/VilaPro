@@ -9,3 +9,7 @@ node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+weather_engine/scripts/*.bin
+weather_engine/scripts/*.txt
+weather_engine/scripts/data*
+weather_engine/scripts/temp.grib2
