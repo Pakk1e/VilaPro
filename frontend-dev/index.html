@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/vadovky-tech-mark.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0F172A" />
+  <title>Vadovsky Tech</title>
+</head>
+
+<body>
+  <div id="root">
+    <div class="initial-loader"
+      style="background: #0f172a; height: 100vh; display: flex; align-items: center; justify-content: center;">
+      <div
+        style="width: 40px; height: 40px; border: 3px solid #1e293b; border-top-color: #2dd4bf; border-radius: 50%; animation: spin 1s linear infinite;">
+      </div>
+    </div>
+  </div>
+  <style>
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+  </style>
+  <script type="module" src="/src/main.jsx"></script>
+</body>
+
+</html>

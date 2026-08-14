@@ -2,7 +2,11 @@ const express = require("express");
 
 
 
-module.exports = function createAdminApi(db, getVillaProTimestamp) {
+module.exports = function createAdminApi(
+    db,
+    getVillaProTimestamp,
+    runtime
+) {
     const router = express.Router();
 
     function requireAdmin(req, res, next) {
@@ -151,6 +155,216 @@ module.exports = function createAdminApi(db, getVillaProTimestamp) {
                 }
 
                 res.json({ success: true });
+            }
+        );
+    });
+
+    router.delete("/users/:email", (req, res) => {
+        const targetEmail = req.params.email;
+        const requesterEmail = req.cookies?.app_user;
+
+        if (!targetEmail) {
+            return res.status(400).json({
+                error: "Invalid user email",
+            });
+        }
+
+        if (targetEmail === requesterEmail) {
+            return res.status(400).json({
+                error: "You cannot delete your own account",
+            });
+        }
+
+        db.get(
+            `
+        SELECT email, status
+        FROM users
+        WHERE email = ?
+        `,
+            [targetEmail],
+            (userErr, user) => {
+                if (userErr) {
+                    console.error(
+                        "Failed to load target user before deletion:",
+                        userErr
+                    );
+
+                    return res.status(500).json({
+                        error: "Failed to load user",
+                    });
+                }
+
+                if (!user) {
+                    return res.status(404).json({
+                        error: "User not found",
+                    });
+                }
+
+                if (user.status !== "disabled") {
+                    return res.status(409).json({
+                        error:
+                            "Only disabled users can be deleted.",
+                    });
+                }
+
+                runtime.getRunningBulkRulesForUser(
+                    targetEmail,
+                    (bulkErr, runningRules) => {
+                        if (bulkErr) {
+                            console.error(
+                                "Failed to check running bulk rules:",
+                                bulkErr
+                            );
+
+                            return res.status(500).json({
+                                error:
+                                    "Failed to check running automation.",
+                            });
+                        }
+
+                        if (runningRules.length > 0) {
+                            return res.status(409).json({
+                                error:
+                                    "A bulk automation is currently running for this user. Wait until it finishes and try again.",
+                                runningRuleIds: runningRules,
+                            });
+                        }
+
+                        // Stop any active snipers immediately.
+                        runtime.stopUserSnipers(targetEmail);
+
+                        db.serialize(() => {
+                            db.run("BEGIN TRANSACTION");
+
+                            const statements = [
+                                [
+                                    "DELETE FROM bulk_exceptions WHERE email = ?",
+                                    [targetEmail],
+                                ],
+                                [
+                                    `
+                                DELETE FROM bulk_exceptions
+                                WHERE rule_id IN (
+                                    SELECT id
+                                    FROM bulk_rules
+                                    WHERE email = ?
+                                )
+                                `,
+                                    [targetEmail],
+                                ],
+                                [
+                                    "DELETE FROM bulk_rules WHERE email = ?",
+                                    [targetEmail],
+                                ],
+                                [
+                                    "DELETE FROM snipers WHERE email = ?",
+                                    [targetEmail],
+                                ],
+                                [
+                                    "DELETE FROM reservations WHERE user_email = ?",
+                                    [targetEmail],
+                                ],
+                                [
+                                    "DELETE FROM automation_exceptions WHERE email = ?",
+                                    [targetEmail],
+                                ],
+                                [
+                                    "DELETE FROM activity_logs WHERE email = ?",
+                                    [targetEmail],
+                                ],
+                                [
+                                    "DELETE FROM user_settings WHERE email = ?",
+                                    [targetEmail],
+                                ],
+                                [
+                                    "DELETE FROM users WHERE email = ?",
+                                    [targetEmail],
+                                ],
+                            ];
+
+                            let failed = false;
+
+                            const runNext = (index) => {
+                                if (index >= statements.length) {
+                                    if (failed) {
+                                        db.run("ROLLBACK");
+                                        return;
+                                    }
+
+                                    db.run(
+                                        "COMMIT",
+                                        (commitErr) => {
+                                            if (commitErr) {
+                                                console.error(
+                                                    "Failed to commit user deletion:",
+                                                    commitErr
+                                                );
+
+                                                db.run(
+                                                    "ROLLBACK"
+                                                );
+
+                                                return res
+                                                    .status(500)
+                                                    .json({
+                                                        error:
+                                                            "Failed to delete user",
+                                                    });
+                                            }
+
+                                            console.log(
+                                                `🗑️ Admin deleted disabled user ${targetEmail}`
+                                            );
+
+                                            return res.json({
+                                                success: true,
+                                                deleted: true,
+                                            });
+                                        }
+                                    );
+
+                                    return;
+                                }
+
+                                const [
+                                    sql,
+                                    params,
+                                ] = statements[index];
+
+                                db.run(
+                                    sql,
+                                    params,
+                                    (err) => {
+                                        if (err) {
+                                            failed = true;
+
+                                            console.error(
+                                                "Failed during user deletion:",
+                                                err
+                                            );
+
+                                            db.run(
+                                                "ROLLBACK",
+                                                () => {
+                                                    res.status(500).json({
+                                                        error:
+                                                            "Failed to delete user",
+                                                    });
+                                                }
+                                            );
+
+                                            return;
+                                        }
+
+                                        runNext(index + 1);
+                                    }
+                                );
+                            };
+
+                            runNext(0);
+                        });
+                    }
+                );
             }
         );
     });

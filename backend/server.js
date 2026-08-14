@@ -11,6 +11,7 @@ const { wrapper } = require('axios-cookiejar-support');
 const { CookieJar } = require('tough-cookie');
 const crypto = require('crypto');
 const runningSnipers = {};
+const runningBulkRules = {};
 let lastNightlyRunDate = null;
 const createAdminApi = require("./admin.api");
 
@@ -45,7 +46,12 @@ app.use('/api', (req, res, next) => {
     // Allow non-browser clients (curl, server-side, PM2, cron)
     if (!origin) return next();
 
-    if (origin === 'https://www.vadovsky-tech.com' || origin === 'http://localhost:5173' || origin === 'http://localhost:5174') {
+    if (
+        origin === 'https://www.vadovsky-tech.com' ||
+        origin === 'http://localhost:5173' ||
+        origin === 'http://localhost:5174' ||
+        origin === 'http://localhost:3001'
+    ) {
         return next();
     }
     return res.status(403).json({ error: 'Forbidden origin' });
@@ -176,6 +182,19 @@ db.serialize(() => {
         UNIQUE(email, date)
     )`);
 
+    db.run(`CREATE TABLE IF NOT EXISTS automation_exceptions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        email TEXT NOT NULL,
+        name TEXT NOT NULL,
+        type TEXT NOT NULL,
+        start_date TEXT,
+        end_date TEXT,
+        dates TEXT,
+        days_of_week TEXT,
+        note TEXT,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )`);
+
 
     // approval gate
     db.run(`ALTER TABLE users ADD COLUMN approved_at DATETIME`, () => { });
@@ -218,7 +237,13 @@ db.serialize(() => {
 
 
 
-app.use("/api/admin", createAdminApi(db, getVillaProTimestamp));
+app.use(
+    "/api/admin",
+    createAdminApi(db, getVillaProTimestamp, {
+        stopUserSnipers,
+        getRunningBulkRulesForUser,
+    })
+);
 
 
 
@@ -267,6 +292,191 @@ function getVillaProTimestamp() {
     return now.toISOString().replace('T', ' ').slice(0, 19);
 }
 
+function stopUserSnipers(email) {
+    const userSnipers = runningSnipers[email];
+
+    if (!userSnipers) {
+        return;
+    }
+
+    for (const [date, intervalId] of Object.entries(userSnipers)) {
+        clearInterval(intervalId);
+        console.log(
+            `🛑 Admin stopped sniper for deleted user ${email} on ${date}`
+        );
+    }
+
+    delete runningSnipers[email];
+}
+
+function getRunningBulkRulesForUser(email, callback) {
+    db.all(
+        `
+        SELECT id
+        FROM bulk_rules
+        WHERE email = ?
+        `,
+        [email],
+        (err, rows) => {
+            if (err) {
+                return callback(err);
+            }
+
+            const running = (rows || [])
+                .map((row) => row.id)
+                .filter((id) => !!runningBulkRules[id]);
+
+            callback(null, running);
+        }
+    );
+}
+
+async function cleanupExpiredAutomationExceptions() {
+    const today = getVillaProNow()
+        .toISOString()
+        .slice(0, 10);
+
+    db.all(
+        `
+        SELECT
+            id,
+            email,
+            name,
+            type,
+            start_date,
+            end_date,
+            dates,
+            days_of_week
+        FROM automation_exceptions
+        `,
+        [],
+        (err, rows) => {
+            if (err) {
+                console.error(
+                    "❌ Failed to load automation exceptions for cleanup:",
+                    err
+                );
+                return;
+            }
+
+            for (const exception of rows || []) {
+                try {
+                    // DATE RANGE / RECURRING
+                    if (
+                        exception.type === "range" ||
+                        exception.type === "recurring"
+                    ) {
+                        if (
+                            exception.end_date &&
+                            exception.end_date < today
+                        ) {
+                            db.run(
+                                `
+                                DELETE FROM automation_exceptions
+                                WHERE id = ?
+                                `,
+                                [exception.id],
+                                (deleteErr) => {
+                                    if (deleteErr) {
+                                        console.error(
+                                            `❌ Failed to remove expired automation exception ${exception.id}:`,
+                                            deleteErr
+                                        );
+                                    } else {
+                                        console.log(
+                                            `🧹 Removed expired automation exception ${exception.id} (${exception.name})`
+                                        );
+                                    }
+                                }
+                            );
+                        }
+
+                        continue;
+                    }
+
+                    // SPECIFIC DATES
+                    if (exception.type === "specific") {
+                        let dates;
+
+                        try {
+                            dates = JSON.parse(
+                                exception.dates || "[]"
+                            );
+                        } catch {
+                            console.warn(
+                                `⚠️ Invalid dates JSON for automation exception ${exception.id}`
+                            );
+                            continue;
+                        }
+
+                        const futureDates = dates
+                            .filter(
+                                (date) =>
+                                    typeof date === "string" &&
+                                    date >= today
+                            )
+                            .sort();
+
+                        if (futureDates.length === 0) {
+                            db.run(
+                                `
+                                DELETE FROM automation_exceptions
+                                WHERE id = ?
+                                `,
+                                [exception.id],
+                                (deleteErr) => {
+                                    if (deleteErr) {
+                                        console.error(
+                                            `❌ Failed to remove expired specific-date exception ${exception.id}:`,
+                                            deleteErr
+                                        );
+                                    } else {
+                                        console.log(
+                                            `🧹 Removed expired automation exception ${exception.id} (${exception.name})`
+                                        );
+                                    }
+                                }
+                            );
+                        } else if (
+                            futureDates.length !== dates.length
+                        ) {
+                            db.run(
+                                `
+                                UPDATE automation_exceptions
+                                SET dates = ?
+                                WHERE id = ?
+                                `,
+                                [
+                                    JSON.stringify(
+                                        futureDates
+                                    ),
+                                    exception.id
+                                ],
+                                (updateErr) => {
+                                    if (updateErr) {
+                                        console.error(
+                                            `❌ Failed to trim expired dates from automation exception ${exception.id}:`,
+                                            updateErr
+                                        );
+                                    } else {
+                                        console.log(
+                                            `🧹 Trimmed past dates from automation exception ${exception.id}`
+                                        );
+                                    }
+                                }
+                            );
+                        }
+                    }
+                } catch (cleanupErr) {
+                    console.error(
+                        `❌ Failed to clean automation exception ${exception.id}:`,
+                        cleanupErr
+                    );
+                }
+            }
+        }
+    );
+}
 
 async function runNightlyAutomation(force = false) {
     const now = getVillaProNow();
@@ -285,6 +495,8 @@ async function runNightlyAutomation(force = false) {
     lastNightlyRunDate = todayKey;
 
     console.log("🌙 Nightly automation started");
+
+    cleanupExpiredAutomationExceptions();
 
     db.all("SELECT * FROM bulk_rules", async (err, rules) => {
         if (err || !rules) return;
@@ -394,11 +606,36 @@ async function internalInstantReserve(email, date, plate, command = 'ADD') {
 
     if (isAlreadyReservedByUser) {
         console.log(`ℹ️ Date ${date} is already reserved by user. Skipping POST.`);
+
+        if (command === 'ADD') {
+            db.run(
+                `
+            INSERT INTO reservations (
+                user_email,
+                date,
+                plate_number,
+                status
+            )
+            VALUES (?, ?, ?, 'active')
+            ON CONFLICT(user_email, date)
+            DO UPDATE SET
+                plate_number = excluded.plate_number,
+                status = 'active'
+            `,
+                [email, date, plate],
+                (dbErr) => {
+                    if (dbErr) {
+                        console.error("❌ Failed to sync existing reservation:", dbErr);
+                    }
+                }
+            );
+        }
+
         return { status: true, message: "Already reserved" };
     }
 
-
-    const response = await session.client.post("https://clients.villapro.eu/en/reserv_single/misc/sk_ba_panoramacity2/",
+    const response = await session.client.post(
+        "https://clients.villapro.eu/en/reserv_single/misc/sk_ba_panoramacity2/",
         new URLSearchParams({
             cmd: command,
             date: date,
@@ -406,12 +643,143 @@ async function internalInstantReserve(email, date, plate, command = 'ADD') {
             ticket_id: realTicketId,
             car_id: plate,
             csrfmiddlewaretoken: csrfToken
-        }), { headers: { 'X-Requested-With': 'XMLHttpRequest', 'Referer': pageUrl } }
+        }),
+        {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Referer': pageUrl
+            }
+        }
     );
+
+    const reservationSuccess = response.data?.status === true;
+
+    if (reservationSuccess && command === 'ADD') {
+        db.run(
+            `
+        INSERT INTO reservations (
+            user_email,
+            date,
+            plate_number,
+            status
+        )
+        VALUES (?, ?, ?, 'active')
+        ON CONFLICT(user_email, date)
+        DO UPDATE SET
+            plate_number = excluded.plate_number,
+            status = 'active'
+        `,
+            [email, date, plate],
+            (dbErr) => {
+                if (dbErr) {
+                    console.error("❌ Failed to save bulk reservation:", dbErr);
+                }
+            }
+        );
+    }
+
+    if (reservationSuccess && command === 'DEL') {
+        db.run(
+            `
+        DELETE FROM reservations
+        WHERE user_email = ? AND date = ?
+        `,
+            [email, date],
+            (dbErr) => {
+                if (dbErr) {
+                    console.error("❌ Failed to delete reservation record:", dbErr);
+                }
+            }
+        );
+    }
 
     return response.data;
 }
 
+function dateMatchesAutomationException(exception, dateStr, dateObj) {
+    if (exception.type === "specific") {
+        let dates = [];
+
+        try {
+            dates = JSON.parse(exception.dates || "[]");
+        } catch {
+            return false;
+        }
+
+        return dates.includes(dateStr);
+    }
+
+    if (exception.type === "range") {
+        if (!exception.start_date || !exception.end_date) {
+            return false;
+        }
+
+        return (
+            dateStr >= exception.start_date &&
+            dateStr <= exception.end_date
+        );
+    }
+
+    if (exception.type === "recurring") {
+        if (!exception.start_date || !exception.end_date) {
+            return false;
+        }
+
+        if (
+            dateStr < exception.start_date ||
+            dateStr > exception.end_date
+        ) {
+            return false;
+        }
+
+        let days = [];
+
+        try {
+            days = JSON.parse(
+                exception.days_of_week || "[]"
+            );
+        } catch {
+            return false;
+        }
+
+        return days.includes(dateObj.getDay());
+    }
+
+    return false;
+}
+
+async function hasGlobalAutomationException(email, dateStr, dateObj) {
+    const exceptions = await new Promise((resolve, reject) => {
+        db.all(
+            `
+            SELECT *
+            FROM automation_exceptions
+            WHERE email = ?
+              AND (
+                    type = 'specific'
+                    OR type = 'range'
+                    OR type = 'recurring'
+              )
+            `,
+            [email],
+            (err, rows) => {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve(rows || []);
+                }
+            }
+        );
+    });
+
+    return exceptions.some((exception) =>
+        dateMatchesAutomationException(
+            exception,
+            dateStr,
+            dateObj
+        )
+    );
+}
 
 async function applyRuleToDate(email, rule, dateObj) {
     const days = JSON.parse(rule.days_of_week);
@@ -428,6 +796,46 @@ async function applyRuleToDate(email, rule, dateObj) {
     const m = String(month).padStart(2, '0');
     const d = String(dateObj.getDate()).padStart(2, '0');
     const dateStr = `${y}-${m}-${d}`;
+
+    const globalException =
+        await hasGlobalAutomationException(
+            email,
+            dateStr,
+            dateObj
+        );
+
+    if (globalException) {
+        console.log(
+            `⏭️ Global automation exception: skipping ${dateStr} for ${email}`
+        );
+        return;
+    }
+
+    const legacyException = await new Promise(
+        (resolve, reject) => {
+            db.get(
+                `
+            SELECT id
+            FROM bulk_exceptions
+            WHERE rule_id = ?
+              AND email = ?
+              AND date = ?
+            `,
+                [rule.id, email, dateStr],
+                (err, row) => {
+                    if (err) reject(err);
+                    else resolve(row);
+                }
+            );
+        }
+    );
+
+    if (legacyException) {
+        console.log(
+            `⏭️ Legacy automation exception: skipping ${dateStr} for ${email}`
+        );
+        return;
+    }
 
     const result = await internalInstantReserve(email, dateStr, rule.plate, 'ADD');
 
@@ -456,19 +864,57 @@ async function applyRuleToDate(email, rule, dateObj) {
 
 
 async function executeRule(email, rule) {
-    db.run(
-        "INSERT INTO activity_logs (email, message, timestamp) VALUES (?, ?,?)",
-        [email, `🤖 Robot: Starting scan for plate ${rule.plate}`, getVillaProTimestamp()]
-    );
+    runningBulkRules[rule.id] = true;
 
-    for (let i = 0; i < 14; i++) {
-        const target = new Date();
-        target.setDate(target.getDate() + i);
+    try {
+        db.run(
+            "INSERT INTO activity_logs (email, message, timestamp) VALUES (?, ?, ?)",
+            [email, `🤖 Robot: Starting scan for plate ${rule.plate}`, getVillaProTimestamp()]
+        );
 
-        await applyRuleToDate(email, rule, target);
+        for (let i = 0; i < 14; i++) {
+            const target = new Date();
+            target.setDate(target.getDate() + i);
+
+            await applyRuleToDate(email, rule, target);
+        }
+    } finally {
+        delete runningBulkRules[rule.id];
+        console.log(`✅ Bulk rule ${rule.id} execution finished`);
     }
 }
 
+app.get('/api/bulk/status/:id', (req, res) => {
+    const email = req.cookies?.app_user;
+    const ruleId = parseInt(req.params.id, 10);
+
+    if (!email) {
+        return res.status(401).json({ error: "Not authenticated" });
+    }
+
+    if (!Number.isInteger(ruleId)) {
+        return res.status(400).json({ error: "Invalid rule id" });
+    }
+
+    db.get(
+        "SELECT id FROM bulk_rules WHERE id = ? AND email = ?",
+        [ruleId, email],
+        (err, rule) => {
+            if (err) {
+                console.error("❌ Failed to check bulk rule:", err);
+                return res.status(500).json({ error: "Failed to check bulk rule" });
+            }
+
+            if (!rule) {
+                return res.status(404).json({ error: "Rule not found" });
+            }
+
+            res.json({
+                running: !!runningBulkRules[ruleId]
+            });
+        }
+    );
+});
 
 
 // Helper to bridge the gap between Rule and your existing Sniper
@@ -537,10 +983,34 @@ function startSniperInternal(email, date, plate) {
                         }
                     }
 
-                    // ✅ DB IS AUTHORITY — REMOVE SNIPER INTENT
+                    // ✅ SAVE SUCCESSFUL RESERVATION
                     db.run(
-                        "DELETE FROM snipers WHERE email = ? AND date = ?",
-                        [email, date]
+                        `
+                        INSERT INTO reservations (
+                            user_email,
+                            date,
+                            plate_number,
+                            status
+                        )
+                        VALUES (?, ?, ?, 'active')
+                        ON CONFLICT(user_email, date)
+                        DO UPDATE SET
+                            plate_number = excluded.plate_number,
+                            status = 'active'
+                        `,
+                        [email, date, plate],
+                        (dbErr) => {
+                            if (dbErr) {
+                                console.error("❌ Failed to save sniper reservation:", dbErr);
+                                return;
+                            }
+
+                            // ✅ DB IS AUTHORITY — REMOVE SNIPER INTENT
+                            db.run(
+                                "DELETE FROM snipers WHERE email = ? AND date = ?",
+                                [email, date]
+                            );
+                        }
                     );
                 } else {
                     console.log(
@@ -584,30 +1054,109 @@ app.post('/api/bulk/save', (req, res) => {
     const { email, days, months, plate, name, id } = req.body;
 
     if (!requireFields(res, { email, days, months, plate })) return;
-    if (!isValidEmail(email)) return res.status(400).json({ error: "Invalid email" });
-    if (!isValidPlate(plate)) return res.status(400).json({ error: "Invalid plate" });
-
+    if (!isValidEmail(email)) {
+        return res.status(400).json({ error: "Invalid email" });
+    }
+    if (!isValidPlate(plate)) {
+        return res.status(400).json({ error: "Invalid plate" });
+    }
 
     if (id) {
         // Handle Edit
-        db.run("UPDATE bulk_rules SET days_of_week=?, months=?, plate=?, name=? WHERE id=?",
-            [JSON.stringify(days), JSON.stringify(months), plate, name, id], () => {
-                db.get("SELECT * FROM bulk_rules WHERE id = ?", [id], (err, rule) => {
-                    if (rule) executeRule(email, rule);
-                });
-                res.json({ success: true });
-            });
+        db.run(
+            "UPDATE bulk_rules SET days_of_week=?, months=?, plate=?, name=? WHERE id=?",
+            [JSON.stringify(days), JSON.stringify(months), plate, name, id],
+            (updateErr) => {
+                if (updateErr) {
+                    console.error("❌ Failed to update bulk rule:", updateErr);
+                    return res.status(500).json({
+                        success: false,
+                        error: "Failed to update rule"
+                    });
+                }
+
+                db.get(
+                    "SELECT * FROM bulk_rules WHERE id = ? AND email = ?",
+                    [id, email],
+                    (err, rule) => {
+                        if (err) {
+                            console.error("❌ Failed to load updated bulk rule:", err);
+                            return res.status(500).json({
+                                success: false,
+                                error: "Failed to load rule"
+                            });
+                        }
+
+                        if (!rule) {
+                            return res.status(404).json({
+                                success: false,
+                                error: "Rule not found"
+                            });
+                        }
+
+                        runningBulkRules[rule.id] = true;
+
+                        executeRule(email, rule).catch((e) => {
+                            console.error(`❌ Bulk rule ${rule.id} failed:`, e);
+                        });
+
+                        res.json({
+                            success: true,
+                            ruleId: rule.id
+                        });
+                    }
+                );
+            }
+        );
     } else {
         // Handle New
-        db.run("INSERT INTO bulk_rules (email, days_of_week, months, plate, name) VALUES (?, ?, ?, ?, ?)",
-            [email, JSON.stringify(days), JSON.stringify(months), plate, name], function (err) {
-                if (!err) {
-                    db.get("SELECT * FROM bulk_rules WHERE id = ?", [this.lastID], (err, rule) => {
-                        if (rule) executeRule(email, rule);
+        db.run(
+            "INSERT INTO bulk_rules (email, days_of_week, months, plate, name) VALUES (?, ?, ?, ?, ?)",
+            [email, JSON.stringify(days), JSON.stringify(months), plate, name],
+            function (err) {
+                if (err) {
+                    console.error("❌ Failed to create bulk rule:", err);
+                    return res.status(500).json({
+                        success: false,
+                        error: "Failed to create rule"
                     });
-                    res.json({ success: true });
                 }
-            });
+
+                const ruleId = this.lastID;
+
+                db.get(
+                    "SELECT * FROM bulk_rules WHERE id = ? AND email = ?",
+                    [ruleId, email],
+                    (loadErr, rule) => {
+                        if (loadErr) {
+                            console.error("❌ Failed to load new bulk rule:", loadErr);
+                            return res.status(500).json({
+                                success: false,
+                                error: "Failed to load rule"
+                            });
+                        }
+
+                        if (!rule) {
+                            return res.status(404).json({
+                                success: false,
+                                error: "Rule not found"
+                            });
+                        }
+
+                        runningBulkRules[rule.id] = true;
+
+                        executeRule(email, rule).catch((e) => {
+                            console.error(`❌ Bulk rule ${rule.id} failed:`, e);
+                        });
+
+                        res.json({
+                            success: true,
+                            ruleId: rule.id
+                        });
+                    }
+                );
+            }
+        );
     }
 });
 
@@ -681,6 +1230,271 @@ app.get('/api/bulk/rules', async (req, res) => {
         "SELECT * FROM bulk_rules WHERE email = ?",
         [email],
         (err, rows) => res.json(rows || [])
+    );
+});
+
+app.get('/api/bulk/exceptions', (req, res) => {
+    const email = req.cookies?.app_user;
+
+    if (!email) {
+        return res.status(401).json({ error: "Not authenticated" });
+    }
+
+    if (!isValidEmail(email)) {
+        return res.status(400).json({ error: "Invalid email" });
+    }
+
+    db.all(
+        `
+        SELECT id, rule_id, date
+        FROM bulk_exceptions
+        WHERE email = ?
+        ORDER BY date
+        `,
+        [email],
+        (err, rows) => {
+            if (err) {
+                console.error("❌ Failed to load bulk exceptions:", err);
+
+                return res.status(500).json({
+                    error: "Failed to load exceptions"
+                });
+            }
+
+            res.json(rows || []);
+        }
+    );
+});
+
+app.get('/api/automation-exceptions', (req, res) => {
+    const email = req.cookies?.app_user;
+
+    if (!email) {
+        return res.status(401).json({
+            success: false,
+            error: "Not authenticated"
+        });
+    }
+
+    db.all(
+        `
+        SELECT
+            id,
+            email,
+            name,
+            type,
+            start_date,
+            end_date,
+            dates,
+            days_of_week,
+            note,
+            created_at
+        FROM automation_exceptions
+        WHERE email = ?
+        ORDER BY
+            COALESCE(start_date, '9999-12-31'),
+            id
+        `,
+        [email],
+        (err, rows) => {
+            if (err) {
+                console.error(
+                    "❌ Failed to load automation exceptions:",
+                    err
+                );
+
+                return res.status(500).json({
+                    success: false,
+                    error: "Failed to load automation exceptions"
+                });
+            }
+
+            res.json({
+                success: true,
+                exceptions: rows || []
+            });
+        }
+    );
+});
+
+
+app.post('/api/automation-exceptions', (req, res) => {
+    const email = req.cookies?.app_user;
+
+    if (!email) {
+        return res.status(401).json({
+            success: false,
+            error: "Not authenticated"
+        });
+    }
+
+    const {
+        name,
+        type,
+        start_date,
+        end_date,
+        dates,
+        days_of_week,
+        note
+    } = req.body;
+
+    if (!name || !type) {
+        return res.status(400).json({
+            success: false,
+            error: "Name and type are required"
+        });
+    }
+
+    const allowedTypes = [
+        "range",
+        "specific",
+        "recurring"
+    ];
+
+    if (!allowedTypes.includes(type)) {
+        return res.status(400).json({
+            success: false,
+            error: "Invalid exception type"
+        });
+    }
+
+    db.run(
+        `
+        INSERT INTO automation_exceptions (
+            email,
+            name,
+            type,
+            start_date,
+            end_date,
+            dates,
+            days_of_week,
+            note
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `,
+        [
+            email,
+            name.trim(),
+            type,
+            start_date || null,
+            end_date || null,
+            dates
+                ? JSON.stringify(dates)
+                : null,
+            days_of_week
+                ? JSON.stringify(days_of_week)
+                : null,
+            note?.trim() || null
+        ],
+        function (err) {
+            if (err) {
+                console.error(
+                    "❌ Failed to create automation exception:",
+                    err
+                );
+
+                return res.status(500).json({
+                    success: false,
+                    error: "Failed to create automation exception"
+                });
+            }
+
+            res.json({
+                success: true,
+                exceptionId: this.lastID
+            });
+        }
+    );
+});
+
+
+app.delete('/api/automation-exceptions/:id', (req, res) => {
+    const email = req.cookies?.app_user;
+    const id = parseInt(req.params.id, 10);
+
+    if (!email) {
+        return res.status(401).json({
+            success: false,
+            error: "Not authenticated"
+        });
+    }
+
+    if (!Number.isInteger(id)) {
+        return res.status(400).json({
+            success: false,
+            error: "Invalid exception id"
+        });
+    }
+
+    db.run(
+        `
+        DELETE FROM automation_exceptions
+        WHERE id = ?
+          AND email = ?
+        `,
+        [id, email],
+        function (err) {
+            if (err) {
+                console.error(
+                    "❌ Failed to delete automation exception:",
+                    err
+                );
+
+                return res.status(500).json({
+                    success: false,
+                    error: "Failed to delete automation exception"
+                });
+            }
+
+            res.json({
+                success: true,
+                deleted: this.changes > 0
+            });
+        }
+    );
+});
+
+app.delete('/api/bulk/exceptions/:ruleId/:date', (req, res) => {
+    const email = req.cookies?.app_user;
+    const ruleId = parseInt(req.params.ruleId, 10);
+    const { date } = req.params;
+
+    if (!email) {
+        return res.status(401).json({ error: "Not authenticated" });
+    }
+
+    if (!isValidEmail(email)) {
+        return res.status(400).json({ error: "Invalid email" });
+    }
+
+    if (!Number.isInteger(ruleId)) {
+        return res.status(400).json({ error: "Invalid rule id" });
+    }
+
+    if (!isValidISODate(date)) {
+        return res.status(400).json({ error: "Invalid date" });
+    }
+
+    db.run(
+        `
+        DELETE FROM bulk_exceptions
+        WHERE rule_id = ? AND email = ? AND date = ?
+        `,
+        [ruleId, email, date],
+        function (err) {
+            if (err) {
+                console.error("❌ Failed to remove bulk exception:", err);
+
+                return res.status(500).json({
+                    error: "Failed to remove exception"
+                });
+            }
+
+            res.json({
+                success: true,
+                removed: this.changes > 0
+            });
+        }
     );
 });
 
@@ -1240,7 +2054,23 @@ app.get('/api/availability', async (req, res) => {
             const $ = cheerio.load(page.data);
 
             // Extract the plate from the <h6 id="caption-car-id"><a> element
-            const activePlate = $('#caption-car-id a').text().trim().split('\n')[0].trim();
+            const villaProPlate = $('#caption-car-id a').text().trim().split('\n')[0].trim();
+
+            let activePlate = user.active_plate;
+
+            if (!activePlate && villaProPlate) {
+                activePlate = villaProPlate;
+
+                db.run(
+                    "UPDATE users SET active_plate = ? WHERE email = ?",
+                    [villaProPlate, email],
+                    (err) => {
+                        if (err) {
+                            console.error("❌ Failed to initialize active plate:", err);
+                        }
+                    }
+                );
+            }
 
 
             const csrfToken = $('input[name="csrfmiddlewaretoken"]').val();
@@ -1251,12 +2081,81 @@ app.get('/api/availability', async (req, res) => {
             const calendarData = { reserved: [], free: [], full: [], noedit: [] };
             const getDay = (el) => parseInt($(el).attr('data-date').split('-')[2]);
 
-            $('.day-reserved-edit').each((i, el) => {
-                const day = parseInt($(el).attr('data-date').split('-')[2]);
-                // Scrape the text inside the div (e.g., "102") and clean it up
-                const lotId = $(el).find('.box-id').text().trim();
-                calendarData.reserved.push({ day, lot: lotId });
+            const reservationRows = await new Promise((resolve, reject) => {
+                const prefix = `${targetYear}-${String(targetMonth).padStart(2, '0')}-`;
+
+                db.all(
+                    `SELECT date, plate_number
+                    FROM reservations
+                    WHERE user_email = ?
+                    AND date LIKE ?
+                    AND status = 'active'`,
+                    [email, `${prefix}%`],
+                    (err, rows) => {
+                        if (err) reject(err);
+                        else resolve(rows || []);
+                    }
+                );
             });
+
+            const reservationPlateByDate = Object.fromEntries(
+                reservationRows.map(row => [row.date, row.plate_number])
+            );
+
+            const liveReservationDates = [];
+
+            $('.day-reserved-edit').each((i, el) => {
+                const date = $(el).attr('data-date');
+                const day = parseInt(date.split('-')[2], 10);
+                const lotId = $(el).find('.box-id').text().trim();
+
+                liveReservationDates.push({
+                    date,
+                    day,
+                    lot: lotId,
+                    plate: reservationPlateByDate[date] || activePlate || null,
+                });
+            });
+
+            // Backfill reservations that exist in VillaPro but were not
+            // recorded in the local reservations table yet.
+            await Promise.all(
+                liveReservationDates.map(
+                    ({ date, plate }) =>
+                        new Promise((resolve) => {
+                            db.run(
+                                `
+                    INSERT OR IGNORE INTO reservations (
+                        user_email,
+                        date,
+                        plate_number,
+                        status
+                    )
+                    VALUES (?, ?, ?, 'active')
+                    `,
+                                [email, date, plate],
+                                (err) => {
+                                    if (err) {
+                                        console.error(
+                                            `❌ Failed to sync reservation ${date} for ${email}:`,
+                                            err
+                                        );
+                                    }
+
+                                    resolve();
+                                }
+                            );
+                        })
+                )
+            );
+
+            calendarData.reserved = liveReservationDates.map(
+                ({ day, lot, plate }) => ({
+                    day,
+                    lot,
+                    plate,
+                })
+            );
             $('.day-free-edit').each((i, el) => calendarData.free.push(getDay(el)));
             $('.day-free-noedit').each((i, el) => calendarData.noedit.push(getDay(el)));
 
@@ -1278,6 +2177,129 @@ app.get('/api/availability', async (req, res) => {
         }
     });
 });
+
+
+app.get('/api/plate', (req, res) => {
+    const email = req.cookies?.app_user;
+
+    if (!email) {
+        return res.status(401).json({
+            error: "Not authenticated"
+        });
+    }
+
+    db.get(
+        "SELECT active_plate FROM users WHERE email = ?",
+        [email],
+        (err, user) => {
+            if (err) {
+                console.error("❌ Failed to load active plate:", err);
+
+                return res.status(500).json({
+                    success: false,
+                    error: "Failed to load plate"
+                });
+            }
+
+            if (!user) {
+                return res.status(404).json({
+                    success: false,
+                    error: "User not found"
+                });
+            }
+
+            res.json({
+                success: true,
+                activePlate: user.active_plate || ""
+            });
+        }
+    );
+});
+
+app.post('/api/plate', (req, res) => {
+    const email = req.cookies?.app_user;
+    const { plate } = req.body;
+
+    if (!email) {
+        return res.status(401).json({
+            error: "Unauthorized"
+        });
+    }
+
+    if (!isValidPlate(plate)) {
+        return res.status(400).json({
+            error: "Invalid plate"
+        });
+    }
+
+    const normalizedPlate = plate.trim().toUpperCase();
+
+    db.run(
+        "UPDATE users SET active_plate = ? WHERE email = ?",
+        [normalizedPlate, email],
+        function (err) {
+            if (err) {
+                console.error("❌ Failed to save active plate:", err);
+
+                return res.status(500).json({
+                    success: false,
+                    error: "Failed to save plate"
+                });
+            }
+
+            console.log(
+                `🚗 Active plate updated for ${email}: ${normalizedPlate}`
+            );
+
+            res.json({
+                success: true,
+                activePlate: normalizedPlate
+            });
+        }
+    );
+});
+
+app.get('/api/reservations', (req, res) => {
+    const email = req.cookies?.app_user;
+
+    if (!email) {
+        return res.status(401).json({
+            success: false,
+            error: "Not authenticated"
+        });
+    }
+
+    db.all(
+        `
+        SELECT
+            id,
+            date,
+            plate_number,
+            status
+        FROM reservations
+        WHERE user_email = ?
+          AND status = 'active'
+        ORDER BY date ASC
+        `,
+        [email],
+        (err, rows) => {
+            if (err) {
+                console.error("❌ Failed to load reservations:", err);
+
+                return res.status(500).json({
+                    success: false,
+                    error: "Failed to load reservations"
+                });
+            }
+
+            res.json({
+                success: true,
+                reservations: rows || []
+            });
+        }
+    );
+});
+
 
 app.post('/api/reservations/instant', async (req, res) => {
     const { email, date, plate, command } = req.body;
@@ -1323,7 +2345,148 @@ app.post('/api/reservations/instant', async (req, res) => {
                     csrfmiddlewaretoken: csrfToken
                 }), { headers: { 'X-Requested-With': 'XMLHttpRequest', 'Referer': pageUrl } }
             );
-            res.json({ success: response.data?.status === true, lot_id: response.data?.lot_id, message: response.data?.error_message });
+            const reservationSuccess = response.data?.status === true;
+            const lotId = response.data?.lot_id || null;
+
+            if (reservationSuccess && command === 'ADD') {
+                db.run(
+                    `
+        INSERT INTO reservations (
+            user_email,
+            date,
+            plate_number,
+            status
+        )
+        VALUES (?, ?, ?, 'active')
+        ON CONFLICT(user_email, date)
+        DO UPDATE SET
+            plate_number = excluded.plate_number,
+            status = 'active'
+        `,
+                    [email, date, plate],
+                    (dbErr) => {
+                        if (dbErr) {
+                            console.error("❌ Failed to save reservation:", dbErr);
+                        }
+                    }
+                );
+            }
+
+            if (reservationSuccess && command === 'DEL') {
+                db.run(
+                    `
+        DELETE FROM reservations
+        WHERE user_email = ? AND date = ?
+        `,
+                    [email, date],
+                    (dbErr) => {
+                        if (dbErr) {
+                            console.error("❌ Failed to delete reservation record:", dbErr);
+                            return;
+                        }
+
+                        const targetDate = new Date(`${date}T00:00:00`);
+                        const dayOfWeek = targetDate.getDay();
+                        const month = targetDate.getMonth() + 1;
+
+                        db.all(
+                            "SELECT id, days_of_week, months FROM bulk_rules WHERE email = ?",
+                            [email],
+                            (ruleErr, rules) => {
+                                if (ruleErr) {
+                                    console.error("❌ Failed to find matching bulk rules:", ruleErr);
+                                    return;
+                                }
+
+                                const matchingRules = (rules || []).filter(rule => {
+                                    let days;
+                                    let months;
+
+                                    try {
+                                        days = JSON.parse(rule.days_of_week);
+                                        months = JSON.parse(rule.months);
+                                    } catch {
+                                        return false;
+                                    }
+
+                                    return days.includes(dayOfWeek) && months.includes(month);
+                                });
+
+                                // Create one GLOBAL specific-date exception for this date.
+                                // This protects the date from every automation rule.
+                                db.get(
+                                    `
+    SELECT id
+    FROM automation_exceptions
+    WHERE email = ?
+      AND type = 'specific'
+      AND EXISTS (
+          SELECT 1
+          FROM json_each(automation_exceptions.dates)
+          WHERE json_each.value = ?
+      )
+    LIMIT 1
+    `,
+                                    [email, date],
+                                    (lookupErr, existingException) => {
+                                        if (lookupErr) {
+                                            console.error(
+                                                `❌ Failed to check global automation exception for ${date}:`,
+                                                lookupErr
+                                            );
+                                            return;
+                                        }
+
+                                        if (existingException) {
+                                            console.log(
+                                                `ℹ️ Global automation exception already exists for ${date}`
+                                            );
+                                            return;
+                                        }
+
+                                        db.run(
+                                            `
+            INSERT INTO automation_exceptions (
+                email,
+                name,
+                type,
+                dates,
+                note
+            )
+            VALUES (?, ?, 'specific', ?, ?)
+            `,
+                                            [
+                                                email,
+                                                "Automatic exclusion",
+                                                JSON.stringify([date]),
+                                                "Created automatically after removing an automation reservation."
+                                            ],
+                                            (insertErr) => {
+                                                if (insertErr) {
+                                                    console.error(
+                                                        `❌ Failed to save global automation exception for ${date}:`,
+                                                        insertErr
+                                                    );
+                                                } else {
+                                                    console.log(
+                                                        `⏭️ Global automation exception created for ${date}`
+                                                    );
+                                                }
+                                            }
+                                        );
+                                    }
+                                );
+                            }
+                        );
+                    }
+                );
+            }
+
+            res.json({
+                success: reservationSuccess,
+                lot_id: lotId,
+                message: response.data?.error_message
+            });
         } catch (e) {
             res.status(500).json({ success: false, message: e.message });
         }
@@ -1457,13 +2620,6 @@ app.patch('/api/settings', (req, res) => {
         res.json({ success: true });
     });
 });
-
-
-
-
-
-
-
 
 
 
