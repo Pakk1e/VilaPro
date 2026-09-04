@@ -14,6 +14,7 @@ import "@xyflow/react/dist/style.css";
 import WorldNode from "./WorldNode";
 import JunctionNode from "./JunctionNode";
 import CircuitEdge from "./CircuitEdge";
+import SimulationPanel from "./SimulationPanel";
 import { worldDefinitions } from "../model/worldDefinitions";
 
 const initialNodes = [];
@@ -628,6 +629,11 @@ export default function WorldCanvas() {
       >
         <Background />
         <Controls />
+
+        <SimulationPanel
+          nodes={nodes}
+          edges={edges}
+        />
 
         {/* Add Component */}
         <div className="absolute right-4 top-4 z-10">
