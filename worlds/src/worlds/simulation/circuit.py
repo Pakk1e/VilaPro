@@ -85,6 +85,7 @@ class SimulationCircuit:
 
         simulation_component = build_simulation_component(
             analyzer,
+            name=name,
             parameters=parameters or {},
             ports=circuit_ports,
         )

@@ -42,9 +42,18 @@ def simulate(
     semantic = WorldSemanticAnalyzer(world).analyze()
 
     model = SimulationModel()
+    type_counts = {}
 
     for instance in instances:
         component_name = instance["type"]
+
+        type_counts[component_name] = (
+            type_counts.get(component_name, 0) + 1
+        )
+
+        instance_name = (
+            f"{component_name}_{type_counts[component_name]}"
+        )
 
         component = semantic.component(
             component_name
@@ -58,6 +67,7 @@ def simulate(
 
         simulation_component = build_simulation_component(
             analyzer,
+            name=instance_name,
             parameters=instance.get(
                 "parameters",
                 {},

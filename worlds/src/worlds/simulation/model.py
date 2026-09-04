@@ -15,6 +15,7 @@ class SimulationComponent:
     """
 
     name: str
+    component_type: str
     parameters: dict[str, float] = field(default_factory=dict)
     ports: dict[str, str | None] = field(default_factory=dict)
     equations: list[Equation] = field(default_factory=list)

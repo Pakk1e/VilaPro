@@ -12,6 +12,7 @@ class SimulationBuildError(Exception):
 def build_simulation_component(
     analyzer: ComponentSemanticAnalyzer,
     *,
+    name: str,
     parameters: dict[str, float],
     ports: dict[str, str],
 ) -> SimulationComponent:
@@ -57,7 +58,8 @@ def build_simulation_component(
         equations.extend(representation.equations)
 
     return SimulationComponent(
-        name=component.name,
+        name=name,
+        component_type=component.name,
         parameters=dict(parameters),
         ports=dict(ports),
         equations=equations,
