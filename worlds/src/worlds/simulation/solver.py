@@ -10,6 +10,22 @@ class SolverError(Exception):
 
 
 @dataclass(frozen=True)
+class BranchCurrent(FunctionCall):
+    """
+    Internal branch-current unknown.
+
+    It intentionally keeps the public FunctionCall shape:
+        current(node_a, node_b)
+
+    while carrying the owning component name so two components
+    connected between the same pair of nodes still have distinct
+    solver unknowns.
+    """
+
+    component: str
+
+
+@dataclass(frozen=True)
 class SolveResult:
     values: dict[object, float]
 
@@ -342,6 +358,7 @@ class SimulationInstanceResult:
     def power(self) -> float:
         return self.voltage() * self.current()
 
+
 @dataclass(frozen=True)
 class SimulationResult:
     values: dict[object, float]
@@ -459,23 +476,43 @@ class SimulationResult:
     ) -> float:
         """
         Return current flowing from first_node to second_node.
+
+        The network solver keeps component identity on the internal
+        branch-current unknown. This method preserves the original
+        node-pair API and resolves the unique matching branch.
         """
 
-        unknown = FunctionCall(
-            name="current",
-            arguments=(
-                Variable(first_node),
-                Variable(second_node),
-            ),
-        )
+        matches = []
 
-        try:
-            return self.values[unknown]
-        except KeyError:
+        for unknown, value in self.values.items():
+            if not (
+                isinstance(unknown, FunctionCall)
+                and unknown.name == "current"
+                and len(unknown.arguments) == 2
+            ):
+                continue
+
+            first, second = unknown.arguments
+
+            if (
+                getattr(first, "name", None) == first_node
+                and getattr(second, "name", None) == second_node
+            ):
+                matches.append(value)
+
+        if len(matches) == 1:
+            return matches[0]
+
+        if len(matches) > 1:
             raise SolverError(
-                "No current available for branch: "
+                "Multiple currents available for branch: "
                 f"{first_node!r} -> {second_node!r}"
             )
+
+        raise SolverError(
+            "No current available for branch: "
+            f"{first_node!r} -> {second_node!r}"
+        )
 
 
 class SimulationSolver:
