@@ -41,3 +41,13 @@ Thumbs.db
 
 # Vite
 .vite/
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+.pytest_cache/
+
+# Worlds temporary/backup files
+worlds/**/*.before-*

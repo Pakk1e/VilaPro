@@ -18,6 +18,7 @@ const CalendarShellPage = lazy(() => import("../applications/calendar/pages/Cale
 const ReservationsPage = lazy(() => import("../applications/calendar/pages/ReservationsPage"));
 const AutomationsPage = lazy(() => import("../applications/calendar/pages/AutomationsPage"));
 const AdminPage = lazy(() => import("../platform/pages/AdminPage"));
+const WorldsShellPage = lazy(() => import("../applications/worlds/pages/WorldsShellPage"));
 
 export default function AppRouter() {
     return (
@@ -89,6 +90,17 @@ export default function AppRouter() {
                                     <RequireRole role="calendar_user">
                                         <AutomationsPage />
                                     </RequireRole>
+                                </RequireApproved>
+                            </RequireAuth>
+                        }
+                    />
+
+                    <Route
+                        path="/worlds"
+                        element={
+                            <RequireAuth>
+                                <RequireApproved>
+                                    <WorldsShellPage />
                                 </RequireApproved>
                             </RequireAuth>
                         }

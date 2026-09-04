@@ -1,0 +1,56 @@
+world Electronics {
+
+    port_type ElectricalNode;
+
+    quantity Current {
+        dimension: I;
+        unit: A;
+    }
+
+    quantity Power {
+        dimension: M * L^2 / T^3;
+        unit: W;
+    }
+
+    quantity Voltage {
+        dimension: Power / Current;
+        unit: V;
+    }
+
+    quantity Resistance {
+        dimension: Voltage / Current;
+        unit: Ohm;
+    }
+
+    component Resistor {
+
+        parameter R : Resistance;
+
+        interface {
+            p : ElectricalNode;
+            n : ElectricalNode;
+        }
+
+        representation ideal {
+
+            equation:
+                voltage(p, n) = current(p, n) * R;
+        }
+    }
+
+    component VoltageSource {
+
+        parameter V : Voltage;
+
+        interface {
+            p : ElectricalNode;
+            n : ElectricalNode;
+        }
+
+        representation ideal {
+
+            equation:
+                voltage(p, n) = V;
+        }
+    }
+}

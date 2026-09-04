@@ -118,10 +118,45 @@ export default function HubPageNew() {
                         </button>
 
 
+                        <button
+                            type="button"
+                            onClick={() => navigate("/worlds")}
+                            className="group grid w-full gap-6 py-7 text-left transition hover:bg-white/70 sm:grid-cols-[72px_minmax(0,1fr)_auto] sm:items-center"
+                        >
+                            <div className="font-mono text-[12px] text-[#9aa0a7]">
+                                02
+                            </div>
+
+                            <div>
+                                <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-purple-600">
+                                    Science
+                                </div>
+
+                                <div className="mt-1 text-[25px] font-semibold tracking-[-0.03em]">
+                                    Worlds
+                                </div>
+
+                                <div className="mt-2 max-w-xl text-[13px] leading-5 text-[#737983]">
+                                    Build, model and simulate systems across physical domains.
+                                </div>
+
+                                <div className="mt-4 text-[11px] text-[#9aa0a7]">
+                                    Available
+                                </div>
+                            </div>
+
+                            <ArrowUpRight
+                                size={22}
+                                strokeWidth={1.5}
+                                className="hidden text-[#9ba1a8] transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-[#111827] sm:block"
+                            />
+                        </button>
+
+
 
                         <div className="grid gap-6 py-7 sm:grid-cols-[72px_minmax(0,1fr)_auto] sm:items-center">
                             <div className="font-mono text-[12px] text-[#c0c4c8]">
-                                02
+                                03
                             </div>
 
                             <div>
