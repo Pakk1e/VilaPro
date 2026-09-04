@@ -13,6 +13,7 @@ from .equations import (
     SimulationEquation,
 )
 from .model import SimulationModel
+from .solver import BranchCurrent
 
 
 class NetworkError(Exception):
@@ -23,53 +24,35 @@ def build_network_equation_system(
     model: SimulationModel,
 ) -> EquationSystem:
     """
-    Build one global equation system for the complete
-    simulation model.
+    Build one global equation system for the complete simulation model.
 
     Voltage is represented by node potentials:
-
         voltage(a, b) = V(a) - V(b)
 
-    Current remains a branch-current unknown:
-
-        current(a, b)
+    Current is a component-specific branch-current unknown. The
+    public representation remains current(a, b), but the internal
+    unknown also carries the component identity.
 
     Ground has a fixed potential of zero.
     """
 
     system = EquationSystem(equations=[])
 
-    # --------------------------------------------------
-    # Component equations
-    # --------------------------------------------------
-
     for component in model.components:
-        bound_equations = bind_component_equations(
-            component
-        )
+        bound_equations = bind_component_equations(component)
 
         for bound in bound_equations:
             equation = bound.equation
 
             expression = Binary(
-                left=_normalize_expression(
-                    equation.left,
-                ),
+                left=_normalize_expression(equation.left, component),
                 operator="-",
-                right=_normalize_expression(
-                    equation.right,
-                ),
+                right=_normalize_expression(equation.right, component),
             )
 
             system.add(
-                SimulationEquation(
-                    expression=expression,
-                )
+                SimulationEquation(expression=expression)
             )
-
-    # --------------------------------------------------
-    # KCL equations
-    # --------------------------------------------------
 
     for node in sorted(model.nodes):
         if node == "ground":
@@ -77,30 +60,14 @@ def build_network_equation_system(
 
         system.add(
             SimulationEquation(
-                expression=_build_kcl_equation(
-                    model,
-                    node,
-                )
+                expression=_build_kcl_equation(model, node)
             )
         )
 
     return system
 
 
-def _normalize_expression(expression):
-    """
-    Convert physical network expressions into solver variables.
-
-    voltage(a, b)
-        -> V(a) - V(b)
-
-    current(a, b)
-        -> current(a, b)
-
-    Node voltage is therefore not an independent unknown for
-    every pair of nodes.
-    """
-
+def _normalize_expression(expression, component):
     if isinstance(expression, Number):
         return expression
 
@@ -108,18 +75,9 @@ def _normalize_expression(expression):
         return expression
 
     if isinstance(expression, FunctionCall):
-
-        if (
-            expression.name == "voltage"
-            and len(expression.arguments) == 2
-        ):
-            first = _normalize_node(
-                expression.arguments[0]
-            )
-
-            second = _normalize_node(
-                expression.arguments[1]
-            )
+        if expression.name == "voltage" and len(expression.arguments) == 2:
+            first = _normalize_node(expression.arguments[0])
+            second = _normalize_node(expression.arguments[1])
 
             return Binary(
                 left=first,
@@ -127,94 +85,54 @@ def _normalize_expression(expression):
                 right=second,
             )
 
-        if expression.name == "current":
-            return FunctionCall(
-                name=expression.name,
-                arguments=tuple(
-                    _normalize_current_node(argument)
-                    for argument in expression.arguments
-                ),
+        if expression.name == "current" and len(expression.arguments) == 2:
+            first = _normalize_current_node(expression.arguments[0])
+            second = _normalize_current_node(expression.arguments[1])
+
+            return BranchCurrent(
+                name="current",
+                arguments=(first, second),
+                component=component.name,
             )
 
         raise NetworkError(
-            f"Unsupported physical function: "
-            f"{expression.name}"
+            f"Unsupported physical function: {expression.name}"
         )
 
     if isinstance(expression, Binary):
         return Binary(
-            left=_normalize_expression(
-                expression.left,
-            ),
+            left=_normalize_expression(expression.left, component),
             operator=expression.operator,
-            right=_normalize_expression(
-                expression.right,
-            ),
+            right=_normalize_expression(expression.right, component),
         )
 
     raise NetworkError(
-        f"Unsupported network expression: "
-        f"{expression!r}"
+        f"Unsupported network expression: {expression!r}"
     )
 
 
 def _normalize_node(expression):
-    """
-    Convert a node reference into a solver variable.
-
-    Ground is represented by numeric zero.
-    """
-
     if not isinstance(expression, Variable):
         raise NetworkError(
-            f"Expected node variable, got: "
-            f"{expression!r}"
+            f"Expected node variable, got: {expression!r}"
         )
 
     if expression.name == "ground":
         return Number(0.0)
 
-    return Variable(
-        f"V_{expression.name}"
-    )
+    return Variable(f"V_{expression.name}")
+
 
 def _normalize_current_node(expression):
-    """
-    Keep a branch-current node reference as the actual
-    simulation node name.
-
-    Unlike voltage(), current() represents a branch-current
-    unknown, so its arguments must NOT become V_node_*.
-    """
-
     if not isinstance(expression, Variable):
         raise NetworkError(
-            f"Expected node variable, got: "
-            f"{expression!r}"
+            f"Expected node variable, got: {expression!r}"
         )
 
     return Variable(expression.name)
 
 
-def _build_kcl_equation(
-    model: SimulationModel,
-    node: str,
-):
-    """
-    Build a KCL equation for one node.
-
-    For a two-port component:
-
-        current(a, b)
-
-    means current flowing from a to b.
-
-    Therefore:
-
-        at node a -> +current(a, b)
-        at node b -> -current(a, b)
-    """
-
+def _build_kcl_equation(model: SimulationModel, node: str):
     terms = []
 
     for component in model.components:
@@ -227,29 +145,24 @@ def _build_kcl_equation(
 
         (_, first_node), (_, second_node) = port_items
 
+        current = BranchCurrent(
+            name="current",
+            arguments=(
+                Variable(first_node),
+                Variable(second_node),
+            ),
+            component=component.name,
+        )
+
         if node == first_node:
-            terms.append(
-                FunctionCall(
-                    name="current",
-                    arguments=(
-                        Variable(first_node),
-                        Variable(second_node),
-                    ),
-                )
-            )
+            terms.append(current)
 
         elif node == second_node:
             terms.append(
                 Binary(
                     left=Number(-1.0),
                     operator="*",
-                    right=FunctionCall(
-                        name="current",
-                        arguments=(
-                            Variable(first_node),
-                            Variable(second_node),
-                        ),
-                    ),
+                    right=current,
                 )
             )
 
