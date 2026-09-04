@@ -59,11 +59,17 @@ world Electronics {
 
 const PROPERTY_TO_PARAMETER = {
   Resistor: {
-    resistance: "R",
+    backendType: "Resistor",
+    parameter: {
+      resistance: "R",
+    },
   },
 
   "Voltage Source": {
-    voltage: "V",
+    backendType: "VoltageSource",
+    parameter: {
+      voltage: "V",
+    },
   },
 };
 
@@ -126,13 +132,15 @@ function getBackendType(node) {
     );
   }
 
-  if (!PROPERTY_TO_PARAMETER[componentType]) {
+  const definition = PROPERTY_TO_PARAMETER[componentType];
+
+  if (!definition) {
     throw new Error(
       `Component "${componentType}" is not yet supported by the simulation bridge`
     );
   }
 
-  return componentType;
+  return definition.backendType;
 }
 
 function buildConnectivity(nodes, edges) {
@@ -252,8 +260,15 @@ function getPortNet(node, portId, dsu, netNames) {
 
 function buildInstance(node, dsu, netNames) {
   const backendType = getBackendType(node);
+
+  const componentType =
+    node.data?.componentType;
+
+  const definition =
+    PROPERTY_TO_PARAMETER[componentType];
+
   const parameterMap =
-    PROPERTY_TO_PARAMETER[backendType];
+    definition?.parameter ?? {};
 
   const properties =
     node.data?.properties ?? {};

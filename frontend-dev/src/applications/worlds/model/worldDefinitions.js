@@ -36,16 +36,16 @@ export const worldDefinitions = {
 
     ports: [
       {
-        id: "p",
-        kind: "electrical",
-        position: "left",
-        label: "p",
-      },
-      {
         id: "n",
         kind: "electrical",
-        position: "right",
+        position: "left",
         label: "n",
+      },
+      {
+        id: "p",
+        kind: "electrical",
+        position: "right",
+        label: "p",
       },
     ],
 
