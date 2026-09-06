@@ -1,6 +1,88 @@
-import { useState } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 import { serializeWorldGraph } from "../model/worldGraphSerializer";
+
+function formatVoltage(value) {
+  const number = Number(value);
+
+  if (!Number.isFinite(number)) {
+    return "—";
+  }
+
+  return `${number.toFixed(2)} V`;
+}
+
+function formatCurrent(value) {
+  const number = Number(value);
+
+  if (!Number.isFinite(number)) {
+    return "—";
+  }
+
+  const abs = Math.abs(number);
+
+  if (abs >= 1) {
+    return `${number.toFixed(2)} A`;
+  }
+
+  return `${(number * 1000).toFixed(1)} mA`;
+}
+
+function formatPower(value) {
+  const number = Number(value);
+
+  if (!Number.isFinite(number)) {
+    return "—";
+  }
+
+  const abs = Math.abs(number);
+
+  if (abs >= 1) {
+    return `${number.toFixed(2)} W`;
+  }
+
+  return `${(number * 1000).toFixed(1)} mW`;
+}
+
+function getComponentLabel(componentId, nodes) {
+  const node = nodes.find(
+    (item) => item.id === componentId
+  );
+
+  return (
+    node?.data?.label ??
+    componentId
+  );
+}
+
+function getBranchLabel(branchId) {
+  return branchId;
+}
+
+function getComponentType(component, node) {
+  return (
+    component?.type ??
+    node?.data?.componentType ??
+    ""
+  );
+}
+
+function isVoltageSource(component, node) {
+  const type = String(
+    component?.type ??
+    node?.data?.componentType ??
+    ""
+  ).toLowerCase();
+
+  return (
+    type.includes("voltage") ||
+    type.includes("source")
+  );
+}
 
 export default function SimulationPanel({
   nodes,
@@ -9,8 +91,32 @@ export default function SimulationPanel({
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [running, setRunning] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+
+  const abortControllerRef = useRef(null);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+
+      abortControllerRef.current?.abort();
+      abortControllerRef.current = null;
+    };
+  }, []);
 
   const simulate = async () => {
+    /*
+     * Cancel any previous simulation before starting another one.
+     * This also protects against stale responses overwriting newer results.
+     */
+    abortControllerRef.current?.abort();
+
+    const controller = new AbortController();
+
+    abortControllerRef.current = controller;
+
     setRunning(true);
     setError(null);
 
@@ -28,33 +134,105 @@ export default function SimulationPanel({
             "Content-Type": "application/json",
           },
           body: JSON.stringify(payload),
+          signal: controller.signal,
         }
       );
 
       const data = await response.json();
 
+
       if (!response.ok || !data.ok) {
         throw new Error(
           data.error ??
-            `Simulation failed (${response.status})`
+          `Simulation failed (${response.status})`
         );
+      }
+
+      if (!mountedRef.current) {
+        return;
+      }
+
+      /*
+       * Only the currently active request is allowed
+       * to update the result.
+       */
+      if (
+        abortControllerRef.current !== controller
+      ) {
+        return;
       }
 
       setResult(data);
     } catch (simulationError) {
+      /*
+       * Abort is expected when a newer simulation starts
+       * or when the component is unmounted.
+       */
+      if (
+        simulationError?.name ===
+        "AbortError"
+      ) {
+        return;
+      }
+
+      if (!mountedRef.current) {
+        return;
+      }
+
       setResult(null);
       setError(
         simulationError?.message ??
-          "Simulation failed"
+        "Simulation failed"
       );
     } finally {
-      setRunning(false);
+      if (
+        mountedRef.current &&
+        abortControllerRef.current === controller
+      ) {
+        abortControllerRef.current = null;
+        setRunning(false);
+      }
     }
   };
 
+  const components = Object.entries(
+    result?.components ?? {}
+  );
+
+  const voltageSources = components.filter(
+    ([id, component]) => {
+      const node = nodes.find(
+        (item) => item.id === id
+      );
+
+      return isVoltageSource(
+        component,
+        node
+      );
+    }
+  );
+
+  const singleVoltageSource =
+    voltageSources.length === 1
+      ? voltageSources[0][1]
+      : null;
+
+  const componentCount =
+    components.length;
+
+  const nodeVoltages = Object.entries(
+    result?.node_voltages ?? {}
+  );
+
+  const branchCurrents = Object.entries(
+    result?.branch_currents ?? {}
+  );
+
   return (
-    <div className="absolute left-4 top-4 z-10 w-[300px]">
-      <div className="rounded-xl border border-[#d9dde2] bg-white shadow-md">
+    <div className="absolute left-4 top-4 z-10 w-[340px]">
+      <div className="overflow-hidden rounded-xl border border-[#d9dde2] bg-white shadow-md">
+
+        {/* Header */}
         <div className="flex items-center justify-between border-b border-[#e4e7eb] px-4 py-3">
           <div>
             <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#58718f]">
@@ -70,6 +248,7 @@ export default function SimulationPanel({
             type="button"
             onClick={simulate}
             disabled={running}
+            aria-busy={running}
             className="rounded-md border border-[#cfd5dc] bg-white px-3 py-1.5 text-xs font-medium text-[#26364d] shadow-sm transition hover:bg-[#f6f7f8] disabled:cursor-wait disabled:opacity-50"
           >
             {running
@@ -78,8 +257,13 @@ export default function SimulationPanel({
           </button>
         </div>
 
+        {/* Error */}
         {error && (
-          <div className="border-b border-[#e4e7eb] px-4 py-3">
+          <div
+            role="alert"
+            aria-live="assertive"
+            className="border-b border-[#e4e7eb] px-4 py-3"
+          >
             <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-red-600">
               Error
             </div>
@@ -90,60 +274,275 @@ export default function SimulationPanel({
           </div>
         )}
 
+        {/* Results */}
         {result && (
-          <div className="space-y-4 px-4 py-4">
-            <div>
-              <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#69717b]">
-                Node Voltages
+          <div
+            role="region"
+            aria-label="Simulation results"
+            aria-live="polite"
+            className="max-h-[calc(100vh-110px)] overflow-y-auto"
+          >
+
+            {/* Circuit summary */}
+            <div className="border-b border-[#e4e7eb] px-4 py-4">
+              <div className="mb-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#69717b]">
+                Circuit Summary
               </div>
 
-              <div className="space-y-1.5">
-                {Object.entries(
-                  result.node_voltages ?? {}
-                ).map(
-                  ([node, voltage]) => (
-                    <div
-                      key={node}
-                      className="flex items-center justify-between text-xs"
-                    >
-                      <span className="font-mono text-[#58718f]">
-                        {node}
-                      </span>
+              {voltageSources.length === 0 ? (
+                <div className="rounded-lg border border-[#e4e7eb] bg-[#fafbfc] px-3 py-2.5 text-xs text-[#69717b]">
+                  No voltage source detected.
+                </div>
+              ) : voltageSources.length > 1 ? (
+                <div className="rounded-lg border border-[#e4e7eb] bg-[#fafbfc] px-3 py-2.5">
+                  <div className="text-xs font-medium text-[#17253a]">
+                    Multiple voltage sources
+                  </div>
 
-                      <span className="font-mono font-medium text-[#17253a]">
-                        {Number(voltage).toFixed(4)} V
-                      </span>
+                  <div className="mt-1 text-[11px] leading-4 text-[#69717b]">
+                    {voltageSources.length} voltage
+                    sources are present in the circuit.
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="rounded-lg border border-[#e4e7eb] bg-[#fafbfc] px-2.5 py-2">
+                    <div className="text-[9px] uppercase tracking-[0.1em] text-[#69717b]">
+                      Supply
                     </div>
-                  )
-                )}
-              </div>
+
+                    <div className="mt-1 font-mono text-sm font-semibold text-[#17253a]">
+                      {formatVoltage(
+                        singleVoltageSource.voltage
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg border border-[#e4e7eb] bg-[#fafbfc] px-2.5 py-2">
+                    <div className="text-[9px] uppercase tracking-[0.1em] text-[#69717b]">
+                      Current
+                    </div>
+
+                    <div className="mt-1 font-mono text-sm font-semibold text-[#17253a]">
+                      {formatCurrent(
+                        singleVoltageSource.current
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg border border-[#e4e7eb] bg-[#fafbfc] px-2.5 py-2">
+                    <div className="text-[9px] uppercase tracking-[0.1em] text-[#69717b]">
+                      Power
+                    </div>
+
+                    <div className="mt-1 font-mono text-sm font-semibold text-[#17253a]">
+                      {formatPower(
+                        singleVoltageSource.power
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
-            <div className="border-t border-[#e4e7eb] pt-3">
+            {/* Components */}
+            <div className="px-4 py-4">
+              <div className="mb-2 flex items-center justify-between">
+                <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#69717b]">
+                  Components
+                </div>
+
+                <div className="text-[10px] text-[#8a929c]">
+                  {componentCount}
+                </div>
+              </div>
+
+              {components.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-[#d9dde2] px-3 py-4 text-center text-xs text-[#69717b]">
+                  No component results returned.
+                </div>
+              ) : (
+                <div className="overflow-hidden rounded-lg border border-[#e4e7eb]">
+
+                  {/* Table header */}
+                  <div className="grid grid-cols-[minmax(0,1fr)_auto_auto_auto] gap-2 border-b border-[#e4e7eb] bg-[#f7f8fa] px-3 py-2 text-[9px] font-semibold uppercase tracking-[0.08em] text-[#69717b]">
+                    <span>Component</span>
+                    <span className="text-right">V</span>
+                    <span className="text-right">I</span>
+                    <span className="text-right">P</span>
+                  </div>
+
+                  {components.map(
+                    ([id, component]) => {
+                      const node = nodes.find(
+                        (item) =>
+                          item.id === id
+                      );
+
+                      const label =
+                        getComponentLabel(
+                          id,
+                          nodes
+                        );
+
+                      const type =
+                        getComponentType(
+                          component,
+                          node
+                        );
+
+                      return (
+                        <div
+                          key={id}
+                          className="border-b border-[#e4e7eb] last:border-b-0"
+                        >
+                          <div className="grid grid-cols-[minmax(0,1fr)_auto_auto_auto] items-center gap-2 px-3 py-2.5">
+                            <div className="min-w-0">
+                              <div className="truncate text-xs font-medium text-[#17253a]">
+                                {label}
+                              </div>
+
+                              {type && (
+                                <div className="mt-0.5 text-[9px] uppercase tracking-[0.08em] text-[#8a929c]">
+                                  {type}
+                                </div>
+                              )}
+                            </div>
+
+                            <span className="font-mono text-[10px] text-[#26364d]">
+                              {formatVoltage(
+                                component.voltage
+                              )}
+                            </span>
+
+                            <span className="font-mono text-[10px] text-[#26364d]">
+                              {formatCurrent(
+                                component.current
+                              )}
+                            </span>
+
+                            <span className="font-mono text-[10px] text-[#26364d]">
+                              {formatPower(
+                                component.power
+                              )}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    }
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Node voltages */}
+            <div className="border-t border-[#e4e7eb] px-4 py-4">
               <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#69717b]">
-                Branch Currents
+                Nodes
               </div>
 
-              <div className="space-y-1.5">
-                {Object.entries(
-                  result.branch_currents ?? {}
-                ).map(
-                  ([branch, current]) => (
-                    <div
-                      key={branch}
-                      className="flex items-center justify-between gap-3 text-xs"
-                    >
-                      <span className="font-mono text-[#58718f]">
-                        {branch}
-                      </span>
+              {nodeVoltages.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-[#d9dde2] px-3 py-3 text-xs text-[#69717b]">
+                  No node voltage results returned.
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  {nodeVoltages.map(
+                    ([node, voltage]) => {
+                      const nodeObject =
+                        nodes.find(
+                          (item) =>
+                            item.id === node
+                        );
 
-                      <span className="font-mono font-medium text-[#17253a]">
-                        {Number(current).toFixed(6)} A
-                      </span>
-                    </div>
+                      const label =
+                        nodeObject?.data?.label ??
+                        (node === "ground"
+                          ? "Ground"
+                          : node);
+
+                      return (
+                        <div
+                          key={node}
+                          className="flex items-center justify-between text-xs"
+                        >
+                          <span className="text-[#58718f]">
+                            {label}
+                          </span>
+
+                          <span className="font-mono font-medium text-[#17253a]">
+                            {formatVoltage(
+                              voltage
+                            )}
+                          </span>
+                        </div>
+                      );
+                    }
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Advanced */}
+            <div className="border-t border-[#e4e7eb]">
+              <button
+                type="button"
+                onClick={() =>
+                  setShowAdvanced(
+                    (current) => !current
                   )
-                )}
-              </div>
+                }
+                aria-expanded={showAdvanced}
+                className="flex w-full items-center justify-between px-4 py-3 text-left transition hover:bg-[#fafbfc]"
+              >
+                <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#69717b]">
+                  Advanced details
+                </span>
+
+                <span
+                  aria-hidden="true"
+                  className="text-xs text-[#69717b]"
+                >
+                  {showAdvanced ? "−" : "+"}
+                </span>
+              </button>
+
+              {showAdvanced && (
+                <div className="border-t border-[#e4e7eb] px-4 py-3">
+                  <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#69717b]">
+                    Branch Currents
+                  </div>
+
+                  {branchCurrents.length === 0 ? (
+                    <div className="rounded-lg border border-dashed border-[#d9dde2] px-3 py-3 text-xs text-[#69717b]">
+                      No branch current results returned.
+                    </div>
+                  ) : (
+                    <div className="space-y-1.5">
+                      {branchCurrents.map(
+                        ([branch, current]) => (
+                          <div
+                            key={branch}
+                            className="flex items-center justify-between gap-3 text-xs"
+                          >
+                            <span className="truncate text-[#58718f]">
+                              {getBranchLabel(
+                                branch
+                              )}
+                            </span>
+
+                            <span className="shrink-0 font-mono font-medium text-[#17253a]">
+                              {formatCurrent(
+                                current
+                              )}
+                            </span>
+                          </div>
+                        )
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         )}

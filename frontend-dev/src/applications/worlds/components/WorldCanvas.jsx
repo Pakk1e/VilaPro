@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 
 import {
   Background,
@@ -11,11 +11,12 @@ import {
 
 import "@xyflow/react/dist/style.css";
 
-import WorldNode from "./WorldNode";
+import WorldNode, { WorldNodeContext } from "./WorldNode";
 import JunctionNode from "./JunctionNode";
 import CircuitEdge from "./CircuitEdge";
 import SimulationPanel from "./SimulationPanel";
 import { worldDefinitions } from "../model/worldDefinitions";
+
 
 const initialNodes = [];
 const initialEdges = [];
@@ -179,39 +180,78 @@ export default function WorldCanvas() {
   const [selectedNodeId, setSelectedNodeId] =
     useState(null);
 
+  const [selectedEdgeId, setSelectedEdgeId] =
+    useState(null);
+
+  const [editingNodeId, setEditingNodeId] =
+    useState(null);
+
   const [showComponentPicker, setShowComponentPicker] =
     useState(false);
 
   const selectedNode =
     nodes.find((node) => node.id === selectedNodeId) ?? null;
 
-  const onConnect = (connection) => {
-    if (!canConnect(connection, nodes)) {
-      return;
+
+  const displayNodes = nodes.map((node) => {
+    if (!editingNodeId) {
+      return node;
     }
 
-    setEdges((currentEdges) => {
-      const alreadyConnected = currentEdges.some(
-        (edge) =>
-          edge.source === connection.source &&
-          edge.sourceHandle === connection.sourceHandle &&
-          edge.target === connection.target &&
-          edge.targetHandle === connection.targetHandle
-      );
+    const editingNode = nodes.find(
+      (item) => item.id === editingNodeId
+    );
 
-      if (alreadyConnected) {
-        return currentEdges;
+    if (!editingNode || node.id === editingNodeId) {
+      return node;
+    }
+
+    const verticalGap = 260;
+
+    if (node.position.y <= editingNode.position.y) {
+      return node;
+    }
+
+    return {
+      ...node,
+      position: {
+        ...node.position,
+        y: node.position.y + verticalGap,
+      },
+    };
+  });
+
+  const onConnect = useCallback(
+    (connection) => {
+      if (!canConnect(connection, nodes)) {
+        return;
       }
 
-      return addEdge(
-        {
-          ...connection,
-          type: "circuit",
-        },
-        currentEdges
-      );
-    });
-  };
+      setEdges((currentEdges) => {
+        const alreadyConnected = currentEdges.some(
+          (edge) =>
+            edge.source === connection.source &&
+            edge.sourceHandle === connection.sourceHandle &&
+            edge.target === connection.target &&
+            edge.targetHandle === connection.targetHandle
+        );
+
+        if (alreadyConnected) {
+          return currentEdges;
+        }
+
+        return addEdge(
+          {
+            ...connection,
+            type: "circuit",
+          },
+          currentEdges
+        );
+      });
+
+    },
+    [nodes]
+  );
 
   const addComponent = (definitionKey) => {
     if (!reactFlowInstance) {
@@ -263,6 +303,7 @@ export default function WorldCanvas() {
 
     setSelectedNodeId(newNode.id);
     setShowComponentPicker(false);
+
   };
 
   const updateSelectedNode = (changes) => {
@@ -332,8 +373,14 @@ export default function WorldCanvas() {
     setSelectedNodeId(node.id);
   };
 
+  const handleEdgeClick = (_event, edge) => {
+    setSelectedEdgeId(edge.id);
+    setSelectedNodeId(null);
+  };
+
   const handlePaneClick = () => {
     setSelectedNodeId(null);
+    setSelectedEdgeId(null);
     setShowComponentPicker(false);
   };
 
@@ -345,25 +392,34 @@ export default function WorldCanvas() {
       return;
     }
 
-    if (!selectedNodeId) {
+    if (selectedNodeId) {
+      setNodes((currentNodes) =>
+        currentNodes.filter(
+          (node) => node.id !== selectedNodeId
+        )
+      );
+
+      setEdges((currentEdges) =>
+        currentEdges.filter(
+          (edge) =>
+            edge.source !== selectedNodeId &&
+            edge.target !== selectedNodeId
+        )
+      );
+
+      setSelectedNodeId(null);
       return;
     }
 
-    setNodes((currentNodes) =>
-      currentNodes.filter(
-        (node) => node.id !== selectedNodeId
-      )
-    );
+    if (selectedEdgeId) {
+      setEdges((currentEdges) =>
+        currentEdges.filter(
+          (edge) => edge.id !== selectedEdgeId
+        )
+      );
 
-    setEdges((currentEdges) =>
-      currentEdges.filter(
-        (edge) =>
-          edge.source !== selectedNodeId &&
-          edge.target !== selectedNodeId
-      )
-    );
-
-    setSelectedNodeId(null);
+      setSelectedEdgeId(null);
+    }
   };
 
   const selectedDefinition =
@@ -606,196 +662,105 @@ export default function WorldCanvas() {
       tabIndex={0}
       onKeyDown={onKeyDown}
     >
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        edgeTypes={edgeTypes}
-        nodeTypes={nodeTypes}
-        connectionMode="loose"
-        defaultEdgeOptions={{
-          type: "circuit",
-          interactionWidth: 30,
+
+      <WorldNodeContext.Provider
+        value={{
+          updateNode: updateSelectedNode,
+          updateProperty: updateSelectedProperty,
+
+          getDefinition: (definitionKey) =>
+            worldDefinitions[definitionKey] ?? null,
+
+          isEditing: (nodeId) =>
+            editingNodeId === nodeId,
+
+          setEditing: (nodeId) => {
+            setSelectedNodeId(nodeId);
+
+            setEditingNodeId((current) =>
+              current === nodeId ? null : nodeId
+            );
+          },
         }}
-        connectionLineType="smoothstep"
-        onNodesChange={handleNodesChange}
-        onEdgesChange={onEdgesChange}
-        onConnect={onConnect}
-        onConnectEnd={handleConnectEnd}
-        onInit={setReactFlowInstance}
-        onNodeClick={handleNodeClick}
-        onPaneClick={handlePaneClick}
-        onEdgeDoubleClick={insertJunctionOnEdge}
-        fitView
       >
-        <Background />
-        <Controls />
-
-        <SimulationPanel
-          nodes={nodes}
+        <ReactFlow
+          nodes={displayNodes}
           edges={edges}
-        />
+          edgeTypes={edgeTypes}
+          nodeTypes={nodeTypes}
+          connectionMode="loose"
+          defaultEdgeOptions={{
+            type: "circuit",
+            interactionWidth: 30,
+          }}
+          connectionLineType="smoothstep"
+          onNodesChange={handleNodesChange}
+          onEdgesChange={onEdgesChange}
+          onEdgeClick={handleEdgeClick}
+          onConnect={onConnect}
+          onConnectEnd={handleConnectEnd}
+          onInit={setReactFlowInstance}
+          onNodeClick={handleNodeClick}
+          onPaneClick={handlePaneClick}
+          onEdgeDoubleClick={insertJunctionOnEdge}
+          fitView
+        >
+          <Background />
+          <Controls />
 
-        {/* Add Component */}
-        <div className="absolute right-4 top-4 z-10">
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              setShowComponentPicker(
-                (current) => !current
-              );
-            }}
-            className="rounded-md border border-[#cfd5dc] bg-white px-3 py-2 text-xs font-medium text-[#26364d] shadow-sm transition hover:bg-[#f6f7f8]"
-          >
-            + Add Component
-          </button>
+          <SimulationPanel
+            nodes={nodes}
+            edges={edges}
+          />
 
-          {showComponentPicker && (
-            <div className="absolute right-0 mt-2 w-[220px] overflow-hidden rounded-lg border border-[#d9dde2] bg-white shadow-lg">
-              <div className="border-b border-[#e4e7eb] px-3 py-2">
-                <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#69717b]">
-                  Components
-                </div>
-              </div>
+          {/* Add Component */}
+          <div className="absolute right-4 top-4 z-10">
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                setShowComponentPicker(
+                  (current) => !current
+                );
+              }}
+              className="rounded-md border border-[#cfd5dc] bg-white px-3 py-2 text-xs font-medium text-[#26364d] shadow-sm transition hover:bg-[#f6f7f8]"
+            >
+              + Add Component
+            </button>
 
-              {Object.entries(worldDefinitions).map(
-                ([key, definition]) => (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() =>
-                      addComponent(key)
-                    }
-                    className="block w-full border-b border-[#f0f1f2] px-3 py-3 text-left transition last:border-b-0 hover:bg-[#f6f7f8]"
-                  >
-                    <div className="text-sm font-medium text-[#26364d]">
-                      {definition.type}
-                    </div>
-
-                    <div className="mt-1 text-[11px] text-[#8a929c]">
-                      {definition.description}
-                    </div>
-                  </button>
-                )
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Properties */}
-        <div className="absolute right-4 top-[68px] z-10 w-[280px]">
-          {selectedNode && (
-            <div className="rounded-xl border border-[#d9dde2] bg-white p-4 shadow-md">
-              <div className="mb-4">
-                <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#58718f]">
-                  {selectedNode.data?.componentType ??
-                    "Component"}
-                </div>
-
-                <div className="mt-1 text-sm font-semibold text-[#17253a]">
-                  Properties
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <label className="block">
-                  <div className="mb-1.5 text-[11px] font-medium text-[#69717b]">
-                    Name
+            {showComponentPicker && (
+              <div className="absolute right-0 mt-2 w-[220px] overflow-hidden rounded-lg border border-[#d9dde2] bg-white shadow-lg">
+                <div className="border-b border-[#e4e7eb] px-3 py-2">
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#69717b]">
+                    Components
                   </div>
+                </div>
 
-                  <input
-                    type="text"
-                    value={
-                      selectedNode.data?.label ?? ""
-                    }
-                    onChange={(event) =>
-                      updateSelectedNode({
-                        label: event.target.value,
-                      })
-                    }
-                    className="w-full rounded-md border border-[#cfd5dc] px-3 py-2 text-sm text-[#17253a] outline-none focus:border-[#58718f] focus:ring-2 focus:ring-[#e5ebf1]"
-                  />
-                </label>
+                {Object.entries(worldDefinitions).map(
+                  ([key, definition]) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() =>
+                        addComponent(key)
+                      }
+                      className="block w-full border-b border-[#f0f1f2] px-3 py-3 text-left transition last:border-b-0 hover:bg-[#f6f7f8]"
+                    >
+                      <div className="text-sm font-medium text-[#26364d]">
+                        {definition.type}
+                      </div>
 
-                {selectedDefinition &&
-                  Object.entries(
-                    selectedDefinition.properties ?? {}
-                  ).map(
-                    ([key, property]) => (
-                      <label
-                        key={key}
-                        className="block"
-                      >
-                        <div className="mb-1.5 text-[11px] font-medium text-[#69717b]">
-                          {property.label}
-                          {property.unit
-                            ? ` (${property.unit})`
-                            : ""}
-                        </div>
-
-                        <input
-                          type={
-                            property.type ===
-                              "number"
-                              ? "number"
-                              : "text"
-                          }
-                          value={
-                            selectedNode.data
-                              ?.properties?.[key] ??
-                            ""
-                          }
-                          onChange={(event) => {
-                            const value =
-                              property.type ===
-                                "number"
-                                ? Number(
-                                  event.target
-                                    .value
-                                )
-                                : event.target
-                                  .value;
-
-                            updateSelectedProperty(
-                              key,
-                              value
-                            );
-                          }}
-                          className="w-full rounded-md border border-[#cfd5dc] px-3 py-2 text-sm text-[#17253a] outline-none focus:border-[#58718f] focus:ring-2 focus:ring-[#e5ebf1]"
-                        />
-                      </label>
-                    )
-                  )}
-
-                <label className="block">
-                  <div className="mb-1.5 text-[11px] font-medium text-[#69717b]">
-                    Description
-                  </div>
-
-                  <textarea
-                    rows={3}
-                    value={
-                      selectedNode.data
-                        ?.description ?? ""
-                    }
-                    onChange={(event) =>
-                      updateSelectedNode({
-                        description:
-                          event.target.value,
-                      })
-                    }
-                    className="w-full resize-none rounded-md border border-[#cfd5dc] px-3 py-2 text-sm text-[#17253a] outline-none focus:border-[#58718f] focus:ring-2 focus:ring-[#e5ebf1]"
-                  />
-                </label>
+                      <div className="mt-1 text-[11px] text-[#8a929c]">
+                        {definition.description}
+                      </div>
+                    </button>
+                  )
+                )}
               </div>
-
-              <div className="mt-4 border-t border-[#e4e7eb] pt-3 text-[10px] text-[#9aa0a7]">
-                ID: {selectedNode.id}
-              </div>
-            </div>
-          )}
-        </div>
-      </ReactFlow>
-    </div>
+            )}
+          </div>
+        </ReactFlow>
+      </WorldNodeContext.Provider>
+    </div >
   );
 }

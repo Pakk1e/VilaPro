@@ -11,9 +11,8 @@ export default defineConfig({
       "react-dom/client",
       "react/jsx-dev-runtime",
       "lucide-react",
-      "clsx",
-      "tailwind-merge"
-    ]
+      "clsx"
+    ],
   },
 
   server: {
