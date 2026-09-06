@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 
 import {
   Background,
@@ -20,6 +20,9 @@ import { worldDefinitions } from "../model/worldDefinitions";
 
 const initialNodes = [];
 const initialEdges = [];
+
+
+
 
 const nodeTypes = {
   world: WorldNode,
@@ -185,6 +188,38 @@ export default function WorldCanvas() {
 
   const [editingNodeId, setEditingNodeId] =
     useState(null);
+  useEffect(() => {
+    if (!editingNodeId) {
+      return;
+    }
+
+    const handlePointerDown = (event) => {
+      const nodeElement = event.target.closest(
+        ".react-flow__node"
+      );
+
+      if (!nodeElement) {
+        setEditingNodeId(null);
+        return;
+      }
+
+      if (nodeElement.dataset.id !== editingNodeId) {
+        setEditingNodeId(null);
+      }
+    };
+
+    document.addEventListener(
+      "pointerdown",
+      handlePointerDown
+    );
+
+    return () => {
+      document.removeEventListener(
+        "pointerdown",
+        handlePointerDown
+      );
+    };
+  }, [editingNodeId]);
 
   const [showComponentPicker, setShowComponentPicker] =
     useState(false);
@@ -371,6 +406,7 @@ export default function WorldCanvas() {
 
   const handleNodeClick = (_event, node) => {
     setSelectedNodeId(node.id);
+    setSelectedEdgeId(null);
   };
 
   const handleEdgeClick = (_event, edge) => {
@@ -385,12 +421,17 @@ export default function WorldCanvas() {
   };
 
   const onKeyDown = (event) => {
+    if (event.key === "Escape") {
+      setEditingNodeId(null);
+      return;
+    }
+
     if (
-      event.key !== "Delete" &&
-      event.key !== "Backspace"
+      event.key !== "Delete"
     ) {
       return;
     }
+
 
     if (selectedNodeId) {
       setNodes((currentNodes) =>
@@ -676,10 +717,7 @@ export default function WorldCanvas() {
 
           setEditing: (nodeId) => {
             setSelectedNodeId(nodeId);
-
-            setEditingNodeId((current) =>
-              current === nodeId ? null : nodeId
-            );
+            setEditingNodeId(nodeId);
           },
         }}
       >
