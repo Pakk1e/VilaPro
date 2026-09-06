@@ -7,14 +7,11 @@ from worlds.math import Equation
 
 @dataclass
 class SimulationComponent:
-    """
-    Runtime representation of one component instance.
-
-    Semantic validation has already happened before this
-    object is created.
-    """
+    """Runtime representation of one component instance."""
 
     name: str
+    display_name: str
+    component_id: str
     component_type: str
     parameters: dict[str, float] = field(default_factory=dict)
     ports: dict[str, str | None] = field(default_factory=dict)
@@ -23,23 +20,14 @@ class SimulationComponent:
 
 @dataclass
 class SimulationModel:
-    """
-    Runtime model containing components and their connections.
+    """Runtime model containing components and their connections."""
 
-    A node is identified by a string. Component ports point to
-    these node names.
-    """
+    components: list[SimulationComponent] = field(default_factory=list)
+    nodes: set[str] = field(default_factory=set)
 
-    components: list[SimulationComponent] = field(
-        default_factory=list
-    )
-    nodes: set[str] = field(
-        default_factory=set
-    )
-
-    def add_component(
-        self,
-        component: SimulationComponent,
-    ):
+    def add_component(self, component: SimulationComponent):
         self.components.append(component)
-        self.nodes.update(component.ports.values())
+        self.nodes.update(
+            node for node in component.ports.values()
+            if node is not None
+        )
