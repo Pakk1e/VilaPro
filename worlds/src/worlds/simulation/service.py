@@ -2,12 +2,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from worlds.math import Variable
 from worlds.semantics.component import ComponentSemanticAnalyzer
 from worlds.semantics import WorldSemanticAnalyzer
 from worlds.simulation.builder import build_simulation_component
 from worlds.simulation.model import SimulationModel
 from worlds.simulation.network import build_network_equation_system
-from worlds.simulation.solver import SimulationResult, SimulationSolver
+from worlds.simulation.solver import BranchCurrent, SimulationResult, SimulationSolver
 from worlds.simulation.validation import SimulationValidator
 from worlds.vdl import Parser
 
@@ -20,15 +21,11 @@ class SimulationServiceError(Exception):
 class SimulationResponse:
     node_voltages: dict[str, float]
     branch_currents: dict[str, float]
+    components: list[dict]
 
 
 class SimulationService:
-    """
-    Public application-level interface to the simulation engine.
-
-    This layer intentionally knows nothing about HTTP or any
-    particular frontend framework.
-    """
+    """Public application-level interface to the simulation engine."""
 
     def simulate(
         self,
@@ -38,29 +35,19 @@ class SimulationService:
     ) -> SimulationResponse:
         try:
             world = Parser(world_source).parse()
-
-            semantic = WorldSemanticAnalyzer(
-                world
-            ).analyze()
-
+            semantic = WorldSemanticAnalyzer(world).analyze()
             model = SimulationModel()
             type_counts = {}
 
-            for instance in instances:
+            for index, instance in enumerate(instances):
                 component_name = instance["type"]
+                type_counts[component_name] = type_counts.get(component_name, 0) + 1
 
-                type_counts[component_name] = (
-                    type_counts.get(component_name, 0) + 1
-                )
+                component_id = str(instance.get("id") or f"component-{index + 1}")
+                display_name = str(instance.get("name") or component_id)
+                instance_name = f"{component_name}_{type_counts[component_name]}"
 
-                instance_name = (
-                    f"{component_name}_{type_counts[component_name]}"
-                )
-
-                component = semantic.component(
-                    component_name
-                )
-
+                component = semantic.component(component_name)
                 analyzer = ComponentSemanticAnalyzer(
                     component.component,
                     semantic.types,
@@ -70,29 +57,20 @@ class SimulationService:
                 simulation_component = build_simulation_component(
                     analyzer,
                     name=instance_name,
-                    parameters=instance.get(
-                        "parameters",
-                        {},
-                    ),
-                    ports=instance.get(
-                        "ports",
-                        {},
-                    ),
+                    display_name=display_name,
+                    component_id=component_id,
+                    parameters=instance.get("parameters", {}),
+                    ports=instance.get("ports", {}),
                 )
-
-                model.add_component(
-                    simulation_component
-                )
+                model.add_component(simulation_component)
 
             SimulationValidator().validate(model)
 
-            equation_system = (
-                build_network_equation_system(model)
-            )
-
-            result = SimulationSolver().solve(
-                equation_system,
-                known=known,
+            equation_system = build_network_equation_system(model)
+            result = SimulationSolver().solve(equation_system, known=known)
+            result = SimulationResult(
+                values=result.values,
+                instances={component.name: component for component in model.components},
             )
 
             return self._build_response(result)
@@ -100,28 +78,43 @@ class SimulationService:
         except Exception as exc:
             if isinstance(exc, SimulationServiceError):
                 raise
-
-            raise SimulationServiceError(
-                str(exc)
-            ) from exc
+            raise SimulationServiceError(str(exc)) from exc
 
     @staticmethod
-    def _build_response(
-        result: SimulationResult,
-    ) -> SimulationResponse:
-        node_voltages = dict(
-            result.node_voltages
-        )
+    def _build_response(result: SimulationResult) -> SimulationResponse:
+        components = []
+
+        for name, component in result.instances.items():
+            ports = component.ports
+            if "p" not in ports or "n" not in ports:
+                raise SimulationServiceError(
+                    f"Component '{component.display_name}' is not a two-terminal component"
+                )
+
+            voltage = result.node_voltage(ports["p"]) - result.node_voltage(ports["n"])
+            current_unknown = BranchCurrent(
+                name="current",
+                arguments=(Variable(ports["p"]), Variable(ports["n"])),
+                component=name,
+            )
+            current = result.value(current_unknown)
+
+            components.append({
+                "id": component.component_id,
+                "name": component.display_name,
+                "type": component.component_type,
+                "voltage": voltage,
+                "current": current,
+                "power": voltage * current,
+            })
 
         branch_currents = {
             f"{first_node}->{second_node}": value
-            for (
-                first_node,
-                second_node
-            ), value in result.branch_currents.items()
+            for (first_node, second_node), value in result.branch_currents.items()
         }
 
         return SimulationResponse(
-            node_voltages=node_voltages,
+            node_voltages=dict(result.node_voltages),
             branch_currents=branch_currents,
+            components=components,
         )
