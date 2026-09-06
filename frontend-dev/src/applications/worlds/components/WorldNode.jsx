@@ -1,4 +1,11 @@
+import { createContext, useContext } from "react";
 import { Handle, Position } from "@xyflow/react";
+import ComponentPropertiesPanel from "./ComponentPropertiesPanel";
+
+export const WorldNodeContext = createContext({
+  updateProperty: () => {},
+  getDefinition: () => null,
+});
 
 const POSITION_MAP = {
   left: Position.Left,
@@ -9,6 +16,8 @@ const POSITION_MAP = {
 
 export default function WorldNode({ data, selected }) {
   const ports = data?.ports ?? [];
+  const { updateProperty, getDefinition } = useContext(WorldNodeContext);
+  const definition = getDefinition(data?.definitionKey);
 
   return (
     <div
@@ -50,6 +59,14 @@ export default function WorldNode({ data, selected }) {
       <div className="px-6 py-5 text-[14px] text-[#58718f]">
         {data?.description ?? ""}
       </div>
+
+      {selected && definition && (
+        <ComponentPropertiesPanel
+          definition={definition}
+          properties={data?.properties}
+          onChange={updateProperty}
+        />
+      )}
     </div>
   );
 }
