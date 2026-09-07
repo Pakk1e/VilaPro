@@ -22,12 +22,7 @@ class SimulationDataset:
 
 @dataclass(frozen=True)
 class SimulationResultModel:
-    """Generic result envelope shared by all simulation analysis types.
-
-    The model deliberately keeps datasets analysis-neutral so future analyses
-    such as DC sweep and transient analysis can add multidimensional data
-    without changing the top-level response contract.
-    """
+    """Generic result envelope shared by all simulation analysis types."""
 
     metadata: Mapping[str, object] = field(default_factory=dict)
     datasets: tuple[SimulationDataset, ...] = ()
@@ -57,27 +52,49 @@ class SimulationResultModel:
         """Build the generic result envelope for a DC operating-point run."""
 
         return cls(
-            metadata={
-                "status": status,
-            },
+            metadata={"status": status},
             datasets=(
-                SimulationDataset(
-                    name="node_voltages",
-                    values=dict(node_voltages),
-                ),
-                SimulationDataset(
-                    name="branch_currents",
-                    values=dict(branch_currents),
-                ),
-                SimulationDataset(
-                    name="components",
-                    values=list(components),
-                ),
+                SimulationDataset(name="node_voltages", values=dict(node_voltages)),
+                SimulationDataset(name="branch_currents", values=dict(branch_currents)),
+                SimulationDataset(name="components", values=list(components)),
             ),
             statistics={},
             analysis_information={
                 "analysis": analysis,
                 "settings": dict(settings),
                 "outputs": list(outputs),
+            },
+        )
+
+    @classmethod
+    def from_dc_sweep(
+        cls,
+        *,
+        status: str,
+        settings: Mapping[str, object],
+        outputs: tuple[str, ...],
+        sweep_source: str,
+        sweep_parameter: str,
+        points: list[float],
+        node_voltages: list[dict[str, float]],
+        branch_currents: list[dict[str, float]],
+        components: list[list[dict]],
+    ) -> "SimulationResultModel":
+        """Build the generic result envelope for a DC sweep."""
+
+        return cls(
+            metadata={"status": status},
+            datasets=(
+                SimulationDataset(name="sweep", values=points, dimensions=("sweep",)),
+                SimulationDataset(name="node_voltages", values=node_voltages, dimensions=("sweep", "node")),
+                SimulationDataset(name="branch_currents", values=branch_currents, dimensions=("sweep", "branch")),
+                SimulationDataset(name="components", values=components, dimensions=("sweep", "component")),
+            ),
+            statistics={"point_count": len(points)},
+            analysis_information={
+                "analysis": "dc_sweep",
+                "settings": dict(settings),
+                "outputs": list(outputs),
+                "sweep": {"source": sweep_source, "parameter": sweep_parameter},
             },
         )
