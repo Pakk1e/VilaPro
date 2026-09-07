@@ -50,7 +50,7 @@ function getSimulationSignature(nodes, edges, config) {
   });
 }
 
-export default function SimulationPanel({ nodes, edges, onSelectComponent }) {
+export default function SimulationPanel({ nodes, edges, onSelectComponent, sweepTargets = [] }) {
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [running, setRunning] = useState(false);
@@ -66,14 +66,7 @@ export default function SimulationPanel({ nodes, edges, onSelectComponent }) {
   );
 
   const simulationIsStale = result !== null && lastSimulationSignature !== null && lastSimulationSignature !== simulationSignature;
-  const voltageSources = useMemo(
-    () => nodes
-      .filter((node) => node.type === "world")
-      .filter((node) => String(node.data?.componentType ?? "").toLowerCase().includes("voltage"))
-      .map((node) => ({ id: node.id, label: node.data?.label ?? node.id })),
-    [nodes]
-  );
-  const configurationError = getSimulationConfigValidationError(simulationConfig, voltageSources.map((source) => source.id));
+  const configurationError = getSimulationConfigValidationError(simulationConfig, sweepTargets);
   const status = getSimulationStatus({ result, running, error, simulationIsStale });
 
   useEffect(() => {
@@ -161,13 +154,7 @@ export default function SimulationPanel({ nodes, edges, onSelectComponent }) {
             <span className="rounded-full border border-[#e4e7eb] bg-[#fafbfc] px-2 py-0.5 text-[9px] font-medium uppercase tracking-[0.08em] text-[#69717b]">{getSimulationStatusLabel(status)}</span>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={simulate}
-          disabled={running || Boolean(configurationError)}
-          aria-busy={running}
-          className="rounded-md border border-[#cfd5dc] bg-white px-4 py-2 text-xs font-medium text-[#26364d] shadow-sm transition hover:bg-[#f6f7f8] disabled:cursor-not-allowed disabled:opacity-50"
-        >
+        <button type="button" onClick={simulate} disabled={running || Boolean(configurationError)} aria-busy={running} className="rounded-md border border-[#cfd5dc] bg-white px-4 py-2 text-xs font-medium text-[#26364d] shadow-sm transition hover:bg-[#f6f7f8] disabled:cursor-not-allowed disabled:opacity-50">
           {running ? "Running..." : simulationIsStale ? "Re-simulate" : "Simulate"}
         </button>
       </header>
@@ -180,18 +167,14 @@ export default function SimulationPanel({ nodes, edges, onSelectComponent }) {
                 <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#69717b]">Simulation Setup</div>
                 <div className="mt-1 text-xs text-[#8a929c]">Choose the analysis and parameters for this run.</div>
               </div>
-              <SimulationSetup config={simulationConfig} onChange={updateSimulationConfig} voltageSources={voltageSources} />
+              <SimulationSetup config={simulationConfig} onChange={updateSimulationConfig} sweepTargets={sweepTargets} />
             </div>
 
             <div className="rounded-xl border border-[#d9dde2] bg-white px-4 py-4">
               <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#69717b]">Run status</div>
               <div className="mt-2 text-sm font-medium text-[#17253a]">{getSimulationStatusLabel(status)}</div>
               <div className="mt-1 text-xs leading-5 text-[#69717b]">
-                {simulationIsStale
-                  ? "The circuit or setup changed. Run the simulation again to refresh the results."
-                  : result
-                    ? "Results represent the latest completed simulation run."
-                    : "Configure the analysis and run the simulation to generate results."}
+                {simulationIsStale ? "The circuit or setup changed. Run the simulation again to refresh the results." : result ? "Results represent the latest completed simulation run." : "Configure the analysis and run the simulation to generate results."}
               </div>
             </div>
           </div>
