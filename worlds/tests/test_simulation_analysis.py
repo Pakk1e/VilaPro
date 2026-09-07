@@ -9,23 +9,9 @@ from worlds.simulation import (
 )
 
 
-WORLD_SOURCE = """
-world Electronics {
-  component Resistor {
-    parameter R: resistance
-    port p: electrical
-    port n: electrical
-    equation V(p, n) = R * I(p, n)
-  }
-
-  component VoltageSource {
-    parameter V: voltage
-    port p: electrical
-    port n: electrical
-    equation V(p, n) = V
-  }
-}
-"""
+def load_world_source():
+    with open("examples/electronics.vdl") as file:
+        return file.read()
 
 
 class SimulationAnalysisTest(unittest.TestCase):
@@ -81,7 +67,7 @@ class SimulationAnalysisTest(unittest.TestCase):
 
     def test_service_dispatches_dc_operating_point(self):
         response = SimulationService().simulate(
-            WORLD_SOURCE,
+            load_world_source(),
             instances=[
                 {
                     "id": "V1-id",
@@ -113,7 +99,7 @@ class SimulationAnalysisTest(unittest.TestCase):
     def test_service_rejects_unknown_analysis(self):
         with self.assertRaises(SimulationServiceError) as context:
             SimulationService().simulate(
-                WORLD_SOURCE,
+                load_world_source(),
                 instances=[],
                 simulation={"analysis": "dc_sweep"},
             )
@@ -122,7 +108,7 @@ class SimulationAnalysisTest(unittest.TestCase):
 
     def test_service_keeps_legacy_default_behavior(self):
         response = SimulationService().simulate(
-            WORLD_SOURCE,
+            load_world_source(),
             instances=[
                 {
                     "type": "VoltageSource",
