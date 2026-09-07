@@ -2,9 +2,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { serializeWorldGraph } from "../model/worldGraphSerializer";
 import {
+  createSimulationConfig,
+} from "../model/simulationConfig";
+import {
   getSimulationStatus,
   getSimulationStatusLabel,
 } from "../model/simulationState";
+import SimulationSetup from "./SimulationSetup";
 
 function formatVoltage(value) {
   const number = Number(value);
@@ -27,28 +31,31 @@ function formatPower(value) {
     : `${(number * 1000).toFixed(1)} mW`;
 }
 
-function getGraphSignature(nodes, edges) {
+function getSimulationSignature(nodes, edges, config) {
   return JSON.stringify({
-    nodes: nodes.map((node) => ({
-      id: node.id,
-      type: node.type,
-      data:
-        node.type === "world"
-          ? {
-              componentType: node.data?.componentType,
-              definitionKey: node.data?.definitionKey,
-              properties: node.data?.properties ?? {},
-              ports: node.data?.ports ?? [],
-            }
-          : { portKind: node.data?.portKind },
-    })),
-    edges: edges.map((edge) => ({
-      id: edge.id,
-      source: edge.source,
-      sourceHandle: edge.sourceHandle,
-      target: edge.target,
-      targetHandle: edge.targetHandle,
-    })),
+    circuit: {
+      nodes: nodes.map((node) => ({
+        id: node.id,
+        type: node.type,
+        data:
+          node.type === "world"
+            ? {
+                componentType: node.data?.componentType,
+                definitionKey: node.data?.definitionKey,
+                properties: node.data?.properties ?? {},
+                ports: node.data?.ports ?? [],
+              }
+            : { portKind: node.data?.portKind },
+      })),
+      edges: edges.map((edge) => ({
+        id: edge.id,
+        source: edge.source,
+        sourceHandle: edge.sourceHandle,
+        target: edge.target,
+        targetHandle: edge.targetHandle,
+      })),
+    },
+    simulation: config,
   });
 }
 
@@ -58,19 +65,22 @@ export default function SimulationPanel({ nodes, edges, onSelectComponent }) {
   const [running, setRunning] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const [simulationConfig, setSimulationConfig] = useState(() =>
+    createSimulationConfig()
+  );
   const [lastSimulationSignature, setLastSimulationSignature] = useState(null);
   const abortControllerRef = useRef(null);
   const mountedRef = useRef(true);
 
-  const graphSignature = useMemo(
-    () => getGraphSignature(nodes, edges),
-    [nodes, edges]
+  const simulationSignature = useMemo(
+    () => getSimulationSignature(nodes, edges, simulationConfig),
+    [nodes, edges, simulationConfig]
   );
 
   const simulationIsStale =
     result !== null &&
     lastSimulationSignature !== null &&
-    lastSimulationSignature !== graphSignature;
+    lastSimulationSignature !== simulationSignature;
 
   const status = getSimulationStatus({
     result,
@@ -88,6 +98,17 @@ export default function SimulationPanel({ nodes, edges, onSelectComponent }) {
     };
   }, []);
 
+  const updateSimulationConfig = (changes) => {
+    setSimulationConfig((current) => ({
+      ...current,
+      ...changes,
+      settings: {
+        ...current.settings,
+        ...(changes.settings ?? {}),
+      },
+    }));
+  };
+
   const simulate = async () => {
     abortControllerRef.current?.abort();
     const controller = new AbortController();
@@ -96,7 +117,10 @@ export default function SimulationPanel({ nodes, edges, onSelectComponent }) {
     setError(null);
 
     try {
-      const payload = serializeWorldGraph(nodes, edges);
+      const payload = {
+        ...serializeWorldGraph(nodes, edges),
+        simulation: simulationConfig,
+      };
       const response = await fetch("/simulate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -111,7 +135,7 @@ export default function SimulationPanel({ nodes, edges, onSelectComponent }) {
 
       if (!mountedRef.current || abortControllerRef.current !== controller) return;
       setResult(data);
-      setLastSimulationSignature(graphSignature);
+      setLastSimulationSignature(simulationSignature);
     } catch (simulationError) {
       if (simulationError?.name === "AbortError") return;
       if (!mountedRef.current) return;
@@ -181,9 +205,14 @@ export default function SimulationPanel({ nodes, edges, onSelectComponent }) {
 
         {!collapsed && (
           <>
+            <SimulationSetup
+              config={simulationConfig}
+              onChange={updateSimulationConfig}
+            />
+
             {!result && !error && (
               <div className="px-4 py-4 text-xs leading-5 text-[#69717b]">
-                Build the circuit, then run a simulation to calculate node voltages, branch currents, and component values.
+                Build the circuit, configure the analysis, then run the simulation to calculate node voltages, branch currents, and component values.
               </div>
             )}
 
@@ -191,7 +220,7 @@ export default function SimulationPanel({ nodes, edges, onSelectComponent }) {
               <div role="status" aria-live="polite" className="border-b border-[#e4e7eb] bg-[#fffaf0] px-4 py-3">
                 <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#8a6a2f]">Simulation out of date</div>
                 <div className="mt-1 text-xs leading-5 text-[#75613c]">
-                  The circuit has changed since these results were calculated. Run the simulation again to refresh the values.
+                  The circuit or simulation setup has changed since these results were calculated. Run the simulation again to refresh the values.
                 </div>
               </div>
             )}
