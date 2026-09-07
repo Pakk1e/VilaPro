@@ -16,6 +16,7 @@ import JunctionNode from "./JunctionNode";
 import CircuitEdge from "./CircuitEdge";
 import SimulationPanel from "./SimulationPanel";
 import ComponentSidebar from "./ComponentSidebar";
+import SchematicPreview from "./SchematicPreview";
 import { worldDefinitions } from "../model/worldDefinitions";
 
 const initialNodes = [];
@@ -252,32 +253,32 @@ export default function WorldCanvas({ workspace = "design" }) {
 
   return (
     <div className={`relative h-full w-full ${isDesignWorkspace ? "" : "bg-[#f6f6f4]"}`} tabIndex={0} onKeyDown={onKeyDown}>
-      <div className={isDesignWorkspace ? "h-full w-full" : "h-full w-[38%] border-r border-[#d9dde2] bg-white"}>
-        <ReactFlow
-          nodes={nodes}
-          edges={edges}
-          edgeTypes={edgeTypes}
-          nodeTypes={nodeTypes}
-          connectionMode="loose"
-          defaultEdgeOptions={{ type: "circuit", interactionWidth: 30 }}
-          connectionLineType="smoothstep"
-          nodesDraggable={isDesignWorkspace}
-          nodesConnectable={isDesignWorkspace}
-          elementsSelectable={isDesignWorkspace}
-          onNodesChange={isDesignWorkspace ? handleNodesChange : undefined}
-          onEdgesChange={isDesignWorkspace ? onEdgesChange : undefined}
-          onEdgeClick={isDesignWorkspace ? handleEdgeClick : undefined}
-          onConnect={isDesignWorkspace ? onConnect : undefined}
-          onConnectEnd={isDesignWorkspace ? handleConnectEnd : undefined}
-          onInit={setReactFlowInstance}
-          onNodeClick={handleNodeClick}
-          onPaneClick={handlePaneClick}
-          onEdgeDoubleClick={isDesignWorkspace ? insertJunctionOnEdge : undefined}
-          fitView
-        >
-          <Background />
-          <Controls />
-          {isDesignWorkspace && (
+      {isDesignWorkspace ? (
+        <div className="h-full w-full">
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            edgeTypes={edgeTypes}
+            nodeTypes={nodeTypes}
+            connectionMode="loose"
+            defaultEdgeOptions={{ type: "circuit", interactionWidth: 30 }}
+            connectionLineType="smoothstep"
+            nodesDraggable
+            nodesConnectable
+            elementsSelectable
+            onNodesChange={handleNodesChange}
+            onEdgesChange={onEdgesChange}
+            onEdgeClick={handleEdgeClick}
+            onConnect={onConnect}
+            onConnectEnd={handleConnectEnd}
+            onInit={setReactFlowInstance}
+            onNodeClick={handleNodeClick}
+            onPaneClick={handlePaneClick}
+            onEdgeDoubleClick={insertJunctionOnEdge}
+            fitView
+          >
+            <Background />
+            <Controls />
             <ComponentSidebar
               nodes={nodes.filter((node) => node.type === "world")}
               selectedNode={selectedNode?.type === "world" ? selectedNode : null}
@@ -288,22 +289,23 @@ export default function WorldCanvas({ workspace = "design" }) {
               }}
               onChangeProperty={updateSelectedProperty}
             />
-          )}
-        </ReactFlow>
-      </div>
+          </ReactFlow>
+        </div>
+      ) : (
+        <SchematicPreview
+          nodes={nodes}
+          edges={edges}
+          selectedNodeId={selectedNodeId}
+          onSelectComponent={setSelectedNodeId}
+        />
+      )}
 
       {!isDesignWorkspace && (
-        <>
-          <div className="absolute left-4 top-4 z-10 rounded-lg border border-[#d9dde2] bg-white/95 px-3 py-2 shadow-sm backdrop-blur">
-            <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[#58718f]">Circuit Preview</div>
-            <div className="mt-0.5 text-[10px] text-[#69717b]">Read-only design overview</div>
-          </div>
-          <SimulationPanel
-            nodes={nodes}
-            edges={edges}
-            onSelectComponent={setSelectedNodeId}
-          />
-        </>
+        <SimulationPanel
+          nodes={nodes}
+          edges={edges}
+          onSelectComponent={setSelectedNodeId}
+        />
       )}
     </div>
   );
