@@ -260,6 +260,16 @@ export default function WorldCanvas() {
   };
 
   const onKeyDown = (event) => {
+    const target = event.target;
+    const isFormControl =
+      target instanceof HTMLElement &&
+      (target.matches("input, textarea, select, button") ||
+        target.isContentEditable);
+
+    if (isFormControl) {
+      return;
+    }
+
     if (event.key === "Escape") {
       setSelectedNodeId(null);
       setSelectedEdgeId(null);
