@@ -113,56 +113,171 @@ Maintain support for the current DC operating-point simulation while migrating t
 ## Phase 3 — DC Sweep
 
 ### Goal
-Add parameter sweep capabilities and result visualization.
+Implement a SPICE-style DC Sweep in which one independent DC voltage or current source is varied across a defined range and the circuit response is calculated at every sweep point.
 
-### Deliverables
+The fundamental result model is:
 
-#### Sweep Configuration
+```text
+DC Sweep
+    ├─ Independent variable
+    │     └─ swept voltage/current source
+    │
+    └─ Circuit responses
+          ├─ node voltages
+          ├─ branch currents
+          └─ component quantities
+```
 
-Allow users to sweep:
+The sweep value is always the independent X-axis variable. Circuit quantities are dependent Y-axis responses.
 
-- Voltage sources
-- Current sources
-- Component parameters
-- Model parameters
+### Phase 3A — DC Sweep backend foundation
+
+- `dc_sweep` analysis type
+- Sweep configuration
+- Validation
+- Voltage-source sweep
+- Repeated DC operating-point execution
+- Sweep result dataset
+- Backend tests
+
+### Phase 3B — API + frontend configuration
+
+- Expose DC Sweep through `/simulate`
+- Analysis selector
+- Voltage/current source selector
+- Start / stop / step controls
+- Configuration validation messages
+- Stale-result handling
+- Frontend tests
+
+### Phase 3C — DC Sweep result presentation
+
+#### Sweep Result Model
+
+Present the result as an independent-variable dataset plus circuit-response datasets.
+
+```text
+Sweep Result
+    ├─ Sweep source
+    ├─ Sweep parameter
+    ├─ Sweep values
+    └─ Response datasets
+```
+
+#### Result Table
+
+Provide a table whose first column is the swept source value and whose remaining columns represent selected circuit responses.
 
 Example:
 
 ```text
-Vin: 0V → 5V
-Step: 0.1V
+V1      V(node_1)      I(R1)
+0 V       0 V            0 A
+2 V       2 V           20 mA
+4 V       4 V           40 mA
+...
 ```
 
-#### Multiple Simulation Runs
+#### Response Selection
 
-Generate and execute multiple simulation runs based on sweep parameters.
+Allow the user to select circuit quantities for plotting, including:
+
+- Node voltages
+- Branch currents
+- Component voltage/current/power
+
+The X-axis remains the sweep variable.
+
+#### Basic Visualization
+
+Provide a basic plot of:
 
 ```text
-Run 1
-Run 2
-Run 3
-...
-Run N
+X = swept source value
+Y = selected circuit response
 ```
 
-#### Dataset Storage
+#### Failed Sweep Points
 
-Store all generated sweep data within the generic simulation result model.
+Represent individual failed points explicitly rather than discarding them or failing the entire sweep. The result should retain the sweep value, point status, and error information so the frontend can show gaps or failure markers.
 
-#### Plotting Support
+#### Tests
 
-Visualize sweep results using the plotting system.
+Cover:
 
-#### Plot Selection
+- Sweep values as the X-axis
+- Node-voltage responses
+- Branch-current responses
+- Response selection
+- Correct dataset mapping
+- Failed-point representation
+- Stale-result behavior
 
-Allow users to choose:
+### Phase 3D — DC Sweep completeness
 
-- Voltage nodes
-- Currents
-- Component parameters
-- Calculated values
+Phase 3D completes DC Sweep as a source-sweep analysis. It does **not** introduce arbitrary component-parameter sweeps under the DC Sweep analysis type.
 
-for display on plots.
+#### Source Sweep Semantics
+
+Support:
+
+- Voltage-source sweeps
+- Current-source sweeps
+
+For every sweep point:
+
+```text
+Set source value
+      ↓
+Run DC operating point
+      ↓
+Capture circuit response
+      ↓
+Store result
+```
+
+#### Deterministic Sweep Behavior
+
+Define and test:
+
+- Start value is included
+- Stop value is included when reachable by the step
+- Positive step for ascending sweeps
+- Negative step for descending sweeps
+- Zero step rejected
+- Sweep point limit enforced
+- Original circuit/component values are not mutated
+- Each point is an independent DC operating-point calculation
+
+#### Multiple Response Quantities
+
+A single sweep execution produces all requested circuit responses. The frontend selects which response to display without rerunning the sweep.
+
+```text
+V1 sweep
+    ├─ V(node_1)
+    ├─ V(node_2)
+    ├─ I(R1)
+    ├─ I(R2)
+    └─ I(V1)
+```
+
+#### Per-Point Failure Handling
+
+A failed operating point must be represented as a failed sweep point while allowing other sweep points to complete.
+
+```text
+0 V   completed
+1 V   completed
+2 V   failed
+3 V   completed
+```
+
+The result must preserve the point order and include enough status/error information for presentation.
+
+#### Scope Boundary
+
+Arbitrary component-parameter or model-parameter sweeps are not part of DC Sweep. If needed later, they should be introduced as a separate **Parametric Sweep** analysis using the same generic dataset infrastructure.
 
 ---
 
