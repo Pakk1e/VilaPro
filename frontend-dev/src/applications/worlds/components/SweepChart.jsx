@@ -5,11 +5,31 @@ function formatTick(value) {
 }
 
 function getFiniteRows(rows) {
-  return rows.filter((row) => Number.isFinite(Number(row.sweepValue)) && Number.isFinite(Number(row.value)));
+  return rows.filter((row) => Number.isFinite(Number(row.sweepValue)) && Number.isFinite(Number(row.value)) && !row.failed);
+}
+
+function getPathSegments(rows, scaleX, scaleY) {
+  const segments = [];
+  let segment = [];
+
+  for (const row of rows) {
+    if (row.failed || !Number.isFinite(Number(row.sweepValue)) || !Number.isFinite(Number(row.value))) {
+      if (segment.length > 0) segments.push(segment);
+      segment = [];
+      continue;
+    }
+    segment.push(row);
+  }
+
+  if (segment.length > 0) segments.push(segment);
+  return segments.map((segmentRows) => segmentRows.map((row, index) => (
+    `${index === 0 ? "M" : "L"} ${scaleX(Number(row.sweepValue)).toFixed(2)} ${scaleY(Number(row.value)).toFixed(2)}`
+  )).join(" "));
 }
 
 export default function SweepChart({ rows, xLabel = "Sweep", yLabel = "Current" }) {
   const points = getFiniteRows(rows);
+  const failedRows = rows.filter((row) => row.failed && Number.isFinite(Number(row.sweepValue)));
 
   if (points.length < 2) {
     return (
@@ -24,7 +44,7 @@ export default function SweepChart({ rows, xLabel = "Sweep", yLabel = "Current" 
   const margin = { top: 18, right: 22, bottom: 46, left: 58 };
   const plotWidth = width - margin.left - margin.right;
   const plotHeight = height - margin.top - margin.bottom;
-  const xValues = points.map((point) => Number(point.sweepValue));
+  const xValues = rows.filter((row) => Number.isFinite(Number(row.sweepValue))).map((row) => Number(row.sweepValue));
   const yValues = points.map((point) => Number(point.value));
   const xMin = Math.min(...xValues);
   const xMax = Math.max(...xValues);
@@ -39,7 +59,7 @@ export default function SweepChart({ rows, xLabel = "Sweep", yLabel = "Current" 
 
   const scaleX = (value) => margin.left + ((value - xMin) / xRange) * plotWidth;
   const scaleY = (value) => margin.top + (1 - (value - chartYMin) / chartYRange) * plotHeight;
-  const path = points.map((point, index) => `${index === 0 ? "M" : "L"} ${scaleX(Number(point.sweepValue)).toFixed(2)} ${scaleY(Number(point.value)).toFixed(2)}`).join(" ");
+  const paths = getPathSegments(rows, scaleX, scaleY);
 
   const xTicks = xMin === xMax ? [xMin] : [xMin, xMin + xRange / 2, xMax];
   const yTicks = [chartYMin, chartYMin + chartYRange / 2, chartYMax];
@@ -51,7 +71,9 @@ export default function SweepChart({ rows, xLabel = "Sweep", yLabel = "Current" 
           <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#69717b]">Sweep Plot</div>
           <div className="mt-1 text-xs text-[#8a929c]">{yLabel} versus {xLabel}</div>
         </div>
-        <div className="text-[10px] text-[#69717b]">{points.length} valid points</div>
+        <div className="text-[10px] text-[#69717b]">
+          {points.length} valid points{failedRows.length > 0 ? ` · ${failedRows.length} failed` : ""}
+        </div>
       </div>
 
       <div className="overflow-x-auto px-3 py-3">
@@ -78,12 +100,25 @@ export default function SweepChart({ rows, xLabel = "Sweep", yLabel = "Current" 
 
           <line x1={margin.left} x2={width - margin.right} y1={height - margin.bottom} y2={height - margin.bottom} stroke="#cfd5dc" strokeWidth="1" />
           <line x1={margin.left} x2={margin.left} y1={margin.top} y2={height - margin.bottom} stroke="#cfd5dc" strokeWidth="1" />
-          <path d={path} fill="none" stroke="currentColor" strokeWidth="2" className="text-[#26364d]" />
+
+          {paths.map((path, index) => <path key={`path-${index}`} d={path} fill="none" stroke="currentColor" strokeWidth="2" className="text-[#26364d]" />)}
 
           {points.map((point, index) => {
             const cx = scaleX(Number(point.sweepValue));
             const cy = scaleY(Number(point.value));
             return <circle key={`${point.sweepValue}-${index}`} cx={cx} cy={cy} r="3.5" fill="currentColor" className="text-[#26364d]" />;
+          })}
+
+          {failedRows.map((row, index) => {
+            const x = scaleX(Number(row.sweepValue));
+            const y = margin.top + plotHeight / 2;
+            return (
+              <g key={`failed-${row.sweepValue}-${index}`} className="text-red-700">
+                <title>{row.error ?? "Sweep point failed"}</title>
+                <line x1={x - 4} x2={x + 4} y1={y - 4} y2={y + 4} stroke="currentColor" strokeWidth="1.5" />
+                <line x1={x - 4} x2={x + 4} y1={y + 4} y2={y - 4} stroke="currentColor" strokeWidth="1.5" />
+              </g>
+            );
           })}
 
           <text x={width / 2} y={height - 8} textAnchor="middle" fontSize="10" fill="#69717b">{xLabel}</text>
