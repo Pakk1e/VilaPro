@@ -5,9 +5,10 @@ import {
   SIMULATION_ANALYSES,
 } from "../model/simulationConfig";
 
-export default function SimulationSetup({ config, onChange }) {
+export default function SimulationSetup({ config, onChange, voltageSources = [] }) {
+  const voltageSourceIds = voltageSources.map((source) => source.id);
   const sweepError = config.analysis === SIMULATION_ANALYSES.DC_SWEEP
-    ? getDcSweepValidationError(config.settings, config.settings?.source ? [config.settings.source] : [])
+    ? getDcSweepValidationError(config.settings, voltageSourceIds)
     : null;
 
   const changeAnalysis = (analysis) => {
@@ -62,16 +63,23 @@ export default function SimulationSetup({ config, onChange }) {
       {config.analysis === SIMULATION_ANALYSES.DC_SWEEP && (
         <div className="mt-4 space-y-3">
           <div>
-            <label className="text-[10px] font-medium text-[#69717b]" htmlFor="sweep-source">Voltage source ID</label>
-            <input
+            <label className="text-[10px] font-medium text-[#69717b]" htmlFor="sweep-source">Voltage source</label>
+            <select
               id="sweep-source"
-              type="text"
               value={config.settings?.source ?? ""}
               onChange={(event) => changeSweepSetting("source", event.target.value)}
-              placeholder="Select a voltage source component"
               className="mt-1 w-full rounded-md border border-[#d9dde2] bg-white px-2.5 py-2 text-xs text-[#26364d] outline-none focus:border-[#58718f]"
-            />
-            <div className="mt-1 text-[9px] leading-4 text-[#8a929c]">Use the component ID from the circuit/inspector. A visual source picker will follow with the result UI.</div>
+            >
+              <option value="">Select a voltage source...</option>
+              {voltageSources.map((source) => (
+                <option key={source.id} value={source.id}>
+                  {source.label} ({source.id})
+                </option>
+              ))}
+            </select>
+            {voltageSources.length === 0 && (
+              <div className="mt-1 text-[9px] leading-4 text-[#8a929c]">No voltage-source components are available in the current circuit.</div>
+            )}
           </div>
 
           <div className="grid grid-cols-3 gap-2">
