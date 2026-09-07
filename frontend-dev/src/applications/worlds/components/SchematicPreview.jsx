@@ -8,15 +8,8 @@ const SYMBOL_SIZE = {
 };
 
 const TERMINAL_OFFSET = 84;
-
-const PREVIEW = {
-  width: 760,
-  height: 620,
-  paddingX: 70,
-  paddingY: 70,
-  maxScaleX: 1.15,
-  maxScaleY: 1.25,
-};
+const GROUND_TERMINAL_OFFSET = 42;
+const VIEW_PADDING = 70;
 
 function getDefinition(node) {
   return node?.data?.definitionKey
@@ -24,7 +17,26 @@ function getDefinition(node) {
     : null;
 }
 
+function getNodeType(node) {
+  const definition = getDefinition(node);
+  return String(node?.data?.componentType ?? definition?.type ?? "").toLowerCase();
+}
+
 function getNodeCenter(node) {
+  if (node?.type === "junction") {
+    return {
+      x: Number(node.position?.x ?? 0) + 8,
+      y: Number(node.position?.y ?? 0) + 8,
+    };
+  }
+
+  if (getNodeType(node).includes("ground")) {
+    return {
+      x: Number(node.position?.x ?? 0) + 8,
+      y: Number(node.position?.y ?? 0) + 8,
+    };
+  }
+
   return {
     x: Number(node.position?.x ?? 0) + SYMBOL_SIZE.width / 2,
     y: Number(node.position?.y ?? 0) + SYMBOL_SIZE.height / 2,
@@ -32,7 +44,9 @@ function getNodeCenter(node) {
 }
 
 function getPortPosition(node, portId) {
-  if (node?.type === "junction") return getNodeCenter(node);
+  const center = getNodeCenter(node);
+
+  if (node?.type === "junction") return center;
 
   const definition = getDefinition(node);
   const port = (node?.data?.ports ?? definition?.ports ?? []).find(
@@ -41,19 +55,21 @@ function getPortPosition(node, portId) {
 
   if (!port) return null;
 
-  const { x, y } = getNodeCenter(node);
+  if (getNodeType(node).includes("ground")) {
+    return { x: center.x, y: center.y - GROUND_TERMINAL_OFFSET };
+  }
 
   switch (port.position) {
     case "left":
-      return { x: x - TERMINAL_OFFSET, y };
+      return { x: center.x - TERMINAL_OFFSET, y: center.y };
     case "right":
-      return { x: x + TERMINAL_OFFSET, y };
+      return { x: center.x + TERMINAL_OFFSET, y: center.y };
     case "top":
-      return { x, y: y - TERMINAL_OFFSET };
+      return { x: center.x, y: center.y - TERMINAL_OFFSET };
     case "bottom":
-      return { x, y: y + TERMINAL_OFFSET };
+      return { x: center.x, y: center.y + TERMINAL_OFFSET };
     default:
-      return { x: x + TERMINAL_OFFSET, y };
+      return { x: center.x + TERMINAL_OFFSET, y: center.y };
   }
 }
 
@@ -80,7 +96,7 @@ function getBounds(points) {
 
 function SchematicSymbol({ node, position, selected, onSelect }) {
   const definition = getDefinition(node);
-  const type = String(node.data?.componentType ?? definition?.type ?? "").toLowerCase();
+  const type = getNodeType(node);
   const label = node.data?.label ?? "Component";
   const properties = node.data?.properties ?? {};
 
@@ -121,7 +137,9 @@ function SchematicSymbol({ node, position, selected, onSelect }) {
         </>
       ) : isSource ? (
         <>
+          <line x1={-TERMINAL_OFFSET} y1="0" x2="-31" y2="0" stroke="#26364d" strokeWidth="3" />
           <circle cx="0" cy="0" r="31" fill="white" stroke="#26364d" strokeWidth="3" />
+          <line x1="31" y1="0" x2={TERMINAL_OFFSET} y2="0" stroke="#26364d" strokeWidth="3" />
           <line x1="-10" y1="-12" x2="10" y2="-12" stroke="#26364d" strokeWidth="2.5" />
           <line x1="0" y1="-22" x2="0" y2="-2" stroke="#26364d" strokeWidth="2.5" />
           <line x1="-10" y1="12" x2="10" y2="12" stroke="#26364d" strokeWidth="2.5" />
@@ -134,6 +152,7 @@ function SchematicSymbol({ node, position, selected, onSelect }) {
         </>
       ) : (
         <>
+          <line x1={-TERMINAL_OFFSET} y1="0" x2="-38" y2="0" stroke="#26364d" strokeWidth="3" />
           <path
             d="M -38 0 L -27 -14 L -9 14 L 9 -14 L 27 14 L 38 0"
             fill="none"
@@ -141,6 +160,7 @@ function SchematicSymbol({ node, position, selected, onSelect }) {
             strokeWidth="4"
             strokeLinejoin="round"
           />
+          <line x1="38" y1="0" x2={TERMINAL_OFFSET} y2="0" stroke="#26364d" strokeWidth="3" />
           <text x="0" y="50" textAnchor="middle" fontSize="12" fontWeight="600" fill="#17253a">
             {label}
           </text>
@@ -166,7 +186,7 @@ export default function SchematicPreview({ nodes, edges, selectedNodeId, onSelec
   const { viewBox, positions, wires } = useMemo(() => {
     if (nodes.length === 0) {
       return {
-        viewBox: `0 0 ${PREVIEW.width} ${PREVIEW.height}`,
+        viewBox: `0 0 760 620`,
         positions: new Map(),
         wires: [],
       };
@@ -183,24 +203,13 @@ export default function SchematicPreview({ nodes, edges, selectedNodeId, onSelec
     });
 
     const bounds = getBounds([...anchors, ...terminalPoints]);
-    const contentWidth = Math.max(bounds.maxX - bounds.minX, 1);
-    const contentHeight = Math.max(bounds.maxY - bounds.minY, 1);
-    const targetWidth = PREVIEW.width - PREVIEW.paddingX * 2;
-    const targetHeight = PREVIEW.height - PREVIEW.paddingY * 2;
-
-    // Normalize the circuit into a compact preview area. X/Y scaling is
-    // intentionally independent: the preview is a schematic, not a
-    // reproduction of the React Flow canvas geometry.
-    const scaleX = Math.min(targetWidth / contentWidth, PREVIEW.maxScaleX);
-    const scaleY = Math.min(targetHeight / contentHeight, PREVIEW.maxScaleY);
-
-    const translate = (point) => ({
-      x: PREVIEW.paddingX + (point.x - bounds.minX) * scaleX,
-      y: PREVIEW.paddingY + (point.y - bounds.minY) * scaleY,
-    });
+    const viewMinX = bounds.minX - VIEW_PADDING;
+    const viewMinY = bounds.minY - VIEW_PADDING;
+    const viewWidth = Math.max(bounds.maxX - bounds.minX + VIEW_PADDING * 2, 1);
+    const viewHeight = Math.max(bounds.maxY - bounds.minY + VIEW_PADDING * 2, 1);
 
     const positionMap = new Map(
-      nodes.map((node) => [node.id, translate(getNodeCenter(node))])
+      nodes.map((node) => [node.id, getNodeCenter(node)])
     );
 
     const wireData = edges
@@ -212,13 +221,13 @@ export default function SchematicPreview({ nodes, edges, selectedNodeId, onSelec
         if (!sourcePoint || !targetPoint) return null;
         return {
           id: edge.id,
-          path: getWirePath(translate(sourcePoint), translate(targetPoint)),
+          path: getWirePath(sourcePoint, targetPoint),
         };
       })
       .filter(Boolean);
 
     return {
-      viewBox: `0 0 ${PREVIEW.width} ${PREVIEW.height}`,
+      viewBox: `${viewMinX} ${viewMinY} ${viewWidth} ${viewHeight}`,
       positions: positionMap,
       wires: wireData,
     };
@@ -258,7 +267,7 @@ export default function SchematicPreview({ nodes, edges, selectedNodeId, onSelec
               <circle cx="2" cy="2" r="1" fill="#e1e4e7" />
             </pattern>
           </defs>
-          <rect width="100%" height="100%" fill="url(#schematic-grid)" />
+          <rect x="0" y="0" width="100%" height="100%" fill="url(#schematic-grid)" />
 
           <g stroke="#26364d" strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round">
             {wires.map((wire) => (
