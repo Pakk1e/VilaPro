@@ -59,7 +59,7 @@ class SimulationConfiguration:
             raise SimulationAnalysisError("simulation.outputs must be a list of strings")
 
         if analysis == DC_SWEEP:
-            self._validate_dc_sweep_settings(settings)
+            cls._validate_dc_sweep_settings(settings)
 
         return cls(
             analysis=analysis,
