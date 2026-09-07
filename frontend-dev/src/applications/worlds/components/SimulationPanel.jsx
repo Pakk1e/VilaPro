@@ -105,7 +105,11 @@ export default function SimulationPanel({ nodes, edges, onSelectComponent }) {
       if (!response.ok || !data.ok) throw new Error(data.error ?? `Simulation failed (${response.status})`);
       if (!mountedRef.current || abortControllerRef.current !== controller) return;
 
-      setResult(data);
+      const componentResults = Array.isArray(data.components)
+        ? Object.fromEntries(data.components.map((component) => [component.id, component]))
+        : data.components ?? {};
+
+      setResult({ ...data, components: componentResults });
       setLastSimulationSignature(simulationSignature);
     } catch (simulationError) {
       if (simulationError?.name === "AbortError") return;
