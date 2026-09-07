@@ -58,11 +58,41 @@ class SimulationConfiguration:
         if not isinstance(outputs, list) or not all(isinstance(item, str) for item in outputs):
             raise SimulationAnalysisError("simulation.outputs must be a list of strings")
 
+        if analysis == DC_SWEEP:
+            self._validate_dc_sweep_settings(settings)
+
         return cls(
             analysis=analysis,
             settings=dict(settings),
             outputs=tuple(outputs),
         )
+
+    @staticmethod
+    def _validate_dc_sweep_settings(settings: Mapping[str, object]) -> None:
+        source_id = settings.get("source")
+        if not isinstance(source_id, str) or not source_id:
+            raise SimulationAnalysisError("dc_sweep.settings.source must be a non-empty string")
+
+        for name in ("start", "stop", "step"):
+            _parse_finite_decimal(settings.get(name), name)
+
+        step = _parse_finite_decimal(settings.get("step"), "step")
+        if step == 0:
+            raise SimulationAnalysisError("dc_sweep.settings.step must not be zero")
+
+        start = _parse_finite_decimal(settings.get("start"), "start")
+        stop = _parse_finite_decimal(settings.get("stop"), "stop")
+        if start < stop and step < 0:
+            raise SimulationAnalysisError("dc_sweep.settings.step must be positive when start is below stop")
+        if start > stop and step > 0:
+            raise SimulationAnalysisError("dc_sweep.settings.step must be negative when start is above stop")
+
+        parameter = settings.get("parameter", "V")
+        if parameter != "V":
+            raise SimulationAnalysisError("dc_sweep currently supports only VoltageSource parameter 'V'")
+
+        if _count_sweep_points(start, stop, step) > MAX_SWEEP_POINTS:
+            raise SimulationAnalysisError(f"dc_sweep produces more than {MAX_SWEEP_POINTS} points")
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -129,8 +159,8 @@ class DCSweepAnalysis:
         source_id, parameter, start, stop, step = self._parse_settings(configuration.settings, model)
         points = _build_sweep_points(start, stop, step)
         base_known = dict(known or {})
-        results = []
         source = next(component for component in model.components if component.component_id == source_id)
+        results = []
 
         for point in points:
             swept_model = _override_component_parameter(
@@ -188,6 +218,9 @@ class DCSweepAnalysis:
         if start > stop and step > 0:
             raise SimulationAnalysisError("dc_sweep.settings.step must be negative when start is above stop")
 
+        if _count_sweep_points(start, stop, step) > MAX_SWEEP_POINTS:
+            raise SimulationAnalysisError(f"dc_sweep produces more than {MAX_SWEEP_POINTS} points")
+
         return source_id, parameter, start, stop, step
 
 
@@ -217,6 +250,12 @@ def _parse_finite_decimal(value: object, name: str) -> Decimal:
     if not decimal.is_finite():
         raise SimulationAnalysisError(f"dc_sweep.settings.{name} must be a finite number")
     return decimal
+
+
+def _count_sweep_points(start: Decimal, stop: Decimal, step: Decimal) -> int:
+    span = stop - start
+    count = abs(span / step).to_integral_value(rounding="ROUND_FLOOR") + 1
+    return int(count)
 
 
 def _build_sweep_points(start: Decimal, stop: Decimal, step: Decimal) -> list[Decimal]:
