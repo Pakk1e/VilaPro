@@ -4,7 +4,11 @@ from dataclasses import dataclass
 
 from worlds.semantics.component import ComponentSemanticAnalyzer
 from worlds.semantics import WorldSemanticAnalyzer
-from worlds.simulation.analysis import SimulationConfiguration, get_simulation_analysis
+from worlds.simulation.analysis import (
+    DCSweepResult,
+    SimulationConfiguration,
+    get_simulation_analysis,
+)
 from worlds.simulation.builder import build_simulation_component
 from worlds.simulation.model import SimulationModel
 from worlds.simulation.result import SimulationResultModel
@@ -75,7 +79,19 @@ class SimulationService:
             SimulationValidator().validate(model)
 
             analysis = get_simulation_analysis(configuration.analysis)
-            result = analysis.run(model, known=known)
+            result = analysis.run(
+                model,
+                known=known,
+                configuration=configuration,
+            )
+
+            if isinstance(result, DCSweepResult):
+                return self._build_sweep_response(result, configuration)
+
+            if not isinstance(result, SimulationResult):
+                raise SimulationServiceError(
+                    f"Unsupported simulation result from analysis '{configuration.analysis}'"
+                )
 
             response = self._build_response(result)
             generic_result = SimulationResultModel.from_dc_operating_point(
@@ -101,6 +117,37 @@ class SimulationService:
             if isinstance(exc, SimulationServiceError):
                 raise
             raise SimulationServiceError(str(exc)) from exc
+
+    def _build_sweep_response(
+        self,
+        sweep: DCSweepResult,
+        configuration: SimulationConfiguration,
+    ) -> SimulationResponse:
+        if not sweep.results:
+            raise SimulationServiceError("dc_sweep produced no simulation results")
+
+        point_responses = [self._build_response(result) for result in sweep.results]
+        last = point_responses[-1]
+        generic_result = SimulationResultModel.from_dc_sweep(
+            status="completed",
+            settings=configuration.settings,
+            outputs=configuration.outputs,
+            sweep_source=sweep.source_id,
+            sweep_parameter=sweep.parameter,
+            points=[float(point) for point in sweep.points],
+            node_voltages=[item.node_voltages for item in point_responses],
+            branch_currents=[item.branch_currents for item in point_responses],
+            components=[item.components for item in point_responses],
+        )
+
+        return SimulationResponse(
+            analysis=configuration.analysis,
+            status="completed",
+            node_voltages=last.node_voltages,
+            branch_currents=last.branch_currents,
+            components=last.components,
+            result=generic_result,
+        )
 
     @staticmethod
     def _build_response(result: SimulationResult) -> "_LegacySimulationResponse":
