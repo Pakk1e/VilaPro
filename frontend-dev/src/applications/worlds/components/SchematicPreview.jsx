@@ -1,362 +1,360 @@
 import { useMemo } from "react";
 
 import { worldDefinitions } from "../model/worldDefinitions";
+import { buildCircuitDescription } from "../model/worldGraphSerializer";
 
-const SYMBOL_SIZE = {
-  width: 150,
-  height: 92,
-};
-
-const TERMINAL_OFFSET = 84;
-const GROUND_TERMINAL_OFFSET = 42;
+const TERMINAL_OFFSET = 92;
+const COLUMN_GAP = 230;
+const ROW_GAP = 150;
 const VIEW_PADDING = 70;
+const GROUND_BUS_GAP = 120;
 
-function getDefinition(node) {
-  return node?.data?.definitionKey
-    ? worldDefinitions[node.data.definitionKey]
-    : null;
+const STROKE = "#26364d";
+const TEXT = "#17253a";
+const MUTED = "#69717b";
+const SELECTED = "#58718f";
+
+function getDefinitionForInstance(instance) {
+  const componentType =
+    instance.type === "VoltageSource" ? "Voltage Source" : instance.type;
+  return Object.values(worldDefinitions).find(
+    (definition) => definition.type === componentType
+  );
 }
 
-function getNodeType(node) {
-  const definition = getDefinition(node);
-  return String(node?.data?.componentType ?? definition?.type ?? "").toLowerCase();
-}
-
-function getNodeCenter(node) {
-  if (node?.type === "junction") {
-    return {
-      x: Number(node.position?.x ?? 0) + 8,
-      y: Number(node.position?.y ?? 0) + 8,
-    };
-  }
-
-  if (getNodeType(node).includes("ground")) {
-    return {
-      x: Number(node.position?.x ?? 0) + 8,
-      y: Number(node.position?.y ?? 0) + 8,
-    };
-  }
-
-  return {
-    x: Number(node.position?.x ?? 0) + SYMBOL_SIZE.width / 2,
-    y: Number(node.position?.y ?? 0) + SYMBOL_SIZE.height / 2,
-  };
-}
-
-function getPortPosition(node, portId) {
-  const center = getNodeCenter(node);
-
-  if (node?.type === "junction") return center;
-
-  const definition = getDefinition(node);
-  const port = (node?.data?.ports ?? definition?.ports ?? []).find(
+function getPortSide(instance, portId) {
+  const port = getDefinitionForInstance(instance)?.ports?.find(
     (item) => item.id === portId
   );
-
-  if (!port) return null;
-
-  if (getNodeType(node).includes("ground")) {
-    return { x: center.x, y: center.y - GROUND_TERMINAL_OFFSET };
-  }
-
-  switch (port.position) {
-    case "left":
-      return { x: center.x - TERMINAL_OFFSET, y: center.y };
-    case "right":
-      return { x: center.x + TERMINAL_OFFSET, y: center.y };
-    case "top":
-      return { x: center.x, y: center.y - TERMINAL_OFFSET };
-    case "bottom":
-      return { x: center.x, y: center.y + TERMINAL_OFFSET };
-    default:
-      return { x: center.x + TERMINAL_OFFSET, y: center.y };
-  }
+  return port?.position === "left" ? "left" : "right";
 }
 
-function buildSymbolDefinition(node) {
-  const type = getNodeType(node);
-  if (type.includes("ground")) return "ground";
-  if (type.includes("voltage")) return "voltage-source";
-  if (type.includes("resistor")) return "resistor";
+function getSymbol(instance) {
+  if (instance.type === "VoltageSource") return "voltage-source";
+  if (instance.type === "Resistor") return "resistor";
   return "generic";
 }
 
-function getSymbolSize(node) {
-  switch (buildSymbolDefinition(node)) {
-    case "ground":
-      return { width: 90, height: 110 };
-    case "voltage-source":
-      return { width: 160, height: 120 };
-    default:
-      return SYMBOL_SIZE;
-  }
-}
-
-function getComponentValue(node) {
-  const type = buildSymbolDefinition(node);
-  const properties = node.data?.properties ?? {};
-
-  if (type === "resistor") {
-    return `${properties.resistance ?? "—"} Ω`;
-  }
-
-  if (type === "voltage-source") {
-    return `${properties.voltage ?? "—"} V DC`;
-  }
-
-  if (type === "ground") {
-    return "GND";
-  }
-
+function getValueLabel(instance) {
+  if (instance.type === "Resistor") return `${instance.parameters?.R ?? "—"} Ω`;
+  if (instance.type === "VoltageSource") return `${instance.parameters?.V ?? "—"} V DC`;
   return "";
 }
 
-function getComponentOrientation(node) {
-  const definition = getDefinition(node);
-  const ports = node?.data?.ports ?? definition?.ports ?? [];
-  const horizontal = ports.some(
-    (port) => port.position === "left" || port.position === "right"
-  );
-  return horizontal ? "horizontal" : "vertical";
-}
+function buildAdjacency(instances) {
+  const byNet = new Map();
 
-function normalizeSize(width, height) {
-  return {
-    width: Math.max(width, 1),
-    height: Math.max(height, 1),
-  };
-}
-
-function getBounds(points) {
-  const xs = points.map((point) => point.x);
-  const ys = points.map((point) => point.y);
-
-  return {
-    minX: Math.min(...xs),
-    maxX: Math.max(...xs),
-    minY: Math.min(...ys),
-    maxY: Math.max(...ys),
-  };
-}
-
-function getWirePath(start, end) {
-  if (Math.abs(start.y - end.y) < 2 || Math.abs(start.x - end.x) < 2) {
-    return `M ${start.x} ${start.y} L ${end.x} ${end.y}`;
+  for (const instance of instances) {
+    for (const net of Object.values(instance.ports ?? {})) {
+      const bucket = byNet.get(net) ?? [];
+      bucket.push(instance.id);
+      byNet.set(net, bucket);
+    }
   }
 
-  const midX = start.x + (end.x - start.x) / 2;
-  return `M ${start.x} ${start.y} L ${midX} ${start.y} L ${midX} ${end.y} L ${end.x} ${end.y}`;
+  const adjacency = new Map(
+    instances.map((instance) => [instance.id, new Set()])
+  );
+
+  for (const ids of byNet.values()) {
+    for (const first of ids) {
+      for (const second of ids) {
+        if (first !== second) adjacency.get(first)?.add(second);
+      }
+    }
+  }
+
+  return adjacency;
 }
 
-function SchematicSymbol({ node, position, selected, onSelect }) {
-  const symbol = buildSymbolDefinition(node);
-  const label = node.data?.label ?? "Component";
-  const value = getComponentValue(node);
-  const sourceX = position.x;
-  const sourceY = position.y;
+function chooseReference(instances) {
+  return (
+    instances.find((instance) => instance.type === "VoltageSource") ??
+    instances[0] ??
+    null
+  );
+}
+
+function buildPositions(instances) {
+  const reference = chooseReference(instances);
+  if (!reference) return new Map();
+
+  const adjacency = buildAdjacency(instances);
+  const depth = new Map([[reference.id, 0]]);
+  const queue = [reference.id];
+
+  while (queue.length) {
+    const current = queue.shift();
+    const currentDepth = depth.get(current) ?? 0;
+
+    for (const next of adjacency.get(current) ?? []) {
+      if (depth.has(next)) continue;
+      depth.set(next, currentDepth + 1);
+      queue.push(next);
+    }
+  }
+
+  let fallbackDepth = Math.max(...depth.values(), 0) + 1;
+  for (const instance of instances) {
+    if (!depth.has(instance.id)) {
+      depth.set(instance.id, fallbackDepth);
+      fallbackDepth += 1;
+    }
+  }
+
+  const columns = new Map();
+  for (const instance of instances) {
+    const columnDepth = depth.get(instance.id) ?? 0;
+    const bucket = columns.get(columnDepth) ?? [];
+    bucket.push(instance);
+    columns.set(columnDepth, bucket);
+  }
+
+  const positions = new Map();
+  [...columns.keys()]
+    .sort((a, b) => a - b)
+    .forEach((columnDepth, columnIndex) => {
+      const column = [...columns.get(columnDepth)].sort((a, b) =>
+        a.name.localeCompare(b.name, undefined, { numeric: true })
+      );
+      const center = (column.length - 1) / 2;
+
+      column.forEach((instance, rowIndex) => {
+        positions.set(instance.id, {
+          x: 170 + columnIndex * COLUMN_GAP,
+          y: 220 + (rowIndex - center) * ROW_GAP,
+        });
+      });
+    });
+
+  return positions;
+}
+
+function getTerminalPoint(position, side) {
+  return {
+    x: position.x + (side === "left" ? -TERMINAL_OFFSET : TERMINAL_OFFSET),
+    y: position.y,
+  };
+}
+
+function makeNetWires(instances, positions) {
+  const terminalsByNet = new Map();
+
+  for (const instance of instances) {
+    const position = positions.get(instance.id);
+    if (!position) continue;
+
+    for (const [portId, net] of Object.entries(instance.ports ?? {})) {
+      const bucket = terminalsByNet.get(net) ?? [];
+      bucket.push({
+        instanceId: instance.id,
+        portId,
+        point: getTerminalPoint(position, getPortSide(instance, portId)),
+      });
+      terminalsByNet.set(net, bucket);
+    }
+  }
+
+  const wires = [];
+  const groundTerminals = terminalsByNet.get("ground") ?? [];
+
+  for (const [net, terminals] of terminalsByNet.entries()) {
+    if (net === "ground" || terminals.length < 2) continue;
+
+    const sorted = [...terminals].sort((a, b) => a.point.x - b.point.x);
+    const sameY = sorted.every(
+      (terminal) => Math.abs(terminal.point.y - sorted[0].point.y) < 1
+    );
+
+    if (sameY) {
+      wires.push({
+        id: `net-${net}`,
+        paths: [
+          `M ${sorted[0].point.x} ${sorted[0].point.y} L ${sorted.at(-1).point.x} ${sorted.at(-1).point.y}`,
+        ],
+      });
+      continue;
+    }
+
+    const minX = Math.min(...sorted.map((terminal) => terminal.point.x));
+    const maxX = Math.max(...sorted.map((terminal) => terminal.point.x));
+    let busX = (minX + maxX) / 2;
+
+    if (Math.abs(busX - minX) < 40) busX += 50;
+    if (Math.abs(busX - maxX) < 40) busX -= 50;
+
+    const minY = Math.min(...sorted.map((terminal) => terminal.point.y));
+    const maxY = Math.max(...sorted.map((terminal) => terminal.point.y));
+    const paths = sorted.map((terminal) =>
+      `M ${terminal.point.x} ${terminal.point.y} L ${busX} ${terminal.point.y}`
+    );
+    paths.push(`M ${busX} ${minY} L ${busX} ${maxY}`);
+
+    wires.push({ id: `net-${net}`, paths });
+  }
+
+  return { wires, groundTerminals };
+}
+
+function getGroundLayout(groundTerminals, positions) {
+  if (!groundTerminals.length || !positions.size) return null;
+
+  const maxY = Math.max(...[...positions.values()].map((position) => position.y));
+  const busY = maxY + GROUND_BUS_GAP;
+  const minX = Math.min(...groundTerminals.map((terminal) => terminal.point.x));
+  const maxX = Math.max(...groundTerminals.map((terminal) => terminal.point.x));
+
+  return {
+    busY,
+    minX: minX - 20,
+    maxX: maxX + 20,
+    symbolX: (minX + maxX) / 2,
+    branches: groundTerminals.map(
+      (terminal) =>
+        `M ${terminal.point.x} ${terminal.point.y} L ${terminal.point.x} ${busY}`
+    ),
+  };
+}
+
+function getBounds(positions, groundLayout) {
+  const points = [...positions.values()];
+  if (groundLayout) {
+    points.push(
+      { x: groundLayout.minX, y: groundLayout.busY },
+      { x: groundLayout.maxX, y: groundLayout.busY },
+      { x: groundLayout.symbolX, y: groundLayout.busY + 62 }
+    );
+  }
+
+  const xs = points.map((point) => point.x);
+  const ys = points.map((point) => point.y);
+  const minX = Math.min(...xs, -TERMINAL_OFFSET) - VIEW_PADDING;
+  const maxX = Math.max(...xs, TERMINAL_OFFSET) + VIEW_PADDING;
+  const minY = Math.min(...ys, -80) - VIEW_PADDING;
+  const maxY = Math.max(...ys, 80) + VIEW_PADDING;
+
+  return {
+    minX,
+    minY,
+    width: Math.max(maxX - minX, 620),
+    height: Math.max(maxY - minY, 430),
+  };
+}
+
+function SchematicSymbol({ instance, position, selected, onSelect }) {
+  const symbol = getSymbol(instance);
+  const value = getValueLabel(instance);
+  const label = instance.name ?? "Component";
 
   return (
     <g
-      transform={`translate(${sourceX} ${sourceY})`}
-      onClick={() => onSelect?.(node.id)}
+      transform={`translate(${position.x} ${position.y})`}
+      onClick={() => onSelect?.(instance.id)}
       className="cursor-pointer"
+      role="button"
+      tabIndex={0}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onSelect?.(instance.id);
+        }
+      }}
     >
       {selected && (
         <rect
-          x={-75}
-          y={-48}
-          width={150}
-          height={96}
-          rx="10"
+          x="-78"
+          y="-50"
+          width="156"
+          height="100"
+          rx="9"
           fill="none"
-          stroke="#58718f"
+          stroke={SELECTED}
           strokeWidth="2"
           strokeDasharray="5 4"
         />
       )}
 
-      {symbol === "ground" ? (
+      {symbol === "voltage-source" ? (
         <>
-          <line x1="0" y1="-42" x2="0" y2="-8" stroke="#26364d" strokeWidth="3" />
-          <path d="M -18 -8 L 18 -8 L 0 16 Z" fill="none" stroke="#26364d" strokeWidth="3" />
-          <line x1="-24" y1="21" x2="24" y2="21" stroke="#26364d" strokeWidth="3" />
-          <text x="0" y="48" textAnchor="middle" fontSize="12" fontWeight="600" fill="#17253a">
-            {label}
-          </text>
-          <text x="0" y="64" textAnchor="middle" fontSize="10" fill="#69717b">
-            {value}
-          </text>
-        </>
-      ) : symbol === "voltage-source" ? (
-        <>
-          <line x1={-TERMINAL_OFFSET} y1="0" x2="-31" y2="0" stroke="#26364d" strokeWidth="3" />
-          <circle cx="0" cy="0" r="31" fill="white" stroke="#26364d" strokeWidth="3" />
-          <line x1="31" y1="0" x2={TERMINAL_OFFSET} y2="0" stroke="#26364d" strokeWidth="3" />
-          <line x1="-10" y1="-12" x2="10" y2="-12" stroke="#26364d" strokeWidth="2.5" />
-          <line x1="0" y1="-22" x2="0" y2="-2" stroke="#26364d" strokeWidth="2.5" />
-          <line x1="-10" y1="12" x2="10" y2="12" stroke="#26364d" strokeWidth="2.5" />
-          <text x="0" y="50" textAnchor="middle" fontSize="12" fontWeight="600" fill="#17253a">
-            {label}
-          </text>
-          <text x="0" y="66" textAnchor="middle" fontSize="10" fill="#69717b">
-            {value}
-          </text>
+          <line x1={-TERMINAL_OFFSET} y1="0" x2="-32" y2="0" stroke={STROKE} strokeWidth="3" />
+          <circle cx="0" cy="0" r="32" fill="white" stroke={STROKE} strokeWidth="3" />
+          <line x1="32" y1="0" x2={TERMINAL_OFFSET} y2="0" stroke={STROKE} strokeWidth="3" />
+          <line x1="-10" y1="-12" x2="10" y2="-12" stroke={STROKE} strokeWidth="2.5" />
+          <line x1="0" y1="-22" x2="0" y2="-2" stroke={STROKE} strokeWidth="2.5" />
+          <line x1="-10" y1="12" x2="10" y2="12" stroke={STROKE} strokeWidth="2.5" />
         </>
       ) : symbol === "resistor" ? (
         <>
-          <line x1={-TERMINAL_OFFSET} y1="0" x2="-38" y2="0" stroke="#26364d" strokeWidth="3" />
+          <line x1={-TERMINAL_OFFSET} y1="0" x2="-40" y2="0" stroke={STROKE} strokeWidth="3" />
           <path
-            d="M -38 0 L -27 -14 L -9 14 L 9 -14 L 27 14 L 38 0"
+            d="M -40 0 L -28 -14 L -10 14 L 8 -14 L 26 14 L 40 0"
             fill="none"
-            stroke="#26364d"
+            stroke={STROKE}
             strokeWidth="4"
             strokeLinejoin="round"
           />
-          <line x1="38" y1="0" x2={TERMINAL_OFFSET} y2="0" stroke="#26364d" strokeWidth="3" />
-          <text x="0" y="50" textAnchor="middle" fontSize="12" fontWeight="600" fill="#17253a">
-            {label}
-          </text>
-          <text x="0" y="66" textAnchor="middle" fontSize="10" fill="#69717b">
-            {value}
-          </text>
+          <line x1="40" y1="0" x2={TERMINAL_OFFSET} y2="0" stroke={STROKE} strokeWidth="3" />
         </>
       ) : (
         <>
-          <line x1={-TERMINAL_OFFSET} y1="0" x2="-35" y2="0" stroke="#26364d" strokeWidth="3" />
-          <rect x="-35" y="-20" width="70" height="40" rx="6" fill="white" stroke="#26364d" strokeWidth="3" />
-          <line x1="35" y1="0" x2={TERMINAL_OFFSET} y2="0" stroke="#26364d" strokeWidth="3" />
-          <text x="0" y="50" textAnchor="middle" fontSize="12" fontWeight="600" fill="#17253a">
-            {label}
-          </text>
-          <text x="0" y="66" textAnchor="middle" fontSize="10" fill="#69717b">
-            {value}
-          </text>
+          <line x1={-TERMINAL_OFFSET} y1="0" x2="-38" y2="0" stroke={STROKE} strokeWidth="3" />
+          <rect x="-38" y="-22" width="76" height="44" rx="6" fill="white" stroke={STROKE} strokeWidth="3" />
+          <line x1="38" y1="0" x2={TERMINAL_OFFSET} y2="0" stroke={STROKE} strokeWidth="3" />
         </>
+      )}
+
+      <text x="0" y="50" textAnchor="middle" fontSize="12" fontWeight="600" fill={TEXT}>
+        {label}
+      </text>
+      {value && (
+        <text x="0" y="66" textAnchor="middle" fontSize="10" fill={MUTED}>
+          {value}
+        </text>
       )}
     </g>
   );
 }
 
-export default function SchematicPreview({ nodes, edges, selectedNodeId, onSelectComponent }) {
-  const worldNodes = useMemo(
-    () => nodes.filter((node) => node.type === "world"),
-    [nodes]
-  );
-  const junctionNodes = useMemo(
-    () => nodes.filter((node) => node.type === "junction"),
-    [nodes]
-  );
-
+export default function SchematicPreview({
+  nodes,
+  edges,
+  selectedNodeId,
+  onSelectComponent,
+}) {
   const schematic = useMemo(() => {
-    if (nodes.length === 0) {
+    if (!nodes.length) return null;
+
+    try {
+      // The schematic consumes the normalized circuit description used by
+      // simulation. React Flow positions are intentionally ignored.
+      const description = buildCircuitDescription(nodes, edges);
+      const instances = description.instances;
+      const positions = buildPositions(instances);
+      const { wires, groundTerminals } = makeNetWires(instances, positions);
+      const groundLayout = getGroundLayout(groundTerminals, positions);
+      const bounds = getBounds(positions, groundLayout);
+
+      return { instances, positions, wires, groundLayout, bounds, error: null };
+    } catch (error) {
       return {
-        viewBox: "0 0 760 620",
+        instances: [],
         positions: new Map(),
         wires: [],
-        junctions: [],
+        groundLayout: null,
+        bounds: { minX: 0, minY: 0, width: 760, height: 430 },
+        error: error instanceof Error ? error.message : "Unable to build schematic.",
       };
     }
+  }, [edges, nodes]);
 
-    const componentNodes = [...worldNodes, ...junctionNodes];
-    const columns = new Map();
-    let componentIndex = 0;
-
-    for (const node of componentNodes) {
-      if (node.type === "junction") continue;
-      const column = Math.max(0, Math.round((Number(node.position?.x ?? 0) + 140) / 220));
-      const row = componentIndex % 4;
-      const bucket = columns.get(column) ?? [];
-      bucket.push({ node, row });
-      columns.set(column, bucket);
-      componentIndex += 1;
-    }
-
-    const sortedColumns = [...columns.keys()].sort((a, b) => a - b);
-    const positionMap = new Map();
-    const horizontalGap = 220;
-    const verticalGap = 180;
-
-    sortedColumns.forEach((column, columnIndex) => {
-      const items = (columns.get(column) ?? []).sort(
-        (a, b) => a.row - b.row
-      );
-      items.forEach(({ node, row }) => {
-        positionMap.set(node.id, {
-          x: 150 + columnIndex * horizontalGap,
-          y: 140 + row * verticalGap,
-        });
-      });
-    });
-
-    junctionNodes.forEach((node) => {
-      positionMap.set(node.id, {
-        x: 150 + sortedColumns.length * horizontalGap - horizontalGap / 2,
-        y: 140 + (node.position?.y ?? 0) % (4 * verticalGap),
-      });
-    });
-
-    const edgePoints = edges
-      .map((edge) => {
-        const source = positionMap.get(edge.source);
-        const target = positionMap.get(edge.target);
-        return source && target ? [source, target] : null;
-      })
-      .filter(Boolean)
-      .flat();
-
-    const allPoints = [...positionMap.values(), ...edgePoints];
-    const rawBounds = getBounds(allPoints);
-    const contentWidth = Math.max(rawBounds.maxX - rawBounds.minX, 300);
-    const contentHeight = Math.max(rawBounds.maxY - rawBounds.minY, 240);
-    const viewMinX = rawBounds.minX - VIEW_PADDING;
-    const viewMinY = rawBounds.minY - VIEW_PADDING;
-    const viewWidth = contentWidth + VIEW_PADDING * 2;
-    const viewHeight = contentHeight + VIEW_PADDING * 2;
-
-    const wireData = edges
-      .map((edge) => {
-        const sourceNode = nodes.find((node) => node.id === edge.source);
-        const targetNode = nodes.find((node) => node.id === edge.target);
-        const sourceCenter = positionMap.get(edge.source);
-        const targetCenter = positionMap.get(edge.target);
-        if (!sourceNode || !targetNode || !sourceCenter || !targetCenter) return null;
-
-        const sourcePort = getPortPosition(sourceNode, edge.sourceHandle);
-        const targetPort = getPortPosition(targetNode, edge.targetHandle);
-        if (!sourcePort || !targetPort) return null;
-
-        const sourceDelta = {
-          x: sourcePort.x - getNodeCenter(sourceNode).x,
-          y: sourcePort.y - getNodeCenter(sourceNode).y,
-        };
-        const targetDelta = {
-          x: targetPort.x - getNodeCenter(targetNode).x,
-          y: targetPort.y - getNodeCenter(targetNode).y,
-        };
-
-        return {
-          id: edge.id,
-          path: getWirePath(
-            { x: sourceCenter.x + sourceDelta.x, y: sourceCenter.y + sourceDelta.y },
-            { x: targetCenter.x + targetDelta.x, y: targetCenter.y + targetDelta.y }
-          ),
-        };
-      })
-      .filter(Boolean);
-
-    return {
-      viewBox: `${viewMinX} ${viewMinY} ${viewWidth} ${viewHeight}`,
-      positions: positionMap,
-      wires: wireData,
-    };
-  }, [edges, junctionNodes, nodes, worldNodes]);
-
-  if (nodes.length === 0) {
+  if (!nodes.length) {
     return (
       <div className="flex h-full w-[38%] min-w-0 items-center justify-center rounded-xl border border-dashed border-[#d9dde2] bg-white px-6 text-center">
         <div>
           <div className="text-sm font-semibold text-[#17253a]">No circuit to preview</div>
-          <div className="mt-1 text-xs leading-5 text-[#69717b]">Build the circuit in Circuit Design and return here to see its schematic.</div>
+          <div className="mt-1 text-xs leading-5 text-[#69717b]">
+            Build the circuit in Circuit Design and return here to see its schematic.
+          </div>
         </div>
       </div>
     );
@@ -366,49 +364,129 @@ export default function SchematicPreview({ nodes, edges, selectedNodeId, onSelec
     <div className="flex h-full w-[38%] min-w-0 flex-col overflow-hidden border-r border-[#d9dde2] bg-white">
       <div className="flex shrink-0 items-center justify-between border-b border-[#e4e7eb] px-4 py-3">
         <div>
-          <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#58718f]">Circuit schematic</div>
+          <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#58718f]">
+            Circuit schematic
+          </div>
           <div className="mt-0.5 text-[10px] text-[#69717b]">Read-only electrical view</div>
         </div>
-        <div className="text-[10px] text-[#8a929c]">{worldNodes.length} components</div>
+        <div className="text-[10px] text-[#8a929c]">
+          {schematic?.instances.length ?? 0} components
+        </div>
       </div>
 
       <div className="min-h-0 flex-1 overflow-auto bg-[#fbfbfa] p-3">
-        <svg
-          viewBox={schematic.viewBox}
-          className="h-full min-h-[360px] w-full min-w-0"
-          role="img"
-          aria-label="Circuit schematic preview"
-          preserveAspectRatio="xMidYMid meet"
-        >
-          <defs>
-            <pattern id="schematic-grid" width="24" height="24" patternUnits="userSpaceOnUse">
-              <circle cx="2" cy="2" r="1" fill="#e1e4e7" />
-            </pattern>
-          </defs>
-          <rect x={schematic.viewBox.split(" ")[0]} y={schematic.viewBox.split(" ")[1]} width={schematic.viewBox.split(" ")[2]} height={schematic.viewBox.split(" ")[3]} fill="url(#schematic-grid)" />
+        {schematic?.error ? (
+          <div className="flex h-full min-h-[360px] items-center justify-center px-8 text-center">
+            <div>
+              <div className="text-sm font-semibold text-[#17253a]">Schematic unavailable</div>
+              <div className="mt-1 text-xs leading-5 text-[#69717b]">{schematic.error}</div>
+            </div>
+          </div>
+        ) : (
+          <svg
+            viewBox={`${schematic.bounds.minX} ${schematic.bounds.minY} ${schematic.bounds.width} ${schematic.bounds.height}`}
+            className="h-full min-h-[360px] w-full min-w-0"
+            role="img"
+            aria-label="Circuit schematic preview"
+            preserveAspectRatio="xMidYMid meet"
+          >
+            <defs>
+              <pattern id="schematic-grid" width="24" height="24" patternUnits="userSpaceOnUse">
+                <circle cx="2" cy="2" r="1" fill="#e1e4e7" />
+              </pattern>
+            </defs>
 
-          <g stroke="#26364d" strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round">
-            {schematic.wires.map((wire) => (
-              <path key={wire.id} d={wire.path} />
-            ))}
-          </g>
-
-          {junctionNodes.map((node) => {
-            const point = schematic.positions.get(node.id);
-            if (!point) return null;
-            return <circle key={node.id} cx={point.x} cy={point.y} r="5" fill="#26364d" />;
-          })}
-
-          {worldNodes.map((node) => (
-            <SchematicSymbol
-              key={node.id}
-              node={node}
-              position={schematic.positions.get(node.id) ?? getNodeCenter(node)}
-              selected={node.id === selectedNodeId}
-              onSelect={onSelectComponent}
+            <rect
+              x={schematic.bounds.minX}
+              y={schematic.bounds.minY}
+              width={schematic.bounds.width}
+              height={schematic.bounds.height}
+              fill="url(#schematic-grid)"
             />
-          ))}
-        </svg>
+
+            <g
+              fill="none"
+              stroke={STROKE}
+              strokeWidth="3"
+              strokeLinecap="square"
+              strokeLinejoin="miter"
+            >
+              {schematic.wires.map((wire) =>
+                wire.paths.map((path, index) => (
+                  <path key={`${wire.id}-${index}`} d={path} />
+                ))
+              )}
+
+              {schematic.groundLayout?.branches.map((path, index) => (
+                <path key={`ground-branch-${index}`} d={path} />
+              ))}
+
+              {schematic.groundLayout && (
+                <>
+                  <line
+                    x1={schematic.groundLayout.minX}
+                    y1={schematic.groundLayout.busY}
+                    x2={schematic.groundLayout.maxX}
+                    y2={schematic.groundLayout.busY}
+                  />
+                  <line
+                    x1={schematic.groundLayout.symbolX}
+                    y1={schematic.groundLayout.busY}
+                    x2={schematic.groundLayout.symbolX}
+                    y2={schematic.groundLayout.busY + 32}
+                  />
+                  <path
+                    d={`M ${schematic.groundLayout.symbolX - 18} ${schematic.groundLayout.busY + 32} L ${schematic.groundLayout.symbolX + 18} ${schematic.groundLayout.busY + 32} L ${schematic.groundLayout.symbolX} ${schematic.groundLayout.busY + 57} Z`}
+                  />
+                  <line
+                    x1={schematic.groundLayout.symbolX - 24}
+                    y1={schematic.groundLayout.busY + 62}
+                    x2={schematic.groundLayout.symbolX + 24}
+                    y2={schematic.groundLayout.busY + 62}
+                  />
+                </>
+              )}
+            </g>
+
+            {schematic.groundLayout && (
+              <>
+                <text
+                  x={schematic.groundLayout.symbolX}
+                  y={schematic.groundLayout.busY + 88}
+                  textAnchor="middle"
+                  fontSize="12"
+                  fontWeight="600"
+                  fill={TEXT}
+                >
+                  Ground
+                </text>
+                <text
+                  x={schematic.groundLayout.symbolX}
+                  y={schematic.groundLayout.busY + 104}
+                  textAnchor="middle"
+                  fontSize="10"
+                  fill={MUTED}
+                >
+                  GND
+                </text>
+              </>
+            )}
+
+            {schematic.instances.map((instance) => {
+              const position = schematic.positions.get(instance.id);
+              if (!position) return null;
+              return (
+                <SchematicSymbol
+                  key={instance.id}
+                  instance={instance}
+                  position={position}
+                  selected={selectedNodeId === instance.id}
+                  onSelect={onSelectComponent}
+                />
+              );
+            })}
+          </svg>
+        )}
       </div>
     </div>
   );
