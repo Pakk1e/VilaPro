@@ -7,6 +7,7 @@ from worlds.simulation import (
     SimulationConfiguration,
     SimulationResultModel,
     SimulationService,
+    SimulationServiceError,
 )
 
 
@@ -108,7 +109,7 @@ class DCSweepTest(unittest.TestCase):
             })
 
     def test_sweep_rejects_wrong_step_direction(self):
-        with self.assertRaises(SimulationAnalysisError):
+        with self.assertRaises(SimulationServiceError):
             SimulationService().simulate(
                 load_world_source(),
                 instances=voltage_divider_instances(),
@@ -124,7 +125,7 @@ class DCSweepTest(unittest.TestCase):
             )
 
     def test_sweep_rejects_zero_step(self):
-        with self.assertRaises(SimulationAnalysisError):
+        with self.assertRaises(SimulationServiceError):
             SimulationService().simulate(
                 load_world_source(),
                 instances=voltage_divider_instances(),
