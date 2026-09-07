@@ -9,6 +9,15 @@ const SYMBOL_SIZE = {
 
 const TERMINAL_OFFSET = 84;
 
+const PREVIEW = {
+  width: 760,
+  height: 620,
+  paddingX: 70,
+  paddingY: 70,
+  maxScaleX: 1.15,
+  maxScaleY: 1.25,
+};
+
 function getDefinition(node) {
   return node?.data?.definitionKey
     ? worldDefinitions[node.data.definitionKey]
@@ -157,7 +166,7 @@ export default function SchematicPreview({ nodes, edges, selectedNodeId, onSelec
   const { viewBox, positions, wires } = useMemo(() => {
     if (nodes.length === 0) {
       return {
-        viewBox: "0 0 900 560",
+        viewBox: `0 0 ${PREVIEW.width} ${PREVIEW.height}`,
         positions: new Map(),
         wires: [],
       };
@@ -174,15 +183,20 @@ export default function SchematicPreview({ nodes, edges, selectedNodeId, onSelec
     });
 
     const bounds = getBounds([...anchors, ...terminalPoints]);
-    const padding = 130;
-    const width = Math.max(900, bounds.maxX - bounds.minX + padding * 2);
-    const height = Math.max(560, bounds.maxY - bounds.minY + padding * 2);
-    const offsetX = padding - bounds.minX;
-    const offsetY = padding - bounds.minY;
+    const contentWidth = Math.max(bounds.maxX - bounds.minX, 1);
+    const contentHeight = Math.max(bounds.maxY - bounds.minY, 1);
+    const targetWidth = PREVIEW.width - PREVIEW.paddingX * 2;
+    const targetHeight = PREVIEW.height - PREVIEW.paddingY * 2;
+
+    // Normalize the circuit into a compact preview area. X/Y scaling is
+    // intentionally independent: the preview is a schematic, not a
+    // reproduction of the React Flow canvas geometry.
+    const scaleX = Math.min(targetWidth / contentWidth, PREVIEW.maxScaleX);
+    const scaleY = Math.min(targetHeight / contentHeight, PREVIEW.maxScaleY);
 
     const translate = (point) => ({
-      x: point.x + offsetX,
-      y: point.y + offsetY,
+      x: PREVIEW.paddingX + (point.x - bounds.minX) * scaleX,
+      y: PREVIEW.paddingY + (point.y - bounds.minY) * scaleY,
     });
 
     const positionMap = new Map(
@@ -204,7 +218,7 @@ export default function SchematicPreview({ nodes, edges, selectedNodeId, onSelec
       .filter(Boolean);
 
     return {
-      viewBox: `0 0 ${width} ${height}`,
+      viewBox: `0 0 ${PREVIEW.width} ${PREVIEW.height}`,
       positions: positionMap,
       wires: wireData,
     };
