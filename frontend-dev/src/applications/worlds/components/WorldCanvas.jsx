@@ -130,7 +130,8 @@ function getJunctionHandle(position, endpoint) {
   return dy < 0 ? "junction-top" : "junction-bottom";
 }
 
-export default function WorldCanvas() {
+export default function WorldCanvas({ workspace = "design" }) {
+  const isDesignWorkspace = workspace === "design";
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [reactFlowInstance, setReactFlowInstance] = useState(null);
@@ -210,7 +211,7 @@ export default function WorldCanvas() {
   };
 
   const updateSelectedProperty = (property, value) => {
-    if (!selectedNodeId) {
+    if (!selectedNodeId || !isDesignWorkspace) {
       return;
     }
 
@@ -235,6 +236,10 @@ export default function WorldCanvas() {
   };
 
   const handleNodesChange = (changes) => {
+    if (!isDesignWorkspace) {
+      return;
+    }
+
     onNodesChange(changes);
 
     for (const change of changes) {
@@ -250,6 +255,10 @@ export default function WorldCanvas() {
   };
 
   const handleEdgeClick = (_event, edge) => {
+    if (!isDesignWorkspace) {
+      return;
+    }
+
     setSelectedEdgeId(edge.id);
     setSelectedNodeId(null);
   };
@@ -266,7 +275,7 @@ export default function WorldCanvas() {
       (target.matches("input, textarea, select, button") ||
         target.isContentEditable);
 
-    if (isFormControl) {
+    if (isFormControl || !isDesignWorkspace) {
       return;
     }
 
@@ -306,7 +315,7 @@ export default function WorldCanvas() {
   };
 
   const insertJunctionOnEdge = (event, edge, position) => {
-    if (!reactFlowInstance) {
+    if (!reactFlowInstance || !isDesignWorkspace) {
       return;
     }
 
@@ -391,7 +400,12 @@ export default function WorldCanvas() {
   };
 
   const handleConnectEnd = (event, connectionState) => {
-    if (connectionState.isValid || !connectionState.fromNode || !reactFlowInstance) {
+    if (
+      !isDesignWorkspace ||
+      connectionState.isValid ||
+      !connectionState.fromNode ||
+      !reactFlowInstance
+    ) {
       return;
     }
 
@@ -488,36 +502,51 @@ export default function WorldCanvas() {
           interactionWidth: 30,
         }}
         connectionLineType="smoothstep"
-        onNodesChange={handleNodesChange}
-        onEdgesChange={onEdgesChange}
-        onEdgeClick={handleEdgeClick}
-        onConnect={onConnect}
-        onConnectEnd={handleConnectEnd}
+        nodesDraggable={isDesignWorkspace}
+        nodesConnectable={isDesignWorkspace}
+        elementsSelectable={isDesignWorkspace}
+        onNodesChange={isDesignWorkspace ? handleNodesChange : undefined}
+        onEdgesChange={isDesignWorkspace ? onEdgesChange : undefined}
+        onEdgeClick={isDesignWorkspace ? handleEdgeClick : undefined}
+        onConnect={isDesignWorkspace ? onConnect : undefined}
+        onConnectEnd={isDesignWorkspace ? handleConnectEnd : undefined}
         onInit={setReactFlowInstance}
         onNodeClick={handleNodeClick}
         onPaneClick={handlePaneClick}
-        onEdgeDoubleClick={insertJunctionOnEdge}
+        onEdgeDoubleClick={isDesignWorkspace ? insertJunctionOnEdge : undefined}
         fitView
       >
         <Background />
         <Controls />
 
-        <SimulationPanel
-          nodes={nodes}
-          edges={edges}
-          onSelectComponent={setSelectedNodeId}
-        />
-
-        <ComponentSidebar
-          nodes={nodes.filter((node) => node.type === "world")}
-          selectedNode={selectedNode?.type === "world" ? selectedNode : null}
-          onAddComponent={addComponent}
-          onSelectComponent={(id) => {
-            setSelectedNodeId(id);
-            setSelectedEdgeId(null);
-          }}
-          onChangeProperty={updateSelectedProperty}
-        />
+        {isDesignWorkspace ? (
+          <ComponentSidebar
+            nodes={nodes.filter((node) => node.type === "world")}
+            selectedNode={selectedNode?.type === "world" ? selectedNode : null}
+            onAddComponent={addComponent}
+            onSelectComponent={(id) => {
+              setSelectedNodeId(id);
+              setSelectedEdgeId(null);
+            }}
+            onChangeProperty={updateSelectedProperty}
+          />
+        ) : (
+          <>
+            <SimulationPanel
+              nodes={nodes}
+              edges={edges}
+              onSelectComponent={setSelectedNodeId}
+            />
+            <div className="absolute right-4 top-4 z-10 rounded-lg border border-[#d9dde2] bg-white/95 px-3 py-2 shadow-sm backdrop-blur">
+              <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[#58718f]">
+                Circuit Preview
+              </div>
+              <div className="mt-0.5 text-[10px] text-[#69717b]">
+                Read-only design overview
+              </div>
+            </div>
+          </>
+        )}
       </ReactFlow>
     </div>
   );
