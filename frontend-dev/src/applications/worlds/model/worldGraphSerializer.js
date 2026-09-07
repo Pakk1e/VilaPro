@@ -291,7 +291,7 @@ function buildInstance(node, dsu, netNames) {
   };
 }
 
-export function serializeWorldGraph(nodes, edges) {
+export function buildCircuitDescription(nodes, edges) {
   const componentNodes = nodes.filter(
     (node) => node.type === "world" && node.data?.componentType !== "Ground"
   );
@@ -305,12 +305,18 @@ export function serializeWorldGraph(nodes, edges) {
   const dsu = buildConnectivity(nodes, edges);
   const netNames = buildNetNames(nodes, dsu);
 
-  const instances = componentNodes.map((node) =>
-    buildInstance(node, dsu, netNames)
-  );
+  return {
+    instances: componentNodes.map((node) =>
+      buildInstance(node, dsu, netNames)
+    ),
+  };
+}
+
+export function serializeWorldGraph(nodes, edges) {
+  const description = buildCircuitDescription(nodes, edges);
 
   return {
     world_source: ELECTRONICS_WORLD_SOURCE.trim(),
-    instances,
+    instances: description.instances,
   };
 }
