@@ -77,21 +77,27 @@ class WorldsAPIHandler(BaseHTTPRequestHandler):
 
             world_source = request["world_source"]
             instances = request["instances"]
+            simulation = request.get("simulation")
 
             if not isinstance(world_source, str):
                 raise ValueError("world_source must be a string")
             if not isinstance(instances, list):
                 raise ValueError("instances must be a list")
+            if simulation is not None and not isinstance(simulation, dict):
+                raise ValueError("simulation must be an object")
 
             response = SimulationService().simulate(
                 world_source,
                 instances=instances,
+                simulation=simulation,
             )
 
             self._send_json(
                 200,
                 {
                     "ok": True,
+                    "analysis": response.analysis,
+                    "status": response.status,
                     "node_voltages": response.node_voltages,
                     "branch_currents": response.branch_currents,
                     "components": response.components,
