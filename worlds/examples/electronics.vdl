@@ -53,4 +53,20 @@ world Electronics {
                 voltage(p, n) = V;
         }
     }
+
+    component CurrentSource {
+
+        parameter I : Current;
+
+        interface {
+            p : ElectricalNode;
+            n : ElectricalNode;
+        }
+
+        representation ideal {
+
+            equation:
+                current(p, n) = I;
+        }
+    }
 }
