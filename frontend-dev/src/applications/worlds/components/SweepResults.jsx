@@ -1,3 +1,5 @@
+import { useMemo, useState } from "react";
+
 import { getSweepInformation, getSweepSourceRows } from "../model/sweepResults";
 import SweepChart from "./SweepChart";
 
@@ -18,18 +20,27 @@ function formatPower(value) {
   return Math.abs(number) >= 1 ? `${number.toFixed(2)} W` : `${(number * 1000).toFixed(1)} mW`;
 }
 
+const RESULT_SERIES = [
+  { key: "current", label: "Current" },
+  { key: "voltage", label: "Voltage" },
+  { key: "power", label: "Power" },
+];
+
 export default function SweepResults({ result, nodes = [] }) {
   const information = getSweepInformation(result);
   const rows = getSweepSourceRows(result);
+  const [series, setSeries] = useState("current");
+
+  const chartRows = useMemo(
+    () => rows.map((row) => ({ sweepValue: row.sweepValue, value: row[series] })),
+    [rows, series]
+  );
 
   if (!information) return null;
 
   const sourceNode = nodes.find((node) => node.id === information.source);
   const sourceName = sourceNode?.data?.label ?? information.source;
-  const chartRows = rows.map((row) => ({
-    sweepValue: row.sweepValue,
-    value: row.current,
-  }));
+  const seriesLabel = RESULT_SERIES.find((item) => item.key === series)?.label ?? "Current";
 
   return (
     <section aria-label="DC sweep results" className="space-y-4">
@@ -72,11 +83,34 @@ export default function SweepResults({ result, nodes = [] }) {
         )}
       </div>
 
-      <SweepChart
-        rows={chartRows}
-        xLabel={`Sweep (${information.parameter})`}
-        yLabel="Current"
-      />
+      <div className="overflow-hidden rounded-xl border border-[#d9dde2] bg-white">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#e4e7eb] px-4 py-3">
+          <div>
+            <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#69717b]">Result Series</div>
+            <div className="mt-1 text-xs text-[#8a929c]">Plot a result from the swept source.</div>
+          </div>
+          <div className="flex rounded-md border border-[#d9dde2] bg-[#fafbfc] p-0.5" role="group" aria-label="Result series">
+            {RESULT_SERIES.map((item) => (
+              <button
+                key={item.key}
+                type="button"
+                onClick={() => setSeries(item.key)}
+                aria-pressed={series === item.key}
+                className={`rounded px-2.5 py-1.5 text-[10px] font-medium transition ${series === item.key ? "bg-white text-[#17253a] shadow-sm" : "text-[#69717b] hover:text-[#26364d]"}`}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="p-3">
+          <SweepChart
+            rows={chartRows}
+            xLabel={`Sweep (${information.parameter})`}
+            yLabel={seriesLabel}
+          />
+        </div>
+      </div>
     </section>
   );
 }
