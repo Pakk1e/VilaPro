@@ -320,6 +320,7 @@ export default function WorldCanvas({ workspace = "design" }) {
           nodes={nodes}
           edges={edges}
           sweepTargets={sweepTargets}
+          voltageSources={sweepTargets}
           onSelectComponent={setSelectedNodeId}
         />
       )}
