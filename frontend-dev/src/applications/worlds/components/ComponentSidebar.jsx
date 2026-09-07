@@ -13,7 +13,10 @@ export default function ComponentSidebar({
     : null;
 
   return (
-    <aside className="absolute right-4 top-4 z-10 flex max-h-[calc(100vh-32px)] w-[320px] flex-col overflow-hidden rounded-xl border border-[#d9dde2] bg-white shadow-md">
+    <aside
+      onClick={(event) => event.stopPropagation()}
+      className="absolute right-4 top-4 z-10 flex max-h-[calc(100vh-32px)] w-[320px] flex-col overflow-hidden rounded-xl border border-[#d9dde2] bg-white shadow-md"
+    >
       <div className="shrink-0 border-b border-[#e4e7eb] px-4 py-3">
         <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#58718f]">
           Components
