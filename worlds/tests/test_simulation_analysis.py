@@ -43,7 +43,7 @@ class SimulationAnalysisTest(unittest.TestCase):
 
     def test_configuration_rejects_unknown_analysis(self):
         with self.assertRaises(SimulationAnalysisError) as context:
-            SimulationConfiguration.from_dict({"analysis": "dc_sweep"})
+            SimulationConfiguration.from_dict({"analysis": "transient"})
 
         self.assertIn("Unsupported simulation analysis", str(context.exception))
         self.assertIn(DC_OPERATING_POINT, str(context.exception))
@@ -144,7 +144,7 @@ class SimulationAnalysisTest(unittest.TestCase):
             SimulationService().simulate(
                 load_world_source(),
                 instances=[],
-                simulation={"analysis": "dc_sweep"},
+                simulation={"analysis": "transient"},
             )
 
         self.assertIn("Unsupported simulation analysis", str(context.exception))
