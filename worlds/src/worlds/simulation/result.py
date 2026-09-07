@@ -76,21 +76,29 @@ class SimulationResultModel:
         sweep_source: str,
         sweep_parameter: str,
         points: list[float],
-        node_voltages: list[dict[str, float]],
-        branch_currents: list[dict[str, float]],
-        components: list[list[dict]],
+        point_statuses: list[dict[str, object]],
+        node_voltages: list[dict[str, float] | None],
+        branch_currents: list[dict[str, float] | None],
+        components: list[list[dict] | None],
     ) -> "SimulationResultModel":
-        """Build the generic result envelope for a DC sweep."""
+        """Build the generic result envelope for a DC source sweep."""
 
+        failed_count = sum(1 for item in point_statuses if item.get("status") == "failed")
+        completed_count = len(point_statuses) - failed_count
         return cls(
             metadata={"status": status},
             datasets=(
                 SimulationDataset(name="sweep", values=points, dimensions=("sweep",)),
+                SimulationDataset(name="sweep_status", values=point_statuses, dimensions=("sweep",)),
                 SimulationDataset(name="node_voltages", values=node_voltages, dimensions=("sweep", "node")),
                 SimulationDataset(name="branch_currents", values=branch_currents, dimensions=("sweep", "branch")),
                 SimulationDataset(name="components", values=components, dimensions=("sweep", "component")),
             ),
-            statistics={"point_count": len(points)},
+            statistics={
+                "point_count": len(points),
+                "completed_point_count": completed_count,
+                "failed_point_count": failed_count,
+            },
             analysis_information={
                 "analysis": "dc_sweep",
                 "settings": dict(settings),
