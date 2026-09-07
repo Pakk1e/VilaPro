@@ -6,7 +6,11 @@ import {
 } from "../model/simulationConfig";
 
 export default function SimulationSetup({ config, onChange, sweepTargets = [], voltageSources = [] }) {
-  const targets = sweepTargets.length > 0 ? sweepTargets : voltageSources;
+  const allTargets = sweepTargets.length > 0 ? sweepTargets : voltageSources;
+  const targets = allTargets.filter((target) => {
+    const type = String(target.componentType ?? "").toLowerCase();
+    return type.includes("voltage") || type.includes("current");
+  });
   const sweepError = config.analysis === SIMULATION_ANALYSES.DC_SWEEP
     ? getDcSweepValidationError(config.settings, targets)
     : null;
