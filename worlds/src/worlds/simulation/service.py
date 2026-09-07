@@ -2,15 +2,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from worlds.math import Variable
 from worlds.semantics.component import ComponentSemanticAnalyzer
 from worlds.semantics import WorldSemanticAnalyzer
+from worlds.simulation.analysis import SimulationConfiguration, get_simulation_analysis
 from worlds.simulation.builder import build_simulation_component
 from worlds.simulation.model import SimulationModel
-from worlds.simulation.network import build_network_equation_system
-from worlds.simulation.solver import BranchCurrent, SimulationResult, SimulationSolver
+from worlds.simulation.solver import BranchCurrent, SimulationResult
 from worlds.simulation.validation import SimulationValidator
 from worlds.vdl import Parser
+from worlds.math import Variable
 
 
 class SimulationServiceError(Exception):
@@ -19,6 +19,8 @@ class SimulationServiceError(Exception):
 
 @dataclass(frozen=True)
 class SimulationResponse:
+    analysis: str
+    status: str
     node_voltages: dict[str, float]
     branch_currents: dict[str, float]
     components: list[dict]
@@ -32,8 +34,10 @@ class SimulationService:
         world_source: str,
         instances: list[dict],
         known: dict[object, float] | None = None,
+        simulation: dict | None = None,
     ) -> SimulationResponse:
         try:
+            configuration = SimulationConfiguration.from_dict(simulation)
             world = Parser(world_source).parse()
             semantic = WorldSemanticAnalyzer(world).analyze()
             model = SimulationModel()
@@ -66,14 +70,17 @@ class SimulationService:
 
             SimulationValidator().validate(model)
 
-            equation_system = build_network_equation_system(model)
-            result = SimulationSolver().solve(equation_system, known=known)
-            result = SimulationResult(
-                values=result.values,
-                instances={component.name: component for component in model.components},
-            )
+            analysis = get_simulation_analysis(configuration.analysis)
+            result = analysis.run(model, known=known)
 
-            return self._build_response(result)
+            response = self._build_response(result)
+            return SimulationResponse(
+                analysis=configuration.analysis,
+                status="completed",
+                node_voltages=response.node_voltages,
+                branch_currents=response.branch_currents,
+                components=response.components,
+            )
 
         except Exception as exc:
             if isinstance(exc, SimulationServiceError):
@@ -114,6 +121,8 @@ class SimulationService:
         }
 
         return SimulationResponse(
+            analysis="dc_operating_point",
+            status="completed",
             node_voltages=dict(result.node_voltages),
             branch_currents=branch_currents,
             components=components,
