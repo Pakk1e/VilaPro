@@ -2,6 +2,7 @@ import unittest
 
 from worlds.simulation import (
     DC_OPERATING_POINT,
+    DC_SWEEP,
     SimulationRequest,
     SimulationRequestError,
 )
@@ -54,11 +55,30 @@ class SimulationRequestTest(unittest.TestCase):
                 {
                     "world_source": "world Electronics {}",
                     "instances": [],
-                    "simulation": {"analysis": "dc_sweep"},
+                    "simulation": {"analysis": "unknown_analysis"},
                 }
             )
 
         self.assertIn("Unsupported simulation analysis", str(context.exception))
+
+    def test_request_accepts_dc_sweep(self):
+        request = SimulationRequest.from_dict(
+            {
+                "world_source": "world Electronics {}",
+                "instances": [],
+                "simulation": {
+                    "analysis": DC_SWEEP,
+                    "settings": {
+                        "source": "V1-id",
+                        "start": 0,
+                        "stop": 10,
+                        "step": 1,
+                    },
+                },
+            }
+        )
+
+        self.assertEqual(request.simulation.analysis, DC_SWEEP)
 
 
 if __name__ == "__main__":
