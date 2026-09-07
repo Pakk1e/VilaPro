@@ -126,23 +126,31 @@ class SimulationService:
         if not sweep.results:
             raise SimulationServiceError("dc_sweep produced no simulation results")
 
-        point_responses = [self._build_response(result) for result in sweep.results]
-        last = point_responses[-1]
+        point_responses = [self._build_response(result) if result is not None else None for result in sweep.results]
+        successful_responses = [response for response in point_responses if response is not None]
+        last = successful_responses[-1] if successful_responses else _LegacySimulationResponse({}, {}, [])
+        point_statuses = [
+            {"status": "completed"} if error is None else {"status": "failed", "error": error}
+            for error in sweep.errors
+        ]
+        result_status = "completed_with_failures" if any(item["status"] == "failed" for item in point_statuses) else "completed"
+
         generic_result = SimulationResultModel.from_dc_sweep(
-            status="completed",
+            status=result_status,
             settings=configuration.settings,
             outputs=configuration.outputs,
             sweep_source=sweep.source_id,
             sweep_parameter=sweep.parameter,
             points=[float(point) for point in sweep.points],
-            node_voltages=[item.node_voltages for item in point_responses],
-            branch_currents=[item.branch_currents for item in point_responses],
-            components=[item.components for item in point_responses],
+            point_statuses=point_statuses,
+            node_voltages=[item.node_voltages if item is not None else None for item in point_responses],
+            branch_currents=[item.branch_currents if item is not None else None for item in point_responses],
+            components=[item.components if item is not None else None for item in point_responses],
         )
 
         return SimulationResponse(
             analysis=configuration.analysis,
-            status="completed",
+            status=result_status,
             node_voltages=last.node_voltages,
             branch_currents=last.branch_currents,
             components=last.components,
