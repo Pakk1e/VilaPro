@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { serializeWorldGraph } from "../model/worldGraphSerializer";
 
@@ -19,13 +19,52 @@ function formatPower(value) {
   return Math.abs(number) >= 1 ? `${number.toFixed(2)} W` : `${(number * 1000).toFixed(1)} mW`;
 }
 
+function getGraphSignature(nodes, edges) {
+  return JSON.stringify({
+    nodes: nodes.map((node) => ({
+      id: node.id,
+      type: node.type,
+      position: node.position,
+      data:
+        node.type === "world"
+          ? {
+              componentType: node.data?.componentType,
+              definitionKey: node.data?.definitionKey,
+              properties: node.data?.properties ?? {},
+              ports: node.data?.ports ?? [],
+            }
+          : {
+              portKind: node.data?.portKind,
+            },
+    })),
+    edges: edges.map((edge) => ({
+      id: edge.id,
+      source: edge.source,
+      sourceHandle: edge.sourceHandle,
+      target: edge.target,
+      targetHandle: edge.targetHandle,
+    })),
+  });
+}
+
 export default function SimulationPanel({ nodes, edges, onSelectComponent }) {
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [running, setRunning] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [lastSimulationSignature, setLastSimulationSignature] = useState(null);
   const abortControllerRef = useRef(null);
   const mountedRef = useRef(true);
+
+  const graphSignature = useMemo(
+    () => getGraphSignature(nodes, edges),
+    [nodes, edges]
+  );
+
+  const simulationIsStale =
+    result !== null &&
+    lastSimulationSignature !== null &&
+    lastSimulationSignature !== graphSignature;
 
   useEffect(() => {
     mountedRef.current = true;
@@ -59,10 +98,12 @@ export default function SimulationPanel({ nodes, edges, onSelectComponent }) {
 
       if (!mountedRef.current || abortControllerRef.current !== controller) return;
       setResult(data);
+      setLastSimulationSignature(graphSignature);
     } catch (simulationError) {
       if (simulationError?.name === "AbortError") return;
       if (!mountedRef.current) return;
       setResult(null);
+      setLastSimulationSignature(null);
       setError(simulationError?.message ?? "Simulation failed");
     } finally {
       if (mountedRef.current && abortControllerRef.current === controller) {
@@ -102,9 +143,18 @@ export default function SimulationPanel({ nodes, edges, onSelectComponent }) {
             <div className="mt-1 text-sm font-semibold text-[#17253a]">Electronics</div>
           </div>
           <button type="button" onClick={simulate} disabled={running} aria-busy={running} className="rounded-md border border-[#cfd5dc] bg-white px-3 py-1.5 text-xs font-medium text-[#26364d] shadow-sm transition hover:bg-[#f6f7f8] disabled:cursor-wait disabled:opacity-50">
-            {running ? "Running..." : "Simulate"}
+            {running ? "Running..." : simulationIsStale ? "Re-simulate" : "Simulate"}
           </button>
         </div>
+
+        {simulationIsStale && (
+          <div role="status" aria-live="polite" className="border-b border-[#e4e7eb] bg-[#fffaf0] px-4 py-3">
+            <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#8a6a2f]">Simulation out of date</div>
+            <div className="mt-1 text-xs leading-5 text-[#75613c]">
+              The circuit has changed since these results were calculated. Run the simulation again to refresh the values.
+            </div>
+          </div>
+        )}
 
         {error && (
           <div role="alert" aria-live="assertive" className="border-b border-[#e4e7eb] px-4 py-3">
