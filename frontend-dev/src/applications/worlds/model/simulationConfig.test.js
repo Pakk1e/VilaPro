@@ -10,6 +10,27 @@ import {
   getSimulationAnalysisLabel,
 } from "./simulationConfig.js";
 
+const targets = [
+  {
+    id: "V1-id",
+    label: "Supply",
+    componentType: "Voltage Source",
+    parameters: [{ parameter: "V", label: "Voltage", unit: "V" }],
+  },
+  {
+    id: "I1-id",
+    label: "Current",
+    componentType: "Current Source",
+    parameters: [{ parameter: "I", label: "Current", unit: "A" }],
+  },
+  {
+    id: "R1-id",
+    label: "Load",
+    componentType: "Resistor",
+    parameters: [{ parameter: "R", label: "Resistance", unit: "Ω" }],
+  },
+];
+
 test("dc sweep is a supported analysis", () => {
   const config = createSimulationConfig({
     analysis: SIMULATION_ANALYSES.DC_SWEEP,
@@ -19,6 +40,36 @@ test("dc sweep is a supported analysis", () => {
   assert.equal(config.analysis, "dc_sweep");
   assert.equal(getSimulationAnalysisLabel(config.analysis), "DC Sweep");
   assert.equal(getSimulationConfigValidationError(config, ["V1"]), null);
+});
+
+test("dc sweep accepts current-source target", () => {
+  assert.equal(
+    getDcSweepValidationError(
+      { ...DEFAULT_DC_SWEEP_SETTINGS, source: "I1-id", parameter: "I", start: 0, stop: 0.1, step: 0.05 },
+      targets
+    ),
+    null
+  );
+});
+
+test("dc sweep accepts component-parameter target", () => {
+  assert.equal(
+    getDcSweepValidationError(
+      { ...DEFAULT_DC_SWEEP_SETTINGS, source: "R1-id", parameter: "R", start: 50, stop: 150, step: 50 },
+      targets
+    ),
+    null
+  );
+});
+
+test("dc sweep rejects an unavailable parameter", () => {
+  assert.equal(
+    getDcSweepValidationError(
+      { ...DEFAULT_DC_SWEEP_SETTINGS, source: "R1-id", parameter: "V", start: 0, stop: 10, step: 1 },
+      targets
+    ),
+    "The selected sweep parameter is no longer available."
+  );
 });
 
 test("dc sweep rejects a missing source", () => {
