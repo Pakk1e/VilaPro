@@ -42,7 +42,7 @@ export function getSimulationAnalysisLabel(analysis) {
 
 function normalizeSweepTargets(sweepTargets = []) {
   return sweepTargets.map((target) => (
-    typeof target === "string" ? { id: target, parameters: [] } : target
+    typeof target === "string" ? { id: target, parameters: [], legacy: true } : target
   ));
 }
 
@@ -50,11 +50,12 @@ export function getDcSweepValidationError(settings, sweepTargets = []) {
   const source = settings?.source ?? "";
   const targets = normalizeSweepTargets(sweepTargets);
   const target = targets.find((item) => item.id === source);
+  const legacyTargets = targets.some((item) => item.legacy);
 
-  if (!source) return "Select a component parameter to sweep.";
-  if (!target) return "The selected sweep target is no longer available.";
+  if (!source) return legacyTargets ? "Select a voltage source to sweep." : "Select a component parameter to sweep.";
+  if (!target) return "The selected sweep source is no longer available.";
 
-  const parameter = settings?.parameter ?? "";
+  const parameter = settings?.parameter ?? target.parameters?.[0]?.parameter ?? (target.legacy ? "V" : "");
   if (!parameter) return "Select a parameter to sweep.";
 
   if (Array.isArray(target.parameters) && target.parameters.length > 0) {
