@@ -1,0 +1,95 @@
+function formatTick(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return "—";
+  return Math.abs(number) >= 1 ? number.toFixed(1) : number.toFixed(2);
+}
+
+function getFiniteRows(rows) {
+  return rows.filter((row) => Number.isFinite(Number(row.sweepValue)) && Number.isFinite(Number(row.value)));
+}
+
+export default function SweepChart({ rows, xLabel = "Sweep", yLabel = "Current" }) {
+  const points = getFiniteRows(rows);
+
+  if (points.length < 2) {
+    return (
+      <div className="flex h-56 items-center justify-center rounded-lg border border-dashed border-[#d9dde2] bg-[#fafbfc] px-4 text-center text-xs text-[#69717b]">
+        At least two valid sweep points are required to plot the result.
+      </div>
+    );
+  }
+
+  const width = 720;
+  const height = 300;
+  const margin = { top: 18, right: 22, bottom: 46, left: 58 };
+  const plotWidth = width - margin.left - margin.right;
+  const plotHeight = height - margin.top - margin.bottom;
+  const xValues = points.map((point) => Number(point.sweepValue));
+  const yValues = points.map((point) => Number(point.value));
+  const xMin = Math.min(...xValues);
+  const xMax = Math.max(...xValues);
+  const yMin = Math.min(...yValues);
+  const yMax = Math.max(...yValues);
+  const xRange = xMax - xMin || 1;
+  const yRange = yMax - yMin || 1;
+  const yPad = yRange * 0.08 || 1;
+  const chartYMin = yMin - yPad;
+  const chartYMax = yMax + yPad;
+  const chartYRange = chartYMax - chartYMin || 1;
+
+  const scaleX = (value) => margin.left + ((value - xMin) / xRange) * plotWidth;
+  const scaleY = (value) => margin.top + (1 - (value - chartYMin) / chartYRange) * plotHeight;
+  const path = points.map((point, index) => `${index === 0 ? "M" : "L"} ${scaleX(Number(point.sweepValue)).toFixed(2)} ${scaleY(Number(point.value)).toFixed(2)}`).join(" ");
+
+  const xTicks = xMin === xMax ? [xMin] : [xMin, xMin + xRange / 2, xMax];
+  const yTicks = [chartYMin, chartYMin + chartYRange / 2, chartYMax];
+
+  return (
+    <div className="overflow-hidden rounded-lg border border-[#e4e7eb] bg-white">
+      <div className="flex items-center justify-between border-b border-[#e4e7eb] px-4 py-3">
+        <div>
+          <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#69717b]">Sweep Plot</div>
+          <div className="mt-1 text-xs text-[#8a929c]">{yLabel} versus {xLabel}</div>
+        </div>
+        <div className="text-[10px] text-[#69717b]">{points.length} valid points</div>
+      </div>
+
+      <div className="overflow-x-auto px-3 py-3">
+        <svg viewBox={`0 0 ${width} ${height}`} className="h-auto min-w-[560px] w-full" role="img" aria-label={`${yLabel} versus ${xLabel} sweep plot`}>
+          {yTicks.map((tick) => {
+            const y = scaleY(tick);
+            return (
+              <g key={`y-${tick}`}>
+                <line x1={margin.left} x2={width - margin.right} y1={y} y2={y} stroke="#e4e7eb" strokeWidth="1" />
+                <text x={margin.left - 9} y={y + 4} textAnchor="end" fontSize="10" fill="#69717b">{formatTick(tick)}</text>
+              </g>
+            );
+          })}
+
+          {xTicks.map((tick) => {
+            const x = scaleX(tick);
+            return (
+              <g key={`x-${tick}`}>
+                <line x1={x} x2={x} y1={margin.top} y2={height - margin.bottom} stroke="#f0f1f3" strokeWidth="1" />
+                <text x={x} y={height - margin.bottom + 19} textAnchor="middle" fontSize="10" fill="#69717b">{formatTick(tick)}</text>
+              </g>
+            );
+          })}
+
+          <line x1={margin.left} x2={width - margin.right} y1={height - margin.bottom} y2={height - margin.bottom} stroke="#cfd5dc" strokeWidth="1" />
+          <line x1={margin.left} x2={margin.left} y1={margin.top} y2={height - margin.bottom} stroke="#cfd5dc" strokeWidth="1" />
+          <path d={path} fill="none" stroke="currentColor" strokeWidth="2" className="text-[#26364d]" />
+
+          {points.map((point, index) => {
+            const cx = scaleX(Number(point.sweepValue));
+            const cy = scaleY(Number(point.value));
+            return <circle key={`${point.sweepValue}-${index}`} cx={cx} cy={cy} r="3.5" fill="currentColor" className="text-[#26364d]" />;
+          })}
+
+          <text x={width / 2} y={height - 8} textAnchor="middle" fontSize="10" fill="#69717b">{xLabel}</text>
+          <text x="14" y={height / 2} textAnchor="middle" fontSize="10" fill="#69717b" transform={`rotate(-90 14 ${height / 2})`}>{yLabel}</text>
+        </svg>
+      </div>
+    </div>
+  );
+}
