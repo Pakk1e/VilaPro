@@ -1,175 +1,277 @@
-const NET_LAYOUT = {
-  left: 80,
-  right: 680,
-  top: 70,
-  bottom: 550,
-};
+const COMPONENT_X_GAP = 220;
+const COMPONENT_HALF_LENGTH = 92;
+const BRANCH_GAP = 110;
+const CENTER_Y = 280;
+const GROUND_BUS_Y = 520;
+const VIEW_PADDING = 70;
+const START_X = 180;
 
-const COMPONENT_SPACING = 180;
-const BRANCH_SPACING = 130;
-const GROUND_Y = 500;
-
-function getComponentPorts(instance) {
+function componentPorts(instance) {
   return instance.ports ?? {};
 }
 
-function buildNetGraph(description) {
+function buildNetGraph(instances) {
   const nets = new Map();
-
-  for (const instance of description.instances ?? []) {
-    for (const [portId, netName] of Object.entries(getComponentPorts(instance))) {
-      if (!nets.has(netName)) nets.set(netName, []);
-      nets.get(netName).push({ instance, portId });
+  for (const instance of instances) {
+    for (const [portId, net] of Object.entries(componentPorts(instance))) {
+      const endpoints = nets.get(net) ?? [];
+      endpoints.push({ instance, portId });
+      nets.set(net, endpoints);
     }
   }
-
   return nets;
 }
 
-function classifyInstance(instance) {
-  if (instance.type === "VoltageSource") return "voltage-source";
-  if (instance.type === "Resistor") return "resistor";
-  return "generic";
-}
-
-function chooseReferenceSource(instances) {
+function chooseSource(instances) {
   return instances.find((instance) => instance.type === "VoltageSource") ?? instances[0] ?? null;
 }
 
-function chooseGroundNet(description) {
-  const instances = description.instances ?? [];
-  const nets = buildNetGraph(description);
-  const source = chooseReferenceSource(instances);
-  if (!source) return "ground";
-
-  const sourcePorts = getComponentPorts(source);
-  if (sourcePorts.n === "ground") return "ground";
-  if (sourcePorts.p === "ground") return "ground";
-
-  const groundCandidates = [...nets.entries()].filter(([, endpoints]) =>
-    endpoints.some(({ instance, portId }) => instance.type === "VoltageSource" && portId === "n")
-  );
-
-  return groundCandidates[0]?.[0] ?? "ground";
+function otherNet(instance, net) {
+  return Object.values(componentPorts(instance)).find((candidate) => candidate !== net) ?? null;
 }
 
-function connectedComponentsForNet(netName, nets) {
-  return (nets.get(netName) ?? []).map(({ instance, portId }) => ({
-    instance,
-    portId,
-  }));
+function getNormalPortSign(instance, portId) {
+  // Resistor definitions use p-left / n-right. VoltageSource definitions use
+  // n-left / p-right. Keep electrical port semantics intact while layout
+  // decides which side of the symbol the connection occupies.
+  if (instance.type === "VoltageSource") return portId === "p" ? 1 : -1;
+  return portId === "p" ? -1 : 1;
 }
 
-function assignSeriesBranchLayout(description) {
-  const instances = description.instances ?? [];
-  const nets = buildNetGraph(description);
-  const groundNet = chooseGroundNet(description);
-  const source = chooseReferenceSource(instances);
-  const positions = new Map();
+function buildNetLevels(instances, source, groundNet) {
+  const levels = new Map();
+  if (!source) return levels;
 
-  if (!source) return { positions, nets, groundNet };
+  const sourceP = componentPorts(source).p;
+  if (!sourceP) return levels;
 
-  const sourcePorts = getComponentPorts(source);
-  const sourcePositiveNet = sourcePorts.p;
-  const sourceNegativeNet = sourcePorts.n;
+  levels.set(sourceP, 0);
+  const queue = [sourceP];
 
-  positions.set(source.id, { x: 150, y: 270 });
+  while (queue.length) {
+    const currentNet = queue.shift();
+    const currentLevel = levels.get(currentNet) ?? 0;
 
-  const visited = new Set([source.id]);
-  let currentNet = sourcePositiveNet;
-  let x = 330;
-  let branchIndex = 0;
+    for (const instance of instances) {
+      if (instance === source) continue;
+      const ports = componentPorts(instance);
+      if (!Object.values(ports).includes(currentNet)) continue;
 
-  while (currentNet && currentNet !== groundNet && branchIndex < instances.length + 2) {
-    const candidates = connectedComponentsForNet(currentNet, nets)
-      .map(({ instance, portId }) => ({ instance, portId }))
-      .filter(({ instance }) => !visited.has(instance.id));
+      const nextNet = otherNet(instance, currentNet);
+      if (!nextNet || nextNet === groundNet || levels.has(nextNet)) continue;
 
-    if (candidates.length === 0) break;
-
-    const next = candidates[0].instance;
-    visited.add(next.id);
-    positions.set(next.id, { x, y: 270 });
-
-    const ports = getComponentPorts(next);
-    const nextNet = Object.entries(ports).find(([, netName]) => netName !== currentNet)?.[1];
-    currentNet = nextNet;
-    x += COMPONENT_SPACING;
-    branchIndex += 1;
+      levels.set(nextNet, currentLevel + 1);
+      queue.push(nextNet);
+    }
   }
 
-  // Any remaining components belong to side branches. Place them in rows
-  // around the first connected net rather than using editor coordinates.
-  const remaining = instances.filter((instance) => !positions.has(instance.id));
-  remaining.forEach((instance, index) => {
-    const y = 180 + (index % 3) * BRANCH_SPACING;
-    const xOffset = 300 + Math.floor(index / 3) * COMPONENT_SPACING;
-    positions.set(instance.id, { x: xOffset, y });
-  });
+  return levels;
+}
 
-  if (sourceNegativeNet && sourceNegativeNet !== groundNet) {
-    const negativeEndpoints = connectedComponentsForNet(sourceNegativeNet, nets);
-    negativeEndpoints.forEach(({ instance }) => {
-      if (!positions.has(instance.id)) return;
-      positions.set(instance.id, { ...positions.get(instance.id), y: 380 });
+function buildNetColumns(instances, source, groundNet) {
+  const levels = buildNetLevels(instances, source, groundNet);
+  const columns = new Map();
+  const maxLevel = Math.max(...levels.values(), 0);
+
+  for (const net of new Set(instances.flatMap((instance) => Object.values(componentPorts(instance)))) ) {
+    if (net === groundNet) continue;
+    const level = levels.get(net) ?? maxLevel + 1;
+    columns.set(net, START_X + level * COMPONENT_X_GAP);
+  }
+
+  return columns;
+}
+
+function pairKey(first, second) {
+  return [first, second].sort().join("::");
+}
+
+function assignParallelLanes(instances, groundNet) {
+  const groups = new Map();
+  for (const instance of instances) {
+    const nets = Object.values(componentPorts(instance));
+    if (nets.length !== 2) continue;
+    const key = pairKey(nets[0], nets[1]);
+    const group = groups.get(key) ?? [];
+    group.push(instance);
+    groups.set(key, group);
+  }
+
+  const lanes = new Map();
+  for (const group of groups.values()) {
+    const center = (group.length - 1) / 2;
+    group.forEach((instance, index) => {
+      lanes.set(instance.id, CENTER_Y + (index - center) * BRANCH_GAP);
     });
   }
 
-  return { positions, nets, groundNet };
+  return lanes;
 }
 
-function getBounds(instances, positions) {
-  const points = instances
-    .map((instance) => positions.get(instance.id))
-    .filter(Boolean);
+function assignPositions(instances, netColumns, groundNet) {
+  const lanes = assignParallelLanes(instances, groundNet);
+  const positions = new Map();
+  const orientations = new Map();
 
-  if (points.length === 0) return { minX: 0, maxX: 1, minY: 0, maxY: 1 };
+  for (const instance of instances) {
+    const ports = componentPorts(instance);
+    const pNet = ports.p;
+    const nNet = ports.n;
+    const pX = pNet === groundNet ? null : netColumns.get(pNet);
+    const nX = nNet === groundNet ? null : netColumns.get(nNet);
+    const y = lanes.get(instance.id) ?? CENTER_Y;
+    const normalPSign = getNormalPortSign(instance, "p");
+    const normalNSign = getNormalPortSign(instance, "n");
+
+    if (pX !== null && nX === null) {
+      positions.set(instance.id, { x: pX - normalPSign * COMPONENT_HALF_LENGTH, y });
+      orientations.set(instance.id, "normal");
+      continue;
+    }
+
+    if (pX === null && nX !== null) {
+      positions.set(instance.id, { x: nX - normalNSign * COMPONENT_HALF_LENGTH, y });
+      orientations.set(instance.id, "normal");
+      continue;
+    }
+
+    if (pX !== null && nX !== null) {
+      const normalOrder = normalPSign > 0 ? pX >= nX : pX <= nX;
+      positions.set(instance.id, { x: (pX + nX) / 2, y });
+      orientations.set(instance.id, normalOrder ? "normal" : "reversed");
+      continue;
+    }
+
+    positions.set(instance.id, { x: START_X, y });
+    orientations.set(instance.id, "normal");
+  }
+
+  return { positions, orientations };
+}
+
+function terminalPoint(instance, position, orientation, portId) {
+  const normalSign = getNormalPortSign(instance, portId);
+  const direction = orientation === "reversed" ? -normalSign : normalSign;
+  return {
+    x: position.x + direction * COMPONENT_HALF_LENGTH,
+    y: position.y,
+  };
+}
+
+function buildWires(instances, positions, orientations, netColumns, groundNet) {
+  const wires = [];
+  const terminalsByNet = new Map();
+
+  for (const instance of instances) {
+    const position = positions.get(instance.id);
+    const orientation = orientations.get(instance.id) ?? "normal";
+    if (!position) continue;
+
+    for (const portId of ["p", "n"]) {
+      const net = componentPorts(instance)[portId];
+      if (!net) continue;
+      const terminal = terminalPoint(instance, position, orientation, portId);
+      const bucket = terminalsByNet.get(net) ?? [];
+      bucket.push({ terminal, instance, portId });
+      terminalsByNet.set(net, bucket);
+    }
+  }
+
+  for (const [net, terminals] of terminalsByNet.entries()) {
+    if (net === groundNet) {
+      terminals.forEach(({ terminal }) => {
+        wires.push({
+          id: `ground-${terminal.x}-${terminal.y}`,
+          paths: [`M ${terminal.x} ${terminal.y} L ${terminal.x} ${GROUND_BUS_Y}`],
+        });
+      });
+      continue;
+    }
+
+    const railX = netColumns.get(net);
+    if (railX == null || terminals.length === 0) continue;
+
+    for (const { terminal } of terminals) {
+      if (Math.abs(terminal.x - railX) > 1) {
+        wires.push({
+          id: `wire-${net}-${terminal.x}-${terminal.y}`,
+          paths: [`M ${terminal.x} ${terminal.y} L ${railX} ${terminal.y}`],
+        });
+      }
+    }
+
+    const ys = terminals.map(({ terminal }) => terminal.y);
+    const minY = Math.min(...ys);
+    const maxY = Math.max(...ys);
+    if (Math.abs(maxY - minY) > 1) {
+      wires.push({ id: `bus-${net}`, paths: [`M ${railX} ${minY} L ${railX} ${maxY}`] });
+    }
+  }
+
+  return wires;
+}
+
+function getBounds(instances, positions, wires) {
+  const points = [];
+  for (const instance of instances) {
+    const position = positions.get(instance.id);
+    if (position) points.push(position);
+  }
+
+  points.push({ x: 0, y: GROUND_BUS_Y });
+  for (const wire of wires) {
+    for (const path of wire.paths) {
+      const numbers = path.match(/-?\d+(?:\.\d+)?/g)?.map(Number) ?? [];
+      for (let index = 0; index < numbers.length; index += 2) {
+        points.push({ x: numbers[index], y: numbers[index + 1] });
+      }
+    }
+  }
+
+  const xs = points.map((point) => point.x);
+  const ys = points.map((point) => point.y);
+  const minX = Math.min(...xs, 0) - VIEW_PADDING;
+  const maxX = Math.max(...xs, 760) + VIEW_PADDING;
+  const minY = Math.min(...ys, 0) - VIEW_PADDING;
+  const maxY = Math.max(...ys, 600) + VIEW_PADDING;
 
   return {
-    minX: Math.min(...points.map((point) => point.x)),
-    maxX: Math.max(...points.map((point) => point.x)),
-    minY: Math.min(...points.map((point) => point.y)),
-    maxY: Math.max(...points.map((point) => point.y)),
+    minX,
+    minY,
+    width: Math.max(maxX - minX, 620),
+    height: Math.max(maxY - minY, 430),
   };
 }
 
 export function generateSchematic(description) {
   const instances = description.instances ?? [];
-  const { positions, nets, groundNet } = assignSeriesBranchLayout(description);
+  const groundNet = "ground";
+  const source = chooseSource(instances);
+  const netGraph = buildNetGraph(instances);
+  const netColumns = buildNetColumns(instances, source, groundNet);
+  const { positions, orientations } = assignPositions(instances, netColumns, groundNet);
+  const wires = buildWires(instances, positions, orientations, netColumns, groundNet);
 
   return {
     instances,
+    source,
+    netGraph,
+    netColumns,
     positions,
-    nets,
+    orientations,
+    wires,
     groundNet,
-    bounds: getBounds(instances, positions),
-    layout: {
-      width: NET_LAYOUT.right - NET_LAYOUT.left,
-      height: NET_LAYOUT.bottom - NET_LAYOUT.top,
-    },
+    bounds: getBounds(instances, positions, wires),
   };
 }
 
-export function getSchematicPort(instance, portId, position) {
-  const kind = classifyInstance(instance);
-  const ports = getComponentPorts(instance);
-
-  if (kind === "voltage-source" || kind === "resistor") {
-    const netName = ports[portId];
-    const horizontalPort = portId === "p" || portId === "n";
-    if (horizontalPort) {
-      const sign = portId === "p" ? -1 : 1;
-      return { x: position.x + sign * 60, y: position.y };
-    }
-    return { x: position.x, y: position.y + 60 };
-  }
-
-  return { x: position.x, y: position.y };
-}
-
-export function getGroundPosition(layout) {
-  return {
-    x: (layout.left + layout.right) / 2,
-    y: GROUND_Y,
-  };
+export function getSchematicPort(instance, portId, schematic) {
+  const position = schematic.positions.get(instance.id);
+  if (!position) return null;
+  return terminalPoint(
+    instance,
+    position,
+    schematic.orientations.get(instance.id) ?? "normal",
+    portId
+  );
 }
