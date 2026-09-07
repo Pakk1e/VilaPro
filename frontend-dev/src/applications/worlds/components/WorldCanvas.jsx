@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
 
 import {
   Background,
@@ -11,18 +11,15 @@ import {
 
 import "@xyflow/react/dist/style.css";
 
-import WorldNode, { WorldNodeContext } from "./WorldNode";
+import WorldNode from "./WorldNode";
 import JunctionNode from "./JunctionNode";
 import CircuitEdge from "./CircuitEdge";
 import SimulationPanel from "./SimulationPanel";
+import ComponentSidebar from "./ComponentSidebar";
 import { worldDefinitions } from "../model/worldDefinitions";
-
 
 const initialNodes = [];
 const initialEdges = [];
-
-
-
 
 const nodeTypes = {
   world: WorldNode,
@@ -39,10 +36,7 @@ function getNextComponentLabel(nodes, definition) {
   const usedNumbers = nodes
     .map((node) => node.data?.label)
     .map((label) => {
-      const match = label?.match(
-        new RegExp(`^${prefix} ([0-9]+)$`)
-      );
-
+      const match = label?.match(new RegExp(`^${prefix} ([0-9]+)$`));
       return match ? Number(match[1]) : null;
     })
     .filter(Boolean);
@@ -56,12 +50,10 @@ function getNextComponentLabel(nodes, definition) {
   return `${prefix} ${nextNumber}`;
 }
 
-function createNodeData(definition, label) {
+function createNodeData(definition, label, definitionKey) {
   const properties = {};
 
-  for (const [key, property] of Object.entries(
-    definition.properties ?? {}
-  )) {
+  for (const [key, property] of Object.entries(definition.properties ?? {})) {
     properties[key] = property.defaultValue;
   }
 
@@ -69,34 +61,23 @@ function createNodeData(definition, label) {
     label,
     description: definition.description,
     componentType: definition.type,
-
     ports: definition.ports ?? [],
-
-    definitionKey: Object.keys(worldDefinitions).find(
-      (key) => worldDefinitions[key] === definition
-    ),
-
+    definitionKey,
+    definition,
     properties,
   };
 }
 
-
 function getNodePortKind(node, handleId) {
   if (node?.type === "junction") {
-    if (
-      handleId === "junction" ||
-      handleId?.startsWith("junction-")
-    ) {
+    if (handleId === "junction" || handleId?.startsWith("junction-")) {
       return node.data?.portKind ?? "electrical";
     }
 
     return null;
   }
 
-  const port = node?.data?.ports?.find(
-    (item) => item.id === handleId
-  );
-
+  const port = node?.data?.ports?.find((item) => item.id === handleId);
   return port?.kind ?? null;
 }
 
@@ -114,27 +95,15 @@ function canConnect(connection, nodes) {
     return false;
   }
 
-  const sourceNode = nodes.find(
-    (node) => node.id === connection.source
-  );
-
-  const targetNode = nodes.find(
-    (node) => node.id === connection.target
-  );
+  const sourceNode = nodes.find((node) => node.id === connection.source);
+  const targetNode = nodes.find((node) => node.id === connection.target);
 
   if (!sourceNode || !targetNode) {
     return false;
   }
 
-  const sourceKind = getNodePortKind(
-    sourceNode,
-    connection.sourceHandle
-  );
-
-  const targetKind = getNodePortKind(
-    targetNode,
-    connection.targetHandle
-  );
+  const sourceKind = getNodePortKind(sourceNode, connection.sourceHandle);
+  const targetKind = getNodePortKind(targetNode, connection.targetHandle);
 
   if (!sourceKind || !targetKind) {
     return false;
@@ -146,11 +115,7 @@ function canConnect(connection, nodes) {
 function getEdgeIdAtPoint(event) {
   const element = document
     .elementsFromPoint(event.clientX, event.clientY)
-    .find((element) =>
-      element.classList.contains(
-        "react-flow__edge-interaction"
-      )
-    );
+    .find((item) => item.classList.contains("react-flow__edge-interaction"));
 
   return element?.parentElement?.dataset?.id ?? null;
 }
@@ -160,101 +125,20 @@ function getJunctionHandle(position, endpoint) {
   const dy = endpoint.y - position.y;
 
   if (Math.abs(dx) >= Math.abs(dy)) {
-    return dx < 0
-      ? "junction-left"
-      : "junction-right";
+    return dx < 0 ? "junction-left" : "junction-right";
   }
 
-  return dy < 0
-    ? "junction-top"
-    : "junction-bottom";
+  return dy < 0 ? "junction-top" : "junction-bottom";
 }
 
 export default function WorldCanvas() {
-  const [nodes, setNodes, onNodesChange] =
-    useNodesState(initialNodes);
+  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  const [reactFlowInstance, setReactFlowInstance] = useState(null);
+  const [selectedNodeId, setSelectedNodeId] = useState(null);
+  const [selectedEdgeId, setSelectedEdgeId] = useState(null);
 
-  const [edges, setEdges, onEdgesChange] =
-    useEdgesState(initialEdges);
-
-  const [reactFlowInstance, setReactFlowInstance] =
-    useState(null);
-
-  const [selectedNodeId, setSelectedNodeId] =
-    useState(null);
-
-  const [selectedEdgeId, setSelectedEdgeId] =
-    useState(null);
-
-  const [editingNodeId, setEditingNodeId] =
-    useState(null);
-  useEffect(() => {
-    if (!editingNodeId) {
-      return;
-    }
-
-    const handlePointerDown = (event) => {
-      const nodeElement = event.target.closest(
-        ".react-flow__node"
-      );
-
-      if (!nodeElement) {
-        setEditingNodeId(null);
-        return;
-      }
-
-      if (nodeElement.dataset.id !== editingNodeId) {
-        setEditingNodeId(null);
-      }
-    };
-
-    document.addEventListener(
-      "pointerdown",
-      handlePointerDown
-    );
-
-    return () => {
-      document.removeEventListener(
-        "pointerdown",
-        handlePointerDown
-      );
-    };
-  }, [editingNodeId]);
-
-  const [showComponentPicker, setShowComponentPicker] =
-    useState(false);
-
-  const selectedNode =
-    nodes.find((node) => node.id === selectedNodeId) ?? null;
-
-
-  const displayNodes = nodes.map((node) => {
-    if (!editingNodeId) {
-      return node;
-    }
-
-    const editingNode = nodes.find(
-      (item) => item.id === editingNodeId
-    );
-
-    if (!editingNode || node.id === editingNodeId) {
-      return node;
-    }
-
-    const verticalGap = 260;
-
-    if (node.position.y <= editingNode.position.y) {
-      return node;
-    }
-
-    return {
-      ...node,
-      position: {
-        ...node.position,
-        y: node.position.y + verticalGap,
-      },
-    };
-  });
+  const selectedNode = nodes.find((node) => node.id === selectedNodeId) ?? null;
 
   const onConnect = useCallback(
     (connection) => {
@@ -283,9 +167,8 @@ export default function WorldCanvas() {
           currentEdges
         );
       });
-
     },
-    [nodes]
+    [nodes, setEdges]
   );
 
   const addComponent = (definitionKey) => {
@@ -299,74 +182,35 @@ export default function WorldCanvas() {
       return;
     }
 
-    const bounds = document
-      .querySelector(".react-flow")
-      ?.getBoundingClientRect();
+    const bounds = document.querySelector(".react-flow")?.getBoundingClientRect();
 
     if (!bounds) {
       return;
     }
 
-    const position =
-      reactFlowInstance.screenToFlowPosition({
-        x: bounds.left + bounds.width / 2,
-        y: bounds.top + bounds.height / 2,
-      });
+    const position = reactFlowInstance.screenToFlowPosition({
+      x: bounds.left + bounds.width / 2,
+      y: bounds.top + bounds.height / 2,
+    });
 
-    const label = getNextComponentLabel(
-      nodes,
-      definition
-    );
+    const label = getNextComponentLabel(nodes, definition);
 
     const newNode = {
       id: `component-${crypto.randomUUID()}`,
       type: "world",
       position: {
-        x: position.x - 180,
+        x: position.x - 140,
         y: position.y - 80,
       },
-      data: createNodeData(
-        definition,
-        label
-      ),
+      data: createNodeData(definition, label, definitionKey),
     };
 
-    setNodes((currentNodes) => [
-      ...currentNodes,
-      newNode,
-    ]);
-
+    setNodes((currentNodes) => [...currentNodes, newNode]);
     setSelectedNodeId(newNode.id);
-    setShowComponentPicker(false);
-
+    setSelectedEdgeId(null);
   };
 
-  const updateSelectedNode = (changes) => {
-    if (!selectedNodeId) {
-      return;
-    }
-
-    setNodes((currentNodes) =>
-      currentNodes.map((node) => {
-        if (node.id !== selectedNodeId) {
-          return node;
-        }
-
-        return {
-          ...node,
-          data: {
-            ...node.data,
-            ...changes,
-          },
-        };
-      })
-    );
-  };
-
-  const updateSelectedProperty = (
-    property,
-    value
-  ) => {
+  const updateSelectedProperty = (property, value) => {
     if (!selectedNodeId) {
       return;
     }
@@ -395,10 +239,7 @@ export default function WorldCanvas() {
     onNodesChange(changes);
 
     for (const change of changes) {
-      if (
-        change.type === "remove" &&
-        change.id === selectedNodeId
-      ) {
+      if (change.type === "remove" && change.id === selectedNodeId) {
         setSelectedNodeId(null);
       }
     }
@@ -417,34 +258,28 @@ export default function WorldCanvas() {
   const handlePaneClick = () => {
     setSelectedNodeId(null);
     setSelectedEdgeId(null);
-    setShowComponentPicker(false);
   };
 
   const onKeyDown = (event) => {
     if (event.key === "Escape") {
-      setEditingNodeId(null);
+      setSelectedNodeId(null);
+      setSelectedEdgeId(null);
       return;
     }
 
-    if (
-      event.key !== "Delete"
-    ) {
+    if (event.key !== "Delete") {
       return;
     }
-
 
     if (selectedNodeId) {
       setNodes((currentNodes) =>
-        currentNodes.filter(
-          (node) => node.id !== selectedNodeId
-        )
+        currentNodes.filter((node) => node.id !== selectedNodeId)
       );
 
       setEdges((currentEdges) =>
         currentEdges.filter(
           (edge) =>
-            edge.source !== selectedNodeId &&
-            edge.target !== selectedNodeId
+            edge.source !== selectedNodeId && edge.target !== selectedNodeId
         )
       );
 
@@ -454,27 +289,14 @@ export default function WorldCanvas() {
 
     if (selectedEdgeId) {
       setEdges((currentEdges) =>
-        currentEdges.filter(
-          (edge) => edge.id !== selectedEdgeId
-        )
+        currentEdges.filter((edge) => edge.id !== selectedEdgeId)
       );
 
       setSelectedEdgeId(null);
     }
   };
 
-  const selectedDefinition =
-    selectedNode?.data?.definitionKey
-      ? worldDefinitions[
-      selectedNode.data.definitionKey
-      ]
-      : null;
-
-  const insertJunctionOnEdge = (
-    event,
-    edge,
-    position
-  ) => {
+  const insertJunctionOnEdge = (event, edge, position) => {
     if (!reactFlowInstance) {
       return;
     }
@@ -486,66 +308,37 @@ export default function WorldCanvas() {
         y: event.clientY,
       });
 
-    const junctionId =
-      `junction-${crypto.randomUUID()}`;
+    const junctionId = `junction-${crypto.randomUUID()}`;
 
-    const sourceNodeElement =
-      document.querySelector(
-        `.react-flow__node[data-id="${edge.source}"]`
-      );
+    const sourceNodeElement = document.querySelector(
+      `.react-flow__node[data-id="${edge.source}"]`
+    );
+    const targetNodeElement = document.querySelector(
+      `.react-flow__node[data-id="${edge.target}"]`
+    );
 
-    const targetNodeElement =
-      document.querySelector(
-        `.react-flow__node[data-id="${edge.target}"]`
-      );
-
-    if (
-      !sourceNodeElement ||
-      !targetNodeElement
-    ) {
+    if (!sourceNodeElement || !targetNodeElement) {
       return;
     }
 
-    const sourceRect =
-      sourceNodeElement.getBoundingClientRect();
-
-    const targetRect =
-      targetNodeElement.getBoundingClientRect();
+    const sourceRect = sourceNodeElement.getBoundingClientRect();
+    const targetRect = targetNodeElement.getBoundingClientRect();
 
     const sourcePoint = {
-      x:
-        sourceRect.left +
-        sourceRect.width / 2,
-      y:
-        sourceRect.top +
-        sourceRect.height / 2,
+      x: sourceRect.left + sourceRect.width / 2,
+      y: sourceRect.top + sourceRect.height / 2,
     };
-
     const targetPoint = {
-      x:
-        targetRect.left +
-        targetRect.width / 2,
-      y:
-        targetRect.top +
-        targetRect.height / 2,
+      x: targetRect.left + targetRect.width / 2,
+      y: targetRect.top + targetRect.height / 2,
     };
-
     const junctionScreenPoint = {
       x: event.clientX,
       y: event.clientY,
     };
 
-    const sourceHandle =
-      getJunctionHandle(
-        junctionScreenPoint,
-        sourcePoint
-      );
-
-    const targetHandle =
-      getJunctionHandle(
-        junctionScreenPoint,
-        targetPoint
-      );
+    const sourceHandle = getJunctionHandle(junctionScreenPoint, sourcePoint);
+    const targetHandle = getJunctionHandle(junctionScreenPoint, targetPoint);
 
     const junctionNode = {
       id: junctionId,
@@ -578,32 +371,18 @@ export default function WorldCanvas() {
       type: "circuit",
     };
 
-    setNodes((currentNodes) => [
-      ...currentNodes,
-      junctionNode,
-    ]);
-
+    setNodes((currentNodes) => [...currentNodes, junctionNode]);
     setEdges((currentEdges) => [
-      ...currentEdges.filter(
-        (currentEdge) =>
-          currentEdge.id !== edge.id
-      ),
+      ...currentEdges.filter((currentEdge) => currentEdge.id !== edge.id),
       firstEdge,
       secondEdge,
     ]);
-
     setSelectedNodeId(junctionId);
+    setSelectedEdgeId(null);
   };
 
-  const handleConnectEnd = (
-    event,
-    connectionState
-  ) => {
-    if (connectionState.isValid) {
-      return;
-    }
-
-    if (!connectionState.fromNode) {
+  const handleConnectEnd = (event, connectionState) => {
+    if (connectionState.isValid || !connectionState.fromNode) {
       return;
     }
 
@@ -613,23 +392,18 @@ export default function WorldCanvas() {
       return;
     }
 
-    const edge = edges.find(
-      (currentEdge) =>
-        currentEdge.id === edgeId
-    );
+    const edge = edges.find((currentEdge) => currentEdge.id === edgeId);
 
     if (!edge) {
       return;
     }
 
-    const position =
-      reactFlowInstance.screenToFlowPosition({
-        x: event.clientX,
-        y: event.clientY,
-      });
+    const position = reactFlowInstance.screenToFlowPosition({
+      x: event.clientX,
+      y: event.clientY,
+    });
 
-    const junctionId =
-      `junction-${crypto.randomUUID()}`;
+    const junctionId = `junction-${crypto.randomUUID()}`;
 
     const junctionNode = {
       id: junctionId,
@@ -644,8 +418,7 @@ export default function WorldCanvas() {
       },
     };
 
-    const sourceHandle =
-      connectionState.fromHandle?.id;
+    const sourceHandle = connectionState.fromHandle?.id;
 
     if (!sourceHandle) {
       return;
@@ -671,30 +444,22 @@ export default function WorldCanvas() {
 
     const newComponentEdge = {
       id: `edge-${crypto.randomUUID()}`,
-      source:
-        connectionState.fromNode.id,
+      source: connectionState.fromNode.id,
       sourceHandle,
       target: junctionId,
       targetHandle: "junction-bottom",
       type: "circuit",
     };
 
-    setNodes((currentNodes) => [
-      ...currentNodes,
-      junctionNode,
-    ]);
-
+    setNodes((currentNodes) => [...currentNodes, junctionNode]);
     setEdges((currentEdges) => [
-      ...currentEdges.filter(
-        (currentEdge) =>
-          currentEdge.id !== edge.id
-      ),
+      ...currentEdges.filter((currentEdge) => currentEdge.id !== edge.id),
       firstEdge,
       secondEdge,
       newComponentEdge,
     ]);
-
     setSelectedNodeId(junctionId);
+    setSelectedEdgeId(null);
   };
 
   return (
@@ -703,102 +468,48 @@ export default function WorldCanvas() {
       tabIndex={0}
       onKeyDown={onKeyDown}
     >
-
-      <WorldNodeContext.Provider
-        value={{
-          updateNode: updateSelectedNode,
-          updateProperty: updateSelectedProperty,
-
-          getDefinition: (definitionKey) =>
-            worldDefinitions[definitionKey] ?? null,
-
-          isEditing: (nodeId) =>
-            editingNodeId === nodeId,
-
-          setEditing: (nodeId) => {
-            setSelectedNodeId(nodeId);
-            setEditingNodeId(nodeId);
-          },
+      <ReactFlow
+        nodes={nodes}
+        edges={edges}
+        edgeTypes={edgeTypes}
+        nodeTypes={nodeTypes}
+        connectionMode="loose"
+        defaultEdgeOptions={{
+          type: "circuit",
+          interactionWidth: 30,
         }}
+        connectionLineType="smoothstep"
+        onNodesChange={handleNodesChange}
+        onEdgesChange={onEdgesChange}
+        onEdgeClick={handleEdgeClick}
+        onConnect={onConnect}
+        onConnectEnd={handleConnectEnd}
+        onInit={setReactFlowInstance}
+        onNodeClick={handleNodeClick}
+        onPaneClick={handlePaneClick}
+        onEdgeDoubleClick={insertJunctionOnEdge}
+        fitView
       >
-        <ReactFlow
-          nodes={displayNodes}
+        <Background />
+        <Controls />
+
+        <SimulationPanel
+          nodes={nodes}
           edges={edges}
-          edgeTypes={edgeTypes}
-          nodeTypes={nodeTypes}
-          connectionMode="loose"
-          defaultEdgeOptions={{
-            type: "circuit",
-            interactionWidth: 30,
+          onSelectComponent={setSelectedNodeId}
+        />
+
+        <ComponentSidebar
+          nodes={nodes.filter((node) => node.type === "world")}
+          selectedNode={selectedNode?.type === "world" ? selectedNode : null}
+          onAddComponent={addComponent}
+          onSelectComponent={(id) => {
+            setSelectedNodeId(id);
+            setSelectedEdgeId(null);
           }}
-          connectionLineType="smoothstep"
-          onNodesChange={handleNodesChange}
-          onEdgesChange={onEdgesChange}
-          onEdgeClick={handleEdgeClick}
-          onConnect={onConnect}
-          onConnectEnd={handleConnectEnd}
-          onInit={setReactFlowInstance}
-          onNodeClick={handleNodeClick}
-          onPaneClick={handlePaneClick}
-          onEdgeDoubleClick={insertJunctionOnEdge}
-          fitView
-        >
-          <Background />
-          <Controls />
-
-          <SimulationPanel
-            nodes={nodes}
-            edges={edges}
-          />
-
-          {/* Add Component */}
-          <div className="absolute right-4 top-4 z-10">
-            <button
-              type="button"
-              onClick={(event) => {
-                event.stopPropagation();
-                setShowComponentPicker(
-                  (current) => !current
-                );
-              }}
-              className="rounded-md border border-[#cfd5dc] bg-white px-3 py-2 text-xs font-medium text-[#26364d] shadow-sm transition hover:bg-[#f6f7f8]"
-            >
-              + Add Component
-            </button>
-
-            {showComponentPicker && (
-              <div className="absolute right-0 mt-2 w-[220px] overflow-hidden rounded-lg border border-[#d9dde2] bg-white shadow-lg">
-                <div className="border-b border-[#e4e7eb] px-3 py-2">
-                  <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#69717b]">
-                    Components
-                  </div>
-                </div>
-
-                {Object.entries(worldDefinitions).map(
-                  ([key, definition]) => (
-                    <button
-                      key={key}
-                      type="button"
-                      onClick={() =>
-                        addComponent(key)
-                      }
-                      className="block w-full border-b border-[#f0f1f2] px-3 py-3 text-left transition last:border-b-0 hover:bg-[#f6f7f8]"
-                    >
-                      <div className="text-sm font-medium text-[#26364d]">
-                        {definition.type}
-                      </div>
-
-                      <div className="mt-1 text-[11px] text-[#8a929c]">
-                        {definition.description}
-                      </div>
-                    </button>
-                  )
-                )}
-              </div>
-            )}
-          </div>
-        </ReactFlow>
-      </WorldNodeContext.Provider>
-    </div >
+          onChangeProperty={updateSelectedProperty}
+        />
+      </ReactFlow>
+    </div>
   );
 }
