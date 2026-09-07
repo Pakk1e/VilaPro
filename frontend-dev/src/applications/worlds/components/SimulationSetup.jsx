@@ -5,11 +5,12 @@ import {
   SIMULATION_ANALYSES,
 } from "../model/simulationConfig";
 
-export default function SimulationSetup({ config, onChange, sweepTargets = [] }) {
+export default function SimulationSetup({ config, onChange, sweepTargets = [], voltageSources = [] }) {
+  const targets = sweepTargets.length > 0 ? sweepTargets : voltageSources;
   const sweepError = config.analysis === SIMULATION_ANALYSES.DC_SWEEP
-    ? getDcSweepValidationError(config.settings, sweepTargets)
+    ? getDcSweepValidationError(config.settings, targets)
     : null;
-  const selectedTarget = sweepTargets.find((target) => target.id === config.settings?.source);
+  const selectedTarget = targets.find((target) => target.id === config.settings?.source);
   const parameters = selectedTarget?.parameters ?? [];
 
   const changeAnalysis = (analysis) => {
@@ -36,7 +37,7 @@ export default function SimulationSetup({ config, onChange, sweepTargets = [] })
   };
 
   const changeSweepTarget = (source) => {
-    const target = sweepTargets.find((item) => item.id === source);
+    const target = targets.find((item) => item.id === source);
     const nextParameter = target?.parameters?.[0]?.parameter ?? "";
     onChange({
       settings: {
@@ -83,13 +84,13 @@ export default function SimulationSetup({ config, onChange, sweepTargets = [] })
               className="mt-1 w-full rounded-md border border-[#d9dde2] bg-white px-2.5 py-2 text-xs text-[#26364d] outline-none focus:border-[#58718f]"
             >
               <option value="">Select a component...</option>
-              {sweepTargets.map((target) => (
+              {targets.map((target) => (
                 <option key={target.id} value={target.id}>
                   {target.label} ({target.componentType})
                 </option>
               ))}
             </select>
-            {sweepTargets.length === 0 && (
+            {targets.length === 0 && (
               <div className="mt-1 text-[9px] leading-4 text-[#8a929c]">No sweepable components are available in the current circuit.</div>
             )}
           </div>
