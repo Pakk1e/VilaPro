@@ -1,6 +1,6 @@
 const COMPONENT_X_GAP = 220;
 const COMPONENT_HALF_LENGTH = 92;
-const BRANCH_GAP = 110;
+const BRANCH_GAP = 130;
 const CENTER_Y = 280;
 const GROUND_BUS_Y = 520;
 const VIEW_PADDING = 70;
@@ -32,8 +32,9 @@ function otherNet(instance, net) {
 
 function getNormalPortSign(instance, portId) {
   // Resistor definitions use p-left / n-right. VoltageSource definitions use
-  // n-left / p-right. Keep electrical port semantics intact while layout
-  // decides which side of the symbol the connection occupies.
+  // n-left / p-right. The source is reversed when it terminates at ground so
+  // the positive terminal stays toward the active circuit and the source does
+  // not overlap a parallel branch on the same net.
   if (instance.type === "VoltageSource") return portId === "p" ? 1 : -1;
   return portId === "p" ? -1 : 1;
 }
@@ -43,7 +44,7 @@ function buildNetLevels(instances, source, groundNet) {
   if (!source) return levels;
 
   const sourceP = componentPorts(source).p;
-  if (!sourceP) return levels;
+  if (!sourceP || sourceP === groundNet) return levels;
 
   levels.set(sourceP, 0);
   const queue = [sourceP];
@@ -73,7 +74,7 @@ function buildNetColumns(instances, source, groundNet) {
   const columns = new Map();
   const maxLevel = Math.max(...levels.values(), 0);
 
-  for (const net of new Set(instances.flatMap((instance) => Object.values(componentPorts(instance)))) ) {
+  for (const net of new Set(instances.flatMap((instance) => Object.values(componentPorts(instance))))) {
     if (net === groundNet) continue;
     const level = levels.get(net) ?? maxLevel + 1;
     columns.set(net, START_X + level * COMPONENT_X_GAP);
@@ -86,7 +87,7 @@ function pairKey(first, second) {
   return [first, second].sort().join("::");
 }
 
-function assignParallelLanes(instances, groundNet) {
+function assignParallelLanes(instances) {
   const groups = new Map();
   for (const instance of instances) {
     const nets = Object.values(componentPorts(instance));
@@ -108,8 +109,8 @@ function assignParallelLanes(instances, groundNet) {
   return lanes;
 }
 
-function assignPositions(instances, netColumns, groundNet) {
-  const lanes = assignParallelLanes(instances, groundNet);
+function assignPositions(instances, netColumns, groundNet, source) {
+  const lanes = assignParallelLanes(instances);
   const positions = new Map();
   const orientations = new Map();
 
@@ -124,8 +125,11 @@ function assignPositions(instances, netColumns, groundNet) {
     const normalNSign = getNormalPortSign(instance, "n");
 
     if (pX !== null && nX === null) {
-      positions.set(instance.id, { x: pX - normalPSign * COMPONENT_HALF_LENGTH, y });
-      orientations.set(instance.id, "normal");
+      const reverseGroundSource = instance.type === "VoltageSource" && instance !== source;
+      const orientation = reverseGroundSource ? "reversed" : "normal";
+      const pSign = orientation === "reversed" ? -normalPSign : normalPSign;
+      positions.set(instance.id, { x: pX - pSign * COMPONENT_HALF_LENGTH, y });
+      orientations.set(instance.id, orientation);
       continue;
     }
 
@@ -160,6 +164,7 @@ function terminalPoint(instance, position, orientation, portId) {
 
 function buildWires(instances, positions, orientations, netColumns, groundNet) {
   const wires = [];
+  const junctions = [];
   const terminalsByNet = new Map();
 
   for (const instance of instances) {
@@ -200,25 +205,35 @@ function buildWires(instances, positions, orientations, netColumns, groundNet) {
       }
     }
 
-    const ys = terminals.map(({ terminal }) => terminal.y);
+    const ys = [...new Set(terminals.map(({ terminal }) => terminal.y))];
     const minY = Math.min(...ys);
     const maxY = Math.max(...ys);
     if (Math.abs(maxY - minY) > 1) {
       wires.push({ id: `bus-${net}`, paths: [`M ${railX} ${minY} L ${railX} ${maxY}`] });
     }
+
+    if (terminals.length >= 3) {
+      for (const y of ys) {
+        junctions.push({ id: `junction-${net}-${y}`, x: railX, y });
+      }
+    }
   }
 
-  return wires;
+  return { wires, junctions };
 }
 
-function getBounds(instances, positions, wires) {
+function getBounds(instances, positions, wires, junctions) {
   const points = [];
   for (const instance of instances) {
     const position = positions.get(instance.id);
-    if (position) points.push(position);
+    if (position) {
+      points.push({ x: position.x - COMPONENT_HALF_LENGTH, y: position.y });
+      points.push({ x: position.x + COMPONENT_HALF_LENGTH, y: position.y });
+    }
   }
 
   points.push({ x: 0, y: GROUND_BUS_Y });
+  for (const junction of junctions) points.push(junction);
   for (const wire of wires) {
     for (const path of wire.paths) {
       const numbers = path.match(/-?\d+(?:\.\d+)?/g)?.map(Number) ?? [];
@@ -249,8 +264,8 @@ export function generateSchematic(description) {
   const source = chooseSource(instances);
   const netGraph = buildNetGraph(instances);
   const netColumns = buildNetColumns(instances, source, groundNet);
-  const { positions, orientations } = assignPositions(instances, netColumns, groundNet);
-  const wires = buildWires(instances, positions, orientations, netColumns, groundNet);
+  const { positions, orientations } = assignPositions(instances, netColumns, groundNet, source);
+  const { wires, junctions } = buildWires(instances, positions, orientations, netColumns, groundNet);
 
   return {
     instances,
@@ -260,8 +275,9 @@ export function generateSchematic(description) {
     positions,
     orientations,
     wires,
+    junctions,
     groundNet,
-    bounds: getBounds(instances, positions, wires),
+    bounds: getBounds(instances, positions, wires, junctions),
   };
 }
 
