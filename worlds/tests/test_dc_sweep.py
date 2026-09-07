@@ -39,10 +39,10 @@ def current_source_instances():
     return [
         {
             "id": "I1-id",
-            "name": "Current",
+            "name": "Current Source",
             "type": "CurrentSource",
             "parameters": {"I": 0.1},
-            "ports": {"p": "node_1", "n": "ground"},
+            "ports": {"p": "ground", "n": "node_1"},
         },
         {
             "id": "R1-id",
@@ -188,9 +188,9 @@ class DCSweepTest(unittest.TestCase):
                     "analysis": DC_SWEEP,
                     "settings": {
                         "source": "R1-id",
-                        "parameter": "missing",
-                        "start": 1,
-                        "stop": 2,
+                        "parameter": "X",
+                        "start": 0,
+                        "stop": 10,
                         "step": 1,
                     },
                 },
