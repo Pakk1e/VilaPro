@@ -35,10 +35,13 @@ from .network import (
 
 from .analysis import (
     DC_OPERATING_POINT,
+    DC_SWEEP,
     SUPPORTED_ANALYSES,
     SimulationAnalysisError,
     SimulationConfiguration,
     DCOperatingPointAnalysis,
+    DCSweepAnalysis,
+    DCSweepResult,
     get_simulation_analysis,
 )
 
@@ -91,7 +94,10 @@ __all__ = [
     "SimulationRequest",
     "SimulationRequestError",
     "DC_OPERATING_POINT",
+    "DC_SWEEP",
     "DCOperatingPointAnalysis",
+    "DCSweepAnalysis",
+    "DCSweepResult",
     "SUPPORTED_ANALYSES",
     "SimulationEquation",
     "SimulationError",
