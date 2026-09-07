@@ -4,6 +4,7 @@ from worlds.simulation import (
     DC_OPERATING_POINT,
     SimulationAnalysisError,
     SimulationConfiguration,
+    SimulationResultModel,
     SimulationService,
     SimulationServiceError,
 )
@@ -95,6 +96,48 @@ class SimulationAnalysisTest(unittest.TestCase):
         self.assertEqual(response.status, "completed")
         self.assertEqual({item["id"] for item in response.components}, {"V1-id", "R1-id"})
         self.assertAlmostEqual(response.node_voltages["node_1"], 10.0, places=12)
+
+    def test_service_result_uses_generic_envelope(self):
+        response = SimulationService().simulate(
+            load_world_source(),
+            instances=[
+                {
+                    "id": "V1-id",
+                    "name": "Supply",
+                    "type": "VoltageSource",
+                    "parameters": {"V": 10.0},
+                    "ports": {"p": "node_1", "n": "ground"},
+                },
+                {
+                    "id": "R1-id",
+                    "name": "Load",
+                    "type": "Resistor",
+                    "parameters": {"R": 100.0},
+                    "ports": {"p": "node_1", "n": "ground"},
+                },
+            ],
+            simulation={
+                "analysis": DC_OPERATING_POINT,
+                "settings": {"temperature": 25},
+                "outputs": ["node_voltages"],
+            },
+        )
+
+        self.assertIsInstance(response.result, SimulationResultModel)
+        payload = response.result.to_dict()
+        self.assertEqual(payload["metadata"]["status"], "completed")
+        self.assertEqual(
+            payload["analysis_information"],
+            {
+                "analysis": DC_OPERATING_POINT,
+                "settings": {"temperature": 25},
+                "outputs": ["node_voltages"],
+            },
+        )
+        datasets = {dataset["name"]: dataset for dataset in payload["datasets"]}
+        self.assertEqual(datasets["node_voltages"]["values"]["node_1"], 10.0)
+        self.assertEqual(datasets["node_voltages"]["dimensions"], [])
+        self.assertEqual(payload["statistics"], {})
 
     def test_service_rejects_unknown_analysis(self):
         with self.assertRaises(SimulationServiceError) as context:
