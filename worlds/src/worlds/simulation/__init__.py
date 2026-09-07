@@ -47,6 +47,11 @@ from .request import (
     SimulationRequestError,
 )
 
+from .result import (
+    SimulationDataset,
+    SimulationResultModel,
+)
+
 from .simulate import (
     SimulationError,
     simulate,
@@ -82,6 +87,7 @@ __all__ = [
     "SimulationComponent",
     "SimulationCircuit",
     "SimulationConfiguration",
+    "SimulationDataset",
     "SimulationRequest",
     "SimulationRequestError",
     "DC_OPERATING_POINT",
@@ -91,6 +97,7 @@ __all__ = [
     "SimulationError",
     "SimulationModel",
     "SimulationResult",
+    "SimulationResultModel",
     "SimulationSolver",
     "SolveResult",
     "SolverError",
