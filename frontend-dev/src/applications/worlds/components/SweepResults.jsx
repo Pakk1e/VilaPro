@@ -16,7 +16,7 @@ function formatValue(value, unit) {
   return `${number.toFixed(2)} ${unit}`;
 }
 
-export default function SweepResults({ result }) {
+export default function SweepResults({ result, nodes = [] }) {
   const information = getSweepInformation(result);
   const sweepValues = getSweepValues(result);
   const statuses = getSweepPointStatuses(result);
@@ -32,10 +32,14 @@ export default function SweepResults({ result }) {
         sweepValue,
         value: selectedSeries.values[index]?.value,
         failed: statuses[index]?.status === "failed" || selectedSeries.values[index]?.failed,
+        error: statuses[index]?.error ?? selectedSeries.values[index]?.error ?? null,
       }))
     : [];
 
   const failedCount = statuses.filter((item) => item.status === "failed").length;
+  const sourceNode = nodes.find((node) => node.id === information.source);
+  const sourceName = sourceNode?.data?.label ?? information.source;
+  const parameterUnit = information.parameter === "I" ? "A" : "V";
 
   return (
     <section aria-label="DC sweep results" className="space-y-4">
@@ -43,9 +47,9 @@ export default function SweepResults({ result }) {
         <div className="border-b border-[#e4e7eb] px-4 py-4">
           <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#69717b]">DC Sweep Results</div>
           <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-xs text-[#69717b]">
-            <span className="font-medium text-[#17253a]">{information.source}</span>
-            <span>{formatNumber(information.start)} {information.parameter} → {formatNumber(information.stop)} {information.parameter}</span>
-            <span>Step {formatNumber(information.step)}</span>
+            <span className="font-medium text-[#17253a]">{sourceName}</span>
+            <span>{formatNumber(information.start)} {parameterUnit} → {formatNumber(information.stop)} {parameterUnit}</span>
+            <span>Step {formatNumber(information.step)} {parameterUnit}</span>
             <span>{sweepValues.length} points</span>
             {failedCount > 0 && <span className="font-medium text-red-700">{failedCount} failed</span>}
           </div>
@@ -58,7 +62,7 @@ export default function SweepResults({ result }) {
             <table className="w-full min-w-[560px] border-collapse text-left">
               <thead>
                 <tr className="border-b border-[#e4e7eb] bg-[#fafbfc]">
-                  <th className="px-4 py-2.5 text-[9px] font-semibold uppercase tracking-[0.1em] text-[#69717b]">Sweep ({information.parameter})</th>
+                  <th className="px-4 py-2.5 text-[9px] font-semibold uppercase tracking-[0.1em] text-[#69717b]">Sweep ({parameterUnit})</th>
                   <th className="px-4 py-2.5 text-[9px] font-semibold uppercase tracking-[0.1em] text-[#69717b]">Response</th>
                   <th className="px-4 py-2.5 text-[9px] font-semibold uppercase tracking-[0.1em] text-[#69717b]">Status</th>
                 </tr>
@@ -69,10 +73,10 @@ export default function SweepResults({ result }) {
                   const failed = statuses[index]?.status === "failed" || point?.failed;
                   return (
                     <tr key={`${sweepValue}-${index}`} className="border-b border-[#e4e7eb] last:border-b-0">
-                      <td className="px-4 py-2.5 font-mono text-xs font-medium text-[#17253a]">{formatNumber(sweepValue)}</td>
+                      <td className="px-4 py-2.5 font-mono text-xs font-medium text-[#17253a]">{formatNumber(sweepValue)} {parameterUnit}</td>
                       <td className="px-4 py-2.5 font-mono text-xs text-[#26364d]">{failed ? "—" : formatValue(point?.value, selectedSeries?.unit ?? "")}</td>
                       <td className={`px-4 py-2.5 text-[10px] font-medium ${failed ? "text-red-700" : "text-[#69717b]"}`}>
-                        {failed ? (statuses[index]?.error ?? "Failed") : "Completed"}
+                        {failed ? (statuses[index]?.error ?? point?.error ?? "Failed") : "Completed"}
                       </td>
                     </tr>
                   );
@@ -106,7 +110,7 @@ export default function SweepResults({ result }) {
           {selectedSeries ? (
             <SweepChart
               rows={chartRows}
-              xLabel={`Sweep (${information.parameter})`}
+              xLabel={`Sweep (${parameterUnit})`}
               yLabel={`${selectedSeries.label}${selectedSeries.unit ? ` [${selectedSeries.unit}]` : ""}`}
             />
           ) : (
