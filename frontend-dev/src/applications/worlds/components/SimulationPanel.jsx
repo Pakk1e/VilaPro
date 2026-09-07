@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { serializeWorldGraph } from "../model/worldGraphSerializer";
-import { createSimulationConfig, getSimulationConfigValidationError } from "../model/simulationConfig";
+import { createSimulationConfig, getSimulationConfigValidationError, SIMULATION_ANALYSES } from "../model/simulationConfig";
 import { getSimulationStatus, getSimulationStatusLabel } from "../model/simulationState";
 import SimulationSetup from "./SimulationSetup";
+import SweepResults from "./SweepResults";
 
 function formatVoltage(value) {
   const number = Number(value);
@@ -97,6 +98,7 @@ export default function SimulationPanel({ nodes, edges, onSelectComponent }) {
       setError(configurationError);
       return;
     }
+
     abortControllerRef.current?.abort();
     const controller = new AbortController();
     abortControllerRef.current = controller;
@@ -147,6 +149,7 @@ export default function SimulationPanel({ nodes, edges, onSelectComponent }) {
   const singleVoltageSource = voltageSourcesInResult.length === 1 ? voltageSourcesInResult[0][1] : null;
   const nodeVoltages = Object.entries(result?.node_voltages ?? {});
   const branchCurrents = Object.entries(result?.branch_currents ?? {});
+  const isSweepResult = result?.analysis === SIMULATION_ANALYSES.DC_SWEEP;
 
   return (
     <section className="absolute bottom-0 right-0 top-0 z-10 flex w-[62%] min-w-0 flex-col border-l border-[#d9dde2] bg-[#f8f9f8]">
@@ -292,6 +295,8 @@ export default function SimulationPanel({ nodes, edges, onSelectComponent }) {
                     )}
                   </div>
                 </div>
+
+                {isSweepResult && <SweepResults result={result} nodes={nodes} />}
 
                 <div className="overflow-hidden rounded-xl border border-[#d9dde2] bg-white">
                   <button type="button" onClick={() => setShowAdvanced((current) => !current)} aria-expanded={showAdvanced} className="flex w-full items-center justify-between px-4 py-3 text-left transition hover:bg-[#fafbfc]">
