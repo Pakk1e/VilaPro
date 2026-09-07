@@ -93,6 +93,7 @@ class WorldsAPIHandler(BaseHTTPRequestHandler):
                     "node_voltages": response.node_voltages,
                     "branch_currents": response.branch_currents,
                     "components": response.components,
+                    "result": response.result.to_dict(),
                 },
             )
 
