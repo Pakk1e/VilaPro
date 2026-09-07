@@ -251,6 +251,11 @@ export default function WorldCanvas({ workspace = "design" }) {
     setSelectedEdgeId(null);
   };
 
+  const voltageSources = nodes
+    .filter((node) => node.type === "world")
+    .filter((node) => String(node.data?.componentType ?? "").toLowerCase().includes("voltage"))
+    .map((node) => ({ id: node.id, label: node.data?.label ?? node.id }));
+
   return (
     <div className={`relative h-full w-full ${isDesignWorkspace ? "" : "bg-[#f6f6f4]"}`} tabIndex={0} onKeyDown={onKeyDown}>
       {isDesignWorkspace ? (
@@ -304,6 +309,7 @@ export default function WorldCanvas({ workspace = "design" }) {
         <SimulationPanel
           nodes={nodes}
           edges={edges}
+          voltageSources={voltageSources}
           onSelectComponent={setSelectedNodeId}
         />
       )}
