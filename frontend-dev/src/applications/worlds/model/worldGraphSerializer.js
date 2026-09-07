@@ -46,6 +46,18 @@ world Electronics {
                 voltage(p, n) = V;
         }
     }
+
+    component CurrentSource {
+        parameter I : Current;
+        interface {
+            p : ElectricalNode;
+            n : ElectricalNode;
+        }
+        representation ideal {
+            equation:
+                current(p, n) = I;
+        }
+    }
 }
 `;
 
@@ -57,6 +69,10 @@ const PROPERTY_TO_PARAMETER = {
   "Voltage Source": {
     backendType: "VoltageSource",
     parameter: { voltage: "V" },
+  },
+  "Current Source": {
+    backendType: "CurrentSource",
+    parameter: { current: "I" },
   },
 };
 
