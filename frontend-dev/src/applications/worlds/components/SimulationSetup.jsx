@@ -5,11 +5,12 @@ import {
   SIMULATION_ANALYSES,
 } from "../model/simulationConfig";
 
-export default function SimulationSetup({ config, onChange, voltageSources = [] }) {
-  const voltageSourceIds = voltageSources.map((source) => source.id);
+export default function SimulationSetup({ config, onChange, sweepTargets = [] }) {
   const sweepError = config.analysis === SIMULATION_ANALYSES.DC_SWEEP
-    ? getDcSweepValidationError(config.settings, voltageSourceIds)
+    ? getDcSweepValidationError(config.settings, sweepTargets)
     : null;
+  const selectedTarget = sweepTargets.find((target) => target.id === config.settings?.source);
+  const parameters = selectedTarget?.parameters ?? [];
 
   const changeAnalysis = (analysis) => {
     if (analysis === SIMULATION_ANALYSES.DC_SWEEP) {
@@ -29,7 +30,18 @@ export default function SimulationSetup({ config, onChange, voltageSources = [] 
   const changeSweepSetting = (name, value) => {
     onChange({
       settings: {
-        [name]: name === "source" ? value : value === "" ? "" : Number(value),
+        [name]: name === "source" || name === "parameter" ? value : value === "" ? "" : Number(value),
+      },
+    });
+  };
+
+  const changeSweepTarget = (source) => {
+    const target = sweepTargets.find((item) => item.id === source);
+    const nextParameter = target?.parameters?.[0]?.parameter ?? "";
+    onChange({
+      settings: {
+        source,
+        parameter: nextParameter,
       },
     });
   };
@@ -63,23 +75,41 @@ export default function SimulationSetup({ config, onChange, voltageSources = [] 
       {config.analysis === SIMULATION_ANALYSES.DC_SWEEP && (
         <div className="mt-4 space-y-3">
           <div>
-            <label className="text-[10px] font-medium text-[#69717b]" htmlFor="sweep-source">Voltage source</label>
+            <label className="text-[10px] font-medium text-[#69717b]" htmlFor="sweep-target">Sweep target</label>
             <select
-              id="sweep-source"
+              id="sweep-target"
               value={config.settings?.source ?? ""}
-              onChange={(event) => changeSweepSetting("source", event.target.value)}
+              onChange={(event) => changeSweepTarget(event.target.value)}
               className="mt-1 w-full rounded-md border border-[#d9dde2] bg-white px-2.5 py-2 text-xs text-[#26364d] outline-none focus:border-[#58718f]"
             >
-              <option value="">Select a voltage source...</option>
-              {voltageSources.map((source) => (
-                <option key={source.id} value={source.id}>
-                  {source.label} ({source.id})
+              <option value="">Select a component...</option>
+              {sweepTargets.map((target) => (
+                <option key={target.id} value={target.id}>
+                  {target.label} ({target.componentType})
                 </option>
               ))}
             </select>
-            {voltageSources.length === 0 && (
-              <div className="mt-1 text-[9px] leading-4 text-[#8a929c]">No voltage-source components are available in the current circuit.</div>
+            {sweepTargets.length === 0 && (
+              <div className="mt-1 text-[9px] leading-4 text-[#8a929c]">No sweepable components are available in the current circuit.</div>
             )}
+          </div>
+
+          <div>
+            <label className="text-[10px] font-medium text-[#69717b]" htmlFor="sweep-parameter">Parameter</label>
+            <select
+              id="sweep-parameter"
+              value={config.settings?.parameter ?? ""}
+              onChange={(event) => changeSweepSetting("parameter", event.target.value)}
+              disabled={parameters.length === 0}
+              className="mt-1 w-full rounded-md border border-[#d9dde2] bg-white px-2.5 py-2 text-xs text-[#26364d] outline-none focus:border-[#58718f] disabled:cursor-not-allowed disabled:bg-[#fafbfc]"
+            >
+              <option value="">Select a parameter...</option>
+              {parameters.map((parameter) => (
+                <option key={parameter.parameter} value={parameter.parameter}>
+                  {parameter.label ?? parameter.parameter}{parameter.unit ? ` (${parameter.unit})` : ""}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="grid grid-cols-3 gap-2">
@@ -104,7 +134,7 @@ export default function SimulationSetup({ config, onChange, voltageSources = [] 
           )}
 
           <div className="rounded-md border border-[#e4e7eb] bg-[#fafbfc] px-3 py-2.5 text-[10px] leading-4 text-[#69717b]">
-            Sweeps the selected voltage source and runs a DC operating point at each value.
+            Sweeps the selected component parameter and runs a DC operating point at each value.
           </div>
         </div>
       )}
