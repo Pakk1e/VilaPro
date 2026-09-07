@@ -103,7 +103,7 @@ class SimulationService:
             raise SimulationServiceError(str(exc)) from exc
 
     @staticmethod
-    def _build_response(result: SimulationResult) -> SimulationResponse:
+    def _build_response(result: SimulationResult) -> "_LegacySimulationResponse":
         components = []
 
         for name, component in result.instances.items():
@@ -135,11 +135,17 @@ class SimulationService:
             for (first_node, second_node), value in result.branch_currents.items()
         }
 
-        return SimulationResponse(
-            analysis="dc_operating_point",
-            status="completed",
+        return _LegacySimulationResponse(
             node_voltages=dict(result.node_voltages),
             branch_currents=branch_currents,
             components=components,
-            result=None,
         )
+
+
+@dataclass(frozen=True)
+class _LegacySimulationResponse:
+    """Internal legacy-shaped values used to assemble the generic response."""
+
+    node_voltages: dict[str, float]
+    branch_currents: dict[str, float]
+    components: list[dict]
