@@ -33,6 +33,15 @@ from .network import (
     build_network_equation_system,
 )
 
+from .analysis import (
+    DC_OPERATING_POINT,
+    SUPPORTED_ANALYSES,
+    SimulationAnalysisError,
+    SimulationConfiguration,
+    DCOperatingPointAnalysis,
+    get_simulation_analysis,
+)
+
 from .simulate import (
     SimulationError,
     simulate,
@@ -62,10 +71,15 @@ __all__ = [
     "EquationSystemError",
     "LinearSolver",
     "NetworkError",
+    "SimulationAnalysisError",
     "SimulationBindingError",
     "SimulationBuildError",
     "SimulationComponent",
     "SimulationCircuit",
+    "SimulationConfiguration",
+    "DC_OPERATING_POINT",
+    "DCOperatingPointAnalysis",
+    "SUPPORTED_ANALYSES",
     "SimulationEquation",
     "SimulationError",
     "SimulationModel",
@@ -77,6 +91,7 @@ __all__ = [
     "build_equation_system",
     "build_network_equation_system",
     "build_simulation_component",
+    "get_simulation_analysis",
     "SimulationValidationError",
     "SimulationValidator",
     "ValidationIssue",
