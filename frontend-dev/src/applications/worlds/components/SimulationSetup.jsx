@@ -11,7 +11,7 @@ export default function SimulationSetup({ config, onChange, sweepTargets = [], v
     ? getDcSweepValidationError(config.settings, targets)
     : null;
   const selectedTarget = targets.find((target) => target.id === config.settings?.source);
-  const parameters = selectedTarget?.parameters ?? [];
+  const selectedParameter = selectedTarget?.parameters?.[0] ?? null;
 
   const changeAnalysis = (analysis) => {
     if (analysis === SIMULATION_ANALYSES.DC_SWEEP) {
@@ -76,14 +76,14 @@ export default function SimulationSetup({ config, onChange, sweepTargets = [], v
       {config.analysis === SIMULATION_ANALYSES.DC_SWEEP && (
         <div className="mt-4 space-y-3">
           <div>
-            <label className="text-[10px] font-medium text-[#69717b]" htmlFor="sweep-target">Sweep target</label>
+            <label className="text-[10px] font-medium text-[#69717b]" htmlFor="sweep-target">Sweep source</label>
             <select
               id="sweep-target"
               value={config.settings?.source ?? ""}
               onChange={(event) => changeSweepTarget(event.target.value)}
               className="mt-1 w-full rounded-md border border-[#d9dde2] bg-white px-2.5 py-2 text-xs text-[#26364d] outline-none focus:border-[#58718f]"
             >
-              <option value="">Select a component...</option>
+              <option value="">Select a voltage or current source...</option>
               {targets.map((target) => (
                 <option key={target.id} value={target.id}>
                   {target.label} ({target.componentType})
@@ -91,27 +91,19 @@ export default function SimulationSetup({ config, onChange, sweepTargets = [], v
               ))}
             </select>
             {targets.length === 0 && (
-              <div className="mt-1 text-[9px] leading-4 text-[#8a929c]">No sweepable components are available in the current circuit.</div>
+              <div className="mt-1 text-[9px] leading-4 text-[#8a929c]">No independent voltage or current sources are available in the current circuit.</div>
             )}
           </div>
 
-          <div>
-            <label className="text-[10px] font-medium text-[#69717b]" htmlFor="sweep-parameter">Parameter</label>
-            <select
-              id="sweep-parameter"
-              value={config.settings?.parameter ?? ""}
-              onChange={(event) => changeSweepSetting("parameter", event.target.value)}
-              disabled={parameters.length === 0}
-              className="mt-1 w-full rounded-md border border-[#d9dde2] bg-white px-2.5 py-2 text-xs text-[#26364d] outline-none focus:border-[#58718f] disabled:cursor-not-allowed disabled:bg-[#fafbfc]"
-            >
-              <option value="">Select a parameter...</option>
-              {parameters.map((parameter) => (
-                <option key={parameter.parameter} value={parameter.parameter}>
-                  {parameter.label ?? parameter.parameter}{parameter.unit ? ` (${parameter.unit})` : ""}
-                </option>
-              ))}
-            </select>
-          </div>
+          {selectedParameter && (
+            <div className="rounded-md border border-[#e4e7eb] bg-[#fafbfc] px-3 py-2.5">
+              <div className="text-[9px] font-medium uppercase tracking-[0.1em] text-[#69717b]">Sweep parameter</div>
+              <div className="mt-1 text-xs font-medium text-[#17253a]">
+                {selectedParameter.label ?? selectedParameter.parameter}
+                {selectedParameter.unit ? ` (${selectedParameter.unit})` : ""}
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-3 gap-2">
             {[["start", "Start"], ["stop", "Stop"], ["step", "Step"]].map(([name, label]) => (
@@ -135,7 +127,7 @@ export default function SimulationSetup({ config, onChange, sweepTargets = [], v
           )}
 
           <div className="rounded-md border border-[#e4e7eb] bg-[#fafbfc] px-3 py-2.5 text-[10px] leading-4 text-[#69717b]">
-            Sweeps the selected component parameter and runs a DC operating point at each value.
+            Vary the selected independent source across the range and calculate a DC operating point at every sweep value.
           </div>
         </div>
       )}
