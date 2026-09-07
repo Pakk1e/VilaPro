@@ -77,6 +77,7 @@ function addSeries(series, key, label, unit, values, statuses) {
 export function getSweepResponseSeries(result) {
   const statuses = getSweepPointStatuses(result);
   const series = [];
+  const sweepValues = getSweepValues(result);
   const nodeValues = getDataset(result, "node_voltages")?.values;
   const branchValues = getDataset(result, "branch_currents")?.values;
   const componentValues = getDataset(result, "components")?.values;
@@ -93,7 +94,7 @@ export function getSweepResponseSeries(result) {
       `node:${node}`,
       `V(${node})`,
       "V",
-      nodeValues.map((snapshot) => snapshot?.[node]),
+      sweepValues.map((_, index) => nodeValues?.[index]?.[node]),
       statuses
     );
   });
@@ -110,7 +111,7 @@ export function getSweepResponseSeries(result) {
       `branch:${branch}`,
       `I(${branch})`,
       "A",
-      branchValues.map((snapshot) => snapshot?.[branch]),
+      sweepValues.map((_, index) => branchValues?.[index]?.[branch]),
       statuses
     );
   });
@@ -121,24 +122,22 @@ export function getSweepResponseSeries(result) {
       if (!Array.isArray(snapshot)) return;
       snapshot.forEach((component) => {
         if (!component?.id) return;
-        const existing = componentMap.get(component.id) ?? {
-          name: component.name ?? component.id,
-          voltage: [],
-          current: [],
-          power: [],
-        };
-        existing.voltage.push(component.voltage);
-        existing.current.push(component.current);
-        existing.power.push(component.power);
-        componentMap.set(component.id, existing);
+        if (!componentMap.has(component.id)) {
+          componentMap.set(component.id, { name: component.name ?? component.id });
+        }
       });
     });
   }
 
   for (const [id, component] of componentMap) {
-    addSeries(series, `component:${id}:voltage`, `V(${component.name})`, "V", component.voltage, statuses);
-    addSeries(series, `component:${id}:current`, `I(${component.name})`, "A", component.current, statuses);
-    addSeries(series, `component:${id}:power`, `P(${component.name})`, "W", component.power, statuses);
+    const valuesFor = (property) => sweepValues.map((_, index) => {
+      const snapshot = componentValues?.[index];
+      if (!Array.isArray(snapshot)) return undefined;
+      return snapshot.find((item) => item?.id === id)?.[property];
+    });
+    addSeries(series, `component:${id}:voltage`, `V(${component.name})`, "V", valuesFor("voltage"), statuses);
+    addSeries(series, `component:${id}:current`, `I(${component.name})`, "A", valuesFor("current"), statuses);
+    addSeries(series, `component:${id}:power`, `P(${component.name})`, "W", valuesFor("power"), statuses);
   }
 
   return series;
