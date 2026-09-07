@@ -42,6 +42,11 @@ from .analysis import (
     get_simulation_analysis,
 )
 
+from .request import (
+    SimulationRequest,
+    SimulationRequestError,
+)
+
 from .simulate import (
     SimulationError,
     simulate,
@@ -77,6 +82,8 @@ __all__ = [
     "SimulationComponent",
     "SimulationCircuit",
     "SimulationConfiguration",
+    "SimulationRequest",
+    "SimulationRequestError",
     "DC_OPERATING_POINT",
     "DCOperatingPointAnalysis",
     "SUPPORTED_ANALYSES",
