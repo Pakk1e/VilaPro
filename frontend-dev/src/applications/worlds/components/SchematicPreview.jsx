@@ -7,7 +7,6 @@ const SYMBOL_SIZE = {
   height: 92,
 };
 
-const PORT_OFFSET = 62;
 const TERMINAL_OFFSET = 84;
 
 function getDefinition(node) {
@@ -16,7 +15,16 @@ function getDefinition(node) {
     : null;
 }
 
+function getNodeCenter(node) {
+  return {
+    x: Number(node.position?.x ?? 0) + SYMBOL_SIZE.width / 2,
+    y: Number(node.position?.y ?? 0) + SYMBOL_SIZE.height / 2,
+  };
+}
+
 function getPortPosition(node, portId) {
+  if (node?.type === "junction") return getNodeCenter(node);
+
   const definition = getDefinition(node);
   const port = (node?.data?.ports ?? definition?.ports ?? []).find(
     (item) => item.id === portId
@@ -24,8 +32,7 @@ function getPortPosition(node, portId) {
 
   if (!port) return null;
 
-  const x = Number(node.position?.x ?? 0) + SYMBOL_SIZE.width / 2;
-  const y = Number(node.position?.y ?? 0) + SYMBOL_SIZE.height / 2;
+  const { x, y } = getNodeCenter(node);
 
   switch (port.position) {
     case "left":
@@ -39,13 +46,6 @@ function getPortPosition(node, portId) {
     default:
       return { x: x + TERMINAL_OFFSET, y };
   }
-}
-
-function getNodeCenter(node) {
-  return {
-    x: Number(node.position?.x ?? 0) + SYMBOL_SIZE.width / 2,
-    y: Number(node.position?.y ?? 0) + SYMBOL_SIZE.height / 2,
-  };
 }
 
 function getWirePath(start, end) {
@@ -154,13 +154,12 @@ export default function SchematicPreview({ nodes, edges, selectedNodeId, onSelec
     [nodes]
   );
 
-  const { viewBox, positions, wires, junctions } = useMemo(() => {
+  const { viewBox, positions, wires } = useMemo(() => {
     if (nodes.length === 0) {
       return {
         viewBox: "0 0 900 560",
         positions: new Map(),
         wires: [],
-        junctions: [],
       };
     }
 
@@ -208,9 +207,8 @@ export default function SchematicPreview({ nodes, edges, selectedNodeId, onSelec
       viewBox: `0 0 ${width} ${height}`,
       positions: positionMap,
       wires: wireData,
-      junctions: junctionNodes.map((node) => translate(getNodeCenter(node))),
     };
-  }, [edges, junctionNodes, nodes]);
+  }, [edges, nodes]);
 
   if (nodes.length === 0) {
     return (
@@ -254,9 +252,11 @@ export default function SchematicPreview({ nodes, edges, selectedNodeId, onSelec
             ))}
           </g>
 
-          {junctions.map((point, index) => (
-            <circle key={`junction-${index}`} cx={point.x} cy={point.y} r="5" fill="#26364d" />
-          ))}
+          {junctionNodes.map((node) => {
+            const point = positions.get(node.id);
+            if (!point) return null;
+            return <circle key={node.id} cx={point.x} cy={point.y} r="5" fill="#26364d" />;
+          })}
 
           {worldNodes.map((node) => (
             <SchematicSymbol
