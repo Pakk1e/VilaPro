@@ -1,4 +1,5 @@
 import { Handle, Position } from "@xyflow/react";
+import { worldDefinitions } from "../model/worldDefinitions";
 
 const POSITION_MAP = {
   left: Position.Left,
@@ -10,7 +11,9 @@ const POSITION_MAP = {
 export default function WorldNode({ data, selected }) {
   const ports = data?.ports ?? [];
   const properties = data?.properties ?? {};
-  const definition = data?.definition;
+  const definition = data?.definitionKey
+    ? worldDefinitions[data.definitionKey]
+    : null;
   const definitionProperties = definition?.properties ?? {};
 
   return (
