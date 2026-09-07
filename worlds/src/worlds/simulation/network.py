@@ -136,14 +136,18 @@ def _build_kcl_equation(model: SimulationModel, node: str):
     terms = []
 
     for component in model.components:
-        port_items = list(component.ports.items())
-
-        if len(port_items) != 2:
+        if len(component.ports) != 2:
             raise NetworkError(
                 "KCL currently supports two-port components only"
             )
 
-        (_, first_node), (_, second_node) = port_items
+        if "p" not in component.ports or "n" not in component.ports:
+            raise NetworkError(
+                f"Component '{component.name}' must define p/n ports"
+            )
+
+        first_node = component.ports["p"]
+        second_node = component.ports["n"]
 
         current = BranchCurrent(
             name="current",
