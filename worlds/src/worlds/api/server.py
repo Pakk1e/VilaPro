@@ -3,7 +3,12 @@ from __future__ import annotations
 import json
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from worlds.simulation import SimulationService, SimulationServiceError
+from worlds.simulation import (
+    SimulationRequest,
+    SimulationRequestError,
+    SimulationService,
+    SimulationServiceError,
+)
 
 HOST = "0.0.0.0"
 PORT = 8001
@@ -71,25 +76,12 @@ class WorldsAPIHandler(BaseHTTPRequestHandler):
             return
 
         try:
-            request = self._read_json()
-            if not isinstance(request, dict):
-                raise ValueError("Request body must be a JSON object")
-
-            world_source = request["world_source"]
-            instances = request["instances"]
-            simulation = request.get("simulation")
-
-            if not isinstance(world_source, str):
-                raise ValueError("world_source must be a string")
-            if not isinstance(instances, list):
-                raise ValueError("instances must be a list")
-            if simulation is not None and not isinstance(simulation, dict):
-                raise ValueError("simulation must be an object")
+            request = SimulationRequest.from_dict(self._read_json())
 
             response = SimulationService().simulate(
-                world_source,
-                instances=instances,
-                simulation=simulation,
+                request.world_source,
+                instances=list(request.instances),
+                simulation=request.simulation.to_dict(),
             )
 
             self._send_json(
@@ -104,14 +96,7 @@ class WorldsAPIHandler(BaseHTTPRequestHandler):
                 },
             )
 
-        except SimulationServiceError as exc:
-            self._send_json(400, {"ok": False, "error": str(exc)})
-        except KeyError as exc:
-            self._send_json(
-                400,
-                {"ok": False, "error": f"Missing required field: {exc.args[0]}"},
-            )
-        except ValueError as exc:
+        except (SimulationRequestError, SimulationServiceError, ValueError) as exc:
             self._send_json(400, {"ok": False, "error": str(exc)})
         except Exception as exc:
             self._send_json(500, {"ok": False, "error": str(exc)})
