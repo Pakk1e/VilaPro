@@ -143,7 +143,7 @@ export default function SimulationPanel({ nodes, edges, onSelectComponent }) {
   const branchCurrents = Object.entries(result?.branch_currents ?? {});
 
   return (
-    <div className="absolute bottom-4 left-4 z-10 w-[360px]">
+    <div className="absolute left-4 top-4 z-10 w-[360px]">
       <div className="overflow-hidden rounded-xl border border-[#d9dde2] bg-white shadow-md">
         <div className="flex items-center justify-between border-b border-[#e4e7eb] px-4 py-3">
           <div>
