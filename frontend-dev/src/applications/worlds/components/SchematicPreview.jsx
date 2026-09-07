@@ -122,6 +122,7 @@ export default function SchematicPreview({
         positions: new Map(),
         orientations: new Map(),
         wires: [],
+        junctions: [],
         bounds: { minX: 0, minY: 0, width: 760, height: 430 },
         error: error instanceof Error ? error.message : "Unable to build schematic.",
       };
@@ -199,6 +200,16 @@ export default function SchematicPreview({
               )}
               <line x1={groundMinX} y1={GROUND_BUS_Y} x2={groundMaxX} y2={GROUND_BUS_Y} />
             </g>
+
+            {schematic.junctions.map((junction) => (
+              <circle
+                key={junction.id}
+                cx={junction.x}
+                cy={junction.y}
+                r="5"
+                fill={STROKE}
+              />
+            ))}
 
             <g>
               <line x1={groundSymbolX} y1={GROUND_BUS_Y} x2={groundSymbolX} y2={GROUND_BUS_Y + 20} stroke={STROKE} strokeWidth="3" />
