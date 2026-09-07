@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 
 from worlds.simulation import (
     DC_SWEEP,
@@ -9,6 +10,7 @@ from worlds.simulation import (
     SimulationService,
     SimulationServiceError,
 )
+from worlds.simulation.solver import SolveResult, SolverError
 
 
 def load_world_source():
@@ -71,6 +73,21 @@ class DCSweepTest(unittest.TestCase):
         self.assertEqual(config.analysis, DC_SWEEP)
         self.assertEqual(config.settings["source"], "V1-id")
 
+    def test_configuration_rejects_component_parameter_target(self):
+        with self.assertRaises(SimulationAnalysisError):
+            SimulationConfiguration.from_dict(
+                {
+                    "analysis": DC_SWEEP,
+                    "settings": {
+                        "source": "R1-id",
+                        "parameter": "R",
+                        "start": 50,
+                        "stop": 150,
+                        "step": 50,
+                    },
+                }
+            )
+
     def test_service_runs_voltage_source_sweep(self):
         response = SimulationService().simulate(
             load_world_source(),
@@ -94,9 +111,12 @@ class DCSweepTest(unittest.TestCase):
         payload = response.result.to_dict()
         datasets = {dataset["name"]: dataset for dataset in payload["datasets"]}
         self.assertEqual(datasets["sweep"]["values"], [0.0, 2.0, 4.0, 6.0, 8.0, 10.0])
+        self.assertEqual(datasets["sweep_status"]["values"][-1], {"status": "completed"})
         self.assertEqual(datasets["node_voltages"]["values"][0]["node_1"], 0.0)
         self.assertEqual(datasets["node_voltages"]["values"][-1]["node_1"], 10.0)
         self.assertEqual(payload["statistics"]["point_count"], 6)
+        self.assertEqual(payload["statistics"]["completed_point_count"], 6)
+        self.assertEqual(payload["statistics"]["failed_point_count"], 0)
         self.assertEqual(payload["analysis_information"]["sweep"], {
             "source": "V1-id",
             "parameter": "V",
@@ -129,31 +149,6 @@ class DCSweepTest(unittest.TestCase):
             "parameter": "I",
         })
 
-    def test_service_runs_component_parameter_sweep(self):
-        response = SimulationService().simulate(
-            load_world_source(),
-            instances=voltage_divider_instances(),
-            simulation={
-                "analysis": DC_SWEEP,
-                "settings": {
-                    "source": "R1-id",
-                    "parameter": "R",
-                    "start": 50,
-                    "stop": 150,
-                    "step": 50,
-                },
-            },
-        )
-
-        payload = response.result.to_dict()
-        datasets = {dataset["name"]: dataset for dataset in payload["datasets"]}
-        self.assertEqual(datasets["sweep"]["values"], [50.0, 100.0, 150.0])
-        currents = [point["node_1->ground"] for point in datasets["branch_currents"]["values"]]
-        self.assertAlmostEqual(currents[0], -0.2, places=12)
-        self.assertAlmostEqual(currents[1], -0.1, places=12)
-        self.assertAlmostEqual(currents[2], -10.0 / 150.0, places=12)
-        self.assertEqual(payload["analysis_information"]["sweep"]["parameter"], "R")
-
     def test_sweep_does_not_mutate_original_component_value(self):
         instances = voltage_divider_instances()
         SimulationService().simulate(
@@ -179,7 +174,7 @@ class DCSweepTest(unittest.TestCase):
                 "settings": {"start": 0, "stop": 10, "step": 1},
             })
 
-    def test_sweep_rejects_unknown_parameter(self):
+    def test_sweep_rejects_non_source_component(self):
         with self.assertRaises(SimulationServiceError):
             SimulationService().simulate(
                 load_world_source(),
@@ -188,6 +183,23 @@ class DCSweepTest(unittest.TestCase):
                     "analysis": DC_SWEEP,
                     "settings": {
                         "source": "R1-id",
+                        "parameter": "R",
+                        "start": 50,
+                        "stop": 150,
+                        "step": 50,
+                    },
+                },
+            )
+
+    def test_sweep_rejects_unknown_parameter(self):
+        with self.assertRaises(SimulationServiceError):
+            SimulationService().simulate(
+                load_world_source(),
+                instances=voltage_divider_instances(),
+                simulation={
+                    "analysis": DC_SWEEP,
+                    "settings": {
+                        "source": "V1-id",
                         "parameter": "X",
                         "start": 0,
                         "stop": 10,
@@ -228,6 +240,74 @@ class DCSweepTest(unittest.TestCase):
                 },
             )
 
+    def test_sweep_supports_descending_points(self):
+        response = SimulationService().simulate(
+            load_world_source(),
+            instances=voltage_divider_instances(),
+            simulation={
+                "analysis": DC_SWEEP,
+                "settings": {
+                    "source": "V1-id",
+                    "start": 10,
+                    "stop": 0,
+                    "step": -5,
+                },
+            },
+        )
+        datasets = {dataset["name"]: dataset for dataset in response.result.to_dict()["datasets"]}
+        self.assertEqual(datasets["sweep"]["values"], [10.0, 5.0, 0.0])
+
+    def test_sweep_preserves_failed_point(self):
+        analysis = DCSweepAnalysis()
+        with patch(
+            "worlds.simulation.analysis.SimulationSolver.solve",
+            side_effect=[SolveResult({}), SolverError("singular matrix"), SolveResult({})],
+        ):
+            result = analysis.run(
+                self._build_model(voltage_divider_instances()),
+                configuration=SimulationConfiguration.from_dict({
+                    "analysis": DC_SWEEP,
+                    "settings": {
+                        "source": "V1-id",
+                        "start": 0,
+                        "stop": 2,
+                        "step": 1,
+                    },
+                }),
+            )
+
+        self.assertIsNotNone(result.results[0])
+        self.assertIsNone(result.results[1])
+        self.assertIsNotNone(result.results[2])
+        self.assertEqual(result.errors, (None, "singular matrix", None))
+
+    @staticmethod
+    def _build_model(instances):
+        from worlds.semantics.component import ComponentSemanticAnalyzer
+        from worlds.semantics import WorldSemanticAnalyzer
+        from worlds.simulation.builder import build_simulation_component
+        from worlds.simulation.model import SimulationModel
+        from worlds.vdl import Parser
+
+        world = Parser(load_world_source()).parse()
+        semantic = WorldSemanticAnalyzer(world).analyze()
+        model = SimulationModel()
+        counts = {}
+        for instance in instances:
+            component_name = instance["type"]
+            counts[component_name] = counts.get(component_name, 0) + 1
+            component = semantic.component(component_name)
+            analyzer = ComponentSemanticAnalyzer(component.component, semantic.types, semantic.functions)
+            model.add_component(build_simulation_component(
+                analyzer,
+                name=f"{component_name}_{counts[component_name]}",
+                display_name=instance["name"],
+                component_id=instance["id"],
+                parameters=instance.get("parameters", {}),
+                ports=instance.get("ports", {}),
+            ))
+        return model
+
     def test_sweep_analysis_is_registered(self):
         self.assertEqual(DCSweepAnalysis.key, DC_SWEEP)
         self.assertIsInstance(
@@ -238,6 +318,7 @@ class DCSweepTest(unittest.TestCase):
                 sweep_source="V1-id",
                 sweep_parameter="V",
                 points=[0.0],
+                point_statuses=[{"status": "completed"}],
                 node_voltages=[{"ground": 0.0}],
                 branch_currents=[{}],
                 components=[[]],
