@@ -63,7 +63,6 @@ function createNodeData(definition, label, definitionKey) {
     componentType: definition.type,
     ports: definition.ports ?? [],
     definitionKey,
-    definition,
     properties,
   };
 }
@@ -382,7 +381,7 @@ export default function WorldCanvas() {
   };
 
   const handleConnectEnd = (event, connectionState) => {
-    if (connectionState.isValid || !connectionState.fromNode) {
+    if (connectionState.isValid || !connectionState.fromNode || !reactFlowInstance) {
       return;
     }
 
