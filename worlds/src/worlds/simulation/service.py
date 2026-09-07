@@ -7,6 +7,7 @@ from worlds.semantics import WorldSemanticAnalyzer
 from worlds.simulation.analysis import SimulationConfiguration, get_simulation_analysis
 from worlds.simulation.builder import build_simulation_component
 from worlds.simulation.model import SimulationModel
+from worlds.simulation.result import SimulationResultModel
 from worlds.simulation.solver import BranchCurrent, SimulationResult
 from worlds.simulation.validation import SimulationValidator
 from worlds.vdl import Parser
@@ -19,11 +20,14 @@ class SimulationServiceError(Exception):
 
 @dataclass(frozen=True)
 class SimulationResponse:
+    """Application response with a generic result envelope and legacy fields."""
+
     analysis: str
     status: str
     node_voltages: dict[str, float]
     branch_currents: dict[str, float]
     components: list[dict]
+    result: SimulationResultModel
 
 
 class SimulationService:
@@ -74,12 +78,23 @@ class SimulationService:
             result = analysis.run(model, known=known)
 
             response = self._build_response(result)
+            generic_result = SimulationResultModel.from_dc_operating_point(
+                analysis=configuration.analysis,
+                status="completed",
+                settings=configuration.settings,
+                outputs=configuration.outputs,
+                node_voltages=response.node_voltages,
+                branch_currents=response.branch_currents,
+                components=response.components,
+            )
+
             return SimulationResponse(
                 analysis=configuration.analysis,
                 status="completed",
                 node_voltages=response.node_voltages,
                 branch_currents=response.branch_currents,
                 components=response.components,
+                result=generic_result,
             )
 
         except Exception as exc:
@@ -126,4 +141,5 @@ class SimulationService:
             node_voltages=dict(result.node_voltages),
             branch_currents=branch_currents,
             components=components,
+            result=None,
         )
