@@ -27,6 +27,10 @@ export const worldDefinitions = {
         defaultValue: 100,
       },
     },
+
+    simulationParameters: [
+      { property: "resistance", parameter: "R", label: "Resistance", unit: "Ω" },
+    ],
   },
 
   voltageSource: {
@@ -57,6 +61,44 @@ export const worldDefinitions = {
         defaultValue: 12,
       },
     },
+
+    simulationParameters: [
+      { property: "voltage", parameter: "V", label: "Voltage", unit: "V" },
+    ],
+  },
+
+  currentSource: {
+    type: "Current Source",
+    description: "Ideal electrical current source",
+    category: "Electrical",
+
+    ports: [
+      {
+        id: "p",
+        kind: "electrical",
+        position: "left",
+        label: "p",
+      },
+      {
+        id: "n",
+        kind: "electrical",
+        position: "right",
+        label: "n",
+      },
+    ],
+
+    properties: {
+      current: {
+        type: "number",
+        label: "Current",
+        unit: "A",
+        defaultValue: 0.1,
+      },
+    },
+
+    simulationParameters: [
+      { property: "current", parameter: "I", label: "Current", unit: "A" },
+    ],
   },
 
   ground: {
