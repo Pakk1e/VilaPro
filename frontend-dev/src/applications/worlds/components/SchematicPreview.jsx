@@ -212,7 +212,7 @@ export default function SchematicPreview({ nodes, edges, selectedNodeId, onSelec
 
   if (nodes.length === 0) {
     return (
-      <div className="flex h-full items-center justify-center rounded-xl border border-dashed border-[#d9dde2] bg-white px-6 text-center">
+      <div className="flex h-full w-[38%] min-w-0 items-center justify-center rounded-xl border border-dashed border-[#d9dde2] bg-white px-6 text-center">
         <div>
           <div className="text-sm font-semibold text-[#17253a]">No circuit to preview</div>
           <div className="mt-1 text-xs leading-5 text-[#69717b]">Build the circuit in Circuit Design and return here to see its schematic.</div>
@@ -222,7 +222,7 @@ export default function SchematicPreview({ nodes, edges, selectedNodeId, onSelec
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-white">
+    <div className="flex h-full w-[38%] min-w-0 flex-col overflow-hidden border-r border-[#d9dde2] bg-white">
       <div className="flex shrink-0 items-center justify-between border-b border-[#e4e7eb] px-4 py-3">
         <div>
           <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#58718f]">Circuit schematic</div>
@@ -234,7 +234,7 @@ export default function SchematicPreview({ nodes, edges, selectedNodeId, onSelec
       <div className="min-h-0 flex-1 overflow-auto bg-[#fbfbfa] p-3">
         <svg
           viewBox={viewBox}
-          className="h-full min-h-[360px] w-full min-w-[520px]"
+          className="h-full min-h-[360px] w-full min-w-0"
           role="img"
           aria-label="Circuit schematic preview"
           preserveAspectRatio="xMidYMid meet"
