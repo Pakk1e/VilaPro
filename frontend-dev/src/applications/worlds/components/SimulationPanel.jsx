@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { serializeWorldGraph } from "../model/worldGraphSerializer";
-import { createSimulationConfig } from "../model/simulationConfig";
+import { createSimulationConfig, getSimulationConfigValidationError } from "../model/simulationConfig";
 import { getSimulationStatus, getSimulationStatusLabel } from "../model/simulationState";
 import SimulationSetup from "./SimulationSetup";
 
@@ -65,7 +65,14 @@ export default function SimulationPanel({ nodes, edges, onSelectComponent }) {
   );
 
   const simulationIsStale = result !== null && lastSimulationSignature !== null && lastSimulationSignature !== simulationSignature;
-
+  const voltageSources = useMemo(
+    () => nodes
+      .filter((node) => node.type === "world")
+      .filter((node) => String(node.data?.componentType ?? "").toLowerCase().includes("voltage"))
+      .map((node) => ({ id: node.id, label: node.data?.label ?? node.id })),
+    [nodes]
+  );
+  const configurationError = getSimulationConfigValidationError(simulationConfig, voltageSources.map((source) => source.id));
   const status = getSimulationStatus({ result, running, error, simulationIsStale });
 
   useEffect(() => {
@@ -86,6 +93,10 @@ export default function SimulationPanel({ nodes, edges, onSelectComponent }) {
   };
 
   const simulate = async () => {
+    if (configurationError) {
+      setError(configurationError);
+      return;
+    }
     abortControllerRef.current?.abort();
     const controller = new AbortController();
     abortControllerRef.current = controller;
@@ -132,8 +143,8 @@ export default function SimulationPanel({ nodes, edges, onSelectComponent }) {
   };
 
   const components = Object.entries(result?.components ?? {});
-  const voltageSources = components.filter(([, component]) => String(component.type ?? "").toLowerCase().includes("voltage"));
-  const singleVoltageSource = voltageSources.length === 1 ? voltageSources[0][1] : null;
+  const voltageSourcesInResult = components.filter(([, component]) => String(component.type ?? "").toLowerCase().includes("voltage"));
+  const singleVoltageSource = voltageSourcesInResult.length === 1 ? voltageSourcesInResult[0][1] : null;
   const nodeVoltages = Object.entries(result?.node_voltages ?? {});
   const branchCurrents = Object.entries(result?.branch_currents ?? {});
 
@@ -150,9 +161,9 @@ export default function SimulationPanel({ nodes, edges, onSelectComponent }) {
         <button
           type="button"
           onClick={simulate}
-          disabled={running}
+          disabled={running || Boolean(configurationError)}
           aria-busy={running}
-          className="rounded-md border border-[#cfd5dc] bg-white px-4 py-2 text-xs font-medium text-[#26364d] shadow-sm transition hover:bg-[#f6f7f8] disabled:cursor-wait disabled:opacity-50"
+          className="rounded-md border border-[#cfd5dc] bg-white px-4 py-2 text-xs font-medium text-[#26364d] shadow-sm transition hover:bg-[#f6f7f8] disabled:cursor-not-allowed disabled:opacity-50"
         >
           {running ? "Running..." : simulationIsStale ? "Re-simulate" : "Simulate"}
         </button>
@@ -166,7 +177,7 @@ export default function SimulationPanel({ nodes, edges, onSelectComponent }) {
                 <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#69717b]">Simulation Setup</div>
                 <div className="mt-1 text-xs text-[#8a929c]">Choose the analysis and parameters for this run.</div>
               </div>
-              <SimulationSetup config={simulationConfig} onChange={updateSimulationConfig} />
+              <SimulationSetup config={simulationConfig} onChange={updateSimulationConfig} voltageSources={voltageSources} />
             </div>
 
             <div className="rounded-xl border border-[#d9dde2] bg-white px-4 py-4">
@@ -183,6 +194,13 @@ export default function SimulationPanel({ nodes, edges, onSelectComponent }) {
           </div>
 
           <div className="min-w-0 space-y-4">
+            {configurationError && (
+              <div role="alert" aria-live="polite" className="rounded-xl border border-[#ead1d1] bg-[#fff8f8] px-4 py-3">
+                <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-red-600">Simulation setup error</div>
+                <div className="mt-1 whitespace-pre-line text-xs leading-5 text-red-700">{configurationError}</div>
+              </div>
+            )}
+
             {simulationIsStale && (
               <div role="status" aria-live="polite" className="rounded-xl border border-[#eadfca] bg-[#fffaf0] px-4 py-3">
                 <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#8a6a2f]">Simulation out of date</div>
@@ -197,7 +215,7 @@ export default function SimulationPanel({ nodes, edges, onSelectComponent }) {
               </div>
             )}
 
-            {!result && !error && (
+            {!result && !error && !configurationError && (
               <div className="flex min-h-[360px] items-center justify-center rounded-xl border border-dashed border-[#d9dde2] bg-white px-6 text-center">
                 <div>
                   <div className="text-sm font-semibold text-[#17253a]">No simulation results yet</div>
@@ -211,12 +229,12 @@ export default function SimulationPanel({ nodes, edges, onSelectComponent }) {
                 <div role="region" aria-label="Simulation results" aria-live="polite" className="rounded-xl border border-[#d9dde2] bg-white">
                   <div className="border-b border-[#e4e7eb] px-4 py-4">
                     <div className="mb-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#69717b]">Circuit Summary</div>
-                    {voltageSources.length === 0 ? (
+                    {voltageSourcesInResult.length === 0 ? (
                       <div className="rounded-lg border border-[#e4e7eb] bg-[#fafbfc] px-3 py-2.5 text-xs text-[#69717b]">No voltage source detected.</div>
-                    ) : voltageSources.length > 1 ? (
+                    ) : voltageSourcesInResult.length > 1 ? (
                       <div className="rounded-lg border border-[#e4e7eb] bg-[#fafbfc] px-3 py-2.5">
                         <div className="text-xs font-medium text-[#17253a]">Multiple voltage sources</div>
-                        <div className="mt-1 text-[11px] leading-4 text-[#69717b]">{voltageSources.length} sources are present in the circuit.</div>
+                        <div className="mt-1 text-[11px] leading-4 text-[#69717b]">{voltageSourcesInResult.length} sources are present in the circuit.</div>
                       </div>
                     ) : (
                       <div className="grid grid-cols-3 gap-2">
@@ -288,9 +306,9 @@ export default function SimulationPanel({ nodes, edges, onSelectComponent }) {
                       ) : (
                         <div className="space-y-1.5">
                           {branchCurrents.map(([branch, current]) => (
-                            <div key={branch} className="flex items-center justify-between gap-3 text-xs">
-                              <span className="truncate text-[#58718f]">{branch}</span>
-                              <span className="shrink-0 font-mono font-medium text-[#17253a]">{formatCurrent(current)}</span>
+                            <div key={branch} className="flex items-center justify-between text-xs">
+                              <span className="text-[#58718f]">{branch}</span>
+                              <span className="font-mono font-medium text-[#17253a]">{formatCurrent(current)}</span>
                             </div>
                           ))}
                         </div>
