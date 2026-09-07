@@ -52,17 +52,17 @@ export function getDcSweepValidationError(settings, sweepTargets = []) {
   const target = targets.find((item) => item.id === source);
   const legacyTargets = targets.some((item) => item.legacy);
 
-  if (!source) return legacyTargets ? "Select a voltage source to sweep." : "Select a component parameter to sweep.";
+  if (!source) return legacyTargets ? "Select a voltage source to sweep." : "Select a voltage or current source to sweep.";
   if (!target) return "The selected sweep source is no longer available.";
 
   const parameter = settings?.parameter ?? target.parameters?.[0]?.parameter ?? (target.legacy ? "V" : "");
-  if (!parameter) return "Select a parameter to sweep.";
+  if (!parameter) return "The selected sweep source has no sweep parameter.";
 
   if (Array.isArray(target.parameters) && target.parameters.length > 0) {
     const parameterExists = target.parameters.some((item) =>
       (typeof item === "string" ? item : item.parameter) === parameter
     );
-    if (!parameterExists) return "The selected sweep parameter is no longer available.";
+    if (!parameterExists) return "The selected sweep source parameter is no longer available.";
   }
 
   const start = Number(settings?.start);
