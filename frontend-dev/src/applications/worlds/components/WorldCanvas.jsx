@@ -251,10 +251,20 @@ export default function WorldCanvas({ workspace = "design" }) {
     setSelectedEdgeId(null);
   };
 
-  const voltageSources = nodes
+  const sweepTargets = nodes
     .filter((node) => node.type === "world")
-    .filter((node) => String(node.data?.componentType ?? "").toLowerCase().includes("voltage"))
-    .map((node) => ({ id: node.id, label: node.data?.label ?? node.id }));
+    .map((node) => {
+      const definition = worldDefinitions[node.data?.definitionKey];
+      const parameters = definition?.simulationParameters ?? [];
+      if (parameters.length === 0) return null;
+      return {
+        id: node.id,
+        label: node.data?.label ?? node.id,
+        componentType: node.data?.componentType ?? "Component",
+        parameters,
+      };
+    })
+    .filter(Boolean);
 
   return (
     <div className={`relative h-full w-full ${isDesignWorkspace ? "" : "bg-[#f6f6f4]"}`} tabIndex={0} onKeyDown={onKeyDown}>
@@ -309,7 +319,7 @@ export default function WorldCanvas({ workspace = "design" }) {
         <SimulationPanel
           nodes={nodes}
           edges={edges}
-          voltageSources={voltageSources}
+          sweepTargets={sweepTargets}
           onSelectComponent={setSelectedNodeId}
         />
       )}
