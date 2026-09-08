@@ -1,14 +1,15 @@
 import unittest
 
-from worlds.math import Equation, FunctionCall, Number, Variable, Binary
+from worlds.math import Binary, Equation, FunctionCall, Number, Variable
 from worlds.simulation import (
     CapacitorStateHandler,
     DynamicComponentError,
-    DynamicState,
+    DynamicStateSnapshot,
     SimulationComponent,
     SimulationConfiguration,
     SimulationModel,
     TransientAnalysis,
+    TransientStepContext,
 )
 
 
@@ -29,12 +30,12 @@ class CapacitorModelTest(unittest.TestCase):
         handler = CapacitorStateHandler()
         model = SimulationModel(components=[self.capacitor(C=0)], nodes={"out", "ground"})
         with self.assertRaises(DynamicComponentError):
-            handler.prepare_step(model, handler_state(), context(0.0))
+            handler.prepare_step(model, DynamicStateSnapshot({}), context(0.0))
 
     def test_initial_step_enforces_initial_voltage(self):
         handler = CapacitorStateHandler()
         model = SimulationModel(components=[self.capacitor(C=2.0, initial_voltage=3.5)], nodes={"out", "ground"})
-        prepared = handler.prepare_step(model, handler_state(), context(0.0))
+        prepared = handler.prepare_step(model, DynamicStateSnapshot({}), context(0.0))
         equation = prepared.components[0].equations[0]
         self.assertIsInstance(equation.right, Number)
         self.assertEqual(equation.right.value, 3.5)
@@ -43,18 +44,18 @@ class CapacitorModelTest(unittest.TestCase):
     def test_next_step_uses_backward_euler_companion_model(self):
         handler = CapacitorStateHandler()
         model = SimulationModel(components=[self.capacitor(C=2.0)], nodes={"out", "ground"})
-        prepared = handler.prepare_step(model, handler_state({"C1": 3.0}), context(0.5, 0.0))
+        prepared = handler.prepare_step(model, DynamicStateSnapshot({"C1": 3.0}), context(0.5, 0.0))
         equation = prepared.components[0].equations[0]
         self.assertEqual(equation.left.name, "current")
         self.assertEqual(equation.right.left.value, 4.0)  # C / dt
         self.assertEqual(equation.right.right.right.value, 3.0)  # previous voltage
 
-    def test_failed_or_external_state_is_not_mutated_by_prepare(self):
+    def test_prepare_does_not_mutate_previous_state(self):
         handler = CapacitorStateHandler()
-        state = handler_state({"C1": 2.0})
+        previous = DynamicStateSnapshot({"C1": 2.0})
         model = SimulationModel(components=[self.capacitor()], nodes={"out", "ground"})
-        handler.prepare_step(model, state, context(1.0, 0.0))
-        self.assertEqual(state.get("C1"), 2.0)
+        handler.prepare_step(model, previous, context(1.0, 0.0))
+        self.assertEqual(previous.get("C1"), 2.0)
 
 
 class CapacitorTransientIntegrationTest(unittest.TestCase):
@@ -67,8 +68,14 @@ class CapacitorTransientIntegrationTest(unittest.TestCase):
         resistor = SimulationComponent(
             name="R1", display_name="R1", component_id="R1", component_type="Resistor",
             parameters={"R": 1.0}, ports={"p": "source", "n": "out"},
-            equations=[Equation(FunctionCall("current", (Variable("p"), Variable("n"))),
-                       Binary("/", FunctionCall("voltage", (Variable("p"), Variable("n"))), Variable("R")))],
+            equations=[Equation(
+                FunctionCall("current", (Variable("p"), Variable("n"))),
+                Binary(
+                    FunctionCall("voltage", (Variable("p"), Variable("n"))),
+                    "/",
+                    Variable("R"),
+                ),
+            )],
         )
         capacitor = SimulationComponent(
             name="C1", display_name="C1", component_id="C1", component_type="Capacitor",
@@ -84,12 +91,7 @@ class CapacitorTransientIntegrationTest(unittest.TestCase):
         self.assertAlmostEqual(result.state_snapshots[1].get("C1"), 0.5)
 
 
-def handler_state(values=None):
-    return __import__("worlds.simulation", fromlist=["DynamicStateSnapshot"]).DynamicStateSnapshot(values or {})
-
-
 def context(time_value, previous_time=None):
-    from worlds.simulation import TransientStepContext
     return TransientStepContext(
         time=time_value,
         previous_time=previous_time,
