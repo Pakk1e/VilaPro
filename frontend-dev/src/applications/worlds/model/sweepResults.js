@@ -1,4 +1,4 @@
-import { describeCircuitBranch, describeCircuitNode, getCircuitComponent, getCircuitNode } from "./resultContext.js";
+import { describeCircuitBranch, describeCircuitNode, getCircuitBranch, getCircuitComponent, getCircuitNode, getCircuitNodeConnectionSummary } from "./resultContext.js";
 
 export function getDataset(result, name) {
   const datasets = Array.isArray(result?.result?.datasets) ? result.result.datasets : [];
@@ -84,20 +84,13 @@ function getNodeSeriesContext(result, nodeId) {
     entityId: nodeId,
     contextTitle: node?.is_ground ? "Ground reference" : node?.label ?? nodeId,
     contextDescription: describeCircuitNode(result, nodeId),
-    connections: Array.isArray(node?.connections) ? node.connections : [],
+    connections: getCircuitNodeConnectionSummary(result, nodeId),
   };
 }
 
 function getBranchSeriesContext(result, branchKey) {
-  const context = result?.result?.circuit_context;
+  const branch = getCircuitBranch(result, branchKey);
   const [firstNode, secondNode] = String(branchKey).split("->");
-  const branch = Array.isArray(context?.branches)
-    ? context.branches.find(
-        (item) => item?.positive?.node === firstNode && item?.negative?.node === secondNode
-      ) ?? context.branches.find(
-        (item) => item?.positive?.node === secondNode && item?.negative?.node === firstNode
-      )
-    : null;
 
   return {
     entityType: "branch",
@@ -106,6 +99,8 @@ function getBranchSeriesContext(result, branchKey) {
     contextDescription: describeCircuitBranch(result, branchKey),
     positiveNode: branch?.positive?.node ?? firstNode,
     negativeNode: branch?.negative?.node ?? secondNode,
+    positivePort: branch?.positive?.port_id ?? "p",
+    negativePort: branch?.negative?.port_id ?? "n",
     componentId: branch?.id ?? null,
   };
 }
