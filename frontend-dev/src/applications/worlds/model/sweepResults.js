@@ -1,4 +1,4 @@
-import { describeCircuitBranch, describeCircuitNode, getCircuitComponent } from "./resultContext.js";
+import { describeCircuitBranch, describeCircuitNode, getCircuitComponent, getCircuitNode } from "./resultContext.js";
 
 export function getDataset(result, name) {
   const datasets = Array.isArray(result?.result?.datasets) ? result.result.datasets : [];
@@ -77,6 +77,39 @@ function addSeries(series, key, label, unit, values, statuses, context = {}) {
   });
 }
 
+function getNodeSeriesContext(result, nodeId) {
+  const node = getCircuitNode(result, nodeId);
+  return {
+    entityType: "node",
+    entityId: nodeId,
+    contextTitle: node?.is_ground ? "Ground reference" : node?.label ?? nodeId,
+    contextDescription: describeCircuitNode(result, nodeId),
+    connections: Array.isArray(node?.connections) ? node.connections : [],
+  };
+}
+
+function getBranchSeriesContext(result, branchKey) {
+  const context = result?.result?.circuit_context;
+  const [firstNode, secondNode] = String(branchKey).split("->");
+  const branch = Array.isArray(context?.branches)
+    ? context.branches.find(
+        (item) => item?.positive?.node === firstNode && item?.negative?.node === secondNode
+      ) ?? context.branches.find(
+        (item) => item?.positive?.node === secondNode && item?.negative?.node === firstNode
+      )
+    : null;
+
+  return {
+    entityType: "branch",
+    entityId: branchKey,
+    contextTitle: branch?.name ?? branchKey,
+    contextDescription: describeCircuitBranch(result, branchKey),
+    positiveNode: branch?.positive?.node ?? firstNode,
+    negativeNode: branch?.negative?.node ?? secondNode,
+    componentId: branch?.id ?? null,
+  };
+}
+
 export function getSweepResponseSeries(result) {
   const statuses = getSweepPointStatuses(result);
   const series = [];
@@ -99,7 +132,7 @@ export function getSweepResponseSeries(result) {
       "V",
       sweepValues.map((_, index) => nodeValues?.[index]?.[node]),
       statuses,
-      { entityType: "node", entityId: node }
+      getNodeSeriesContext(result, node)
     );
   });
 
@@ -117,7 +150,7 @@ export function getSweepResponseSeries(result) {
       "A",
       sweepValues.map((_, index) => branchValues?.[index]?.[branch]),
       statuses,
-      { entityType: "branch", entityId: branch }
+      getBranchSeriesContext(result, branch)
     );
   });
 
@@ -142,9 +175,16 @@ export function getSweepResponseSeries(result) {
       if (!Array.isArray(snapshot)) return undefined;
       return snapshot.find((item) => item?.id === id)?.[property];
     });
-    addSeries(series, `component:${id}:voltage`, `V(${componentName})`, "V", valuesFor("voltage"), statuses, { entityType: "component", entityId: id });
-    addSeries(series, `component:${id}:current`, `I(${componentName})`, "A", valuesFor("current"), statuses, { entityType: "component", entityId: id });
-    addSeries(series, `component:${id}:power`, `P(${componentName})`, "W", valuesFor("power"), statuses, { entityType: "component", entityId: id });
+    const componentContext = {
+      entityType: "component",
+      entityId: id,
+      contextTitle: componentName,
+      contextDescription: contextComponent?.type ? `${componentName} (${contextComponent.type})` : componentName,
+      ports: contextComponent?.ports ?? {},
+    };
+    addSeries(series, `component:${id}:voltage`, `V(${componentName})`, "V", valuesFor("voltage"), statuses, componentContext);
+    addSeries(series, `component:${id}:current`, `I(${componentName})`, "A", valuesFor("current"), statuses, componentContext);
+    addSeries(series, `component:${id}:power`, `P(${componentName})`, "W", valuesFor("power"), statuses, componentContext);
   }
 
   return series;
