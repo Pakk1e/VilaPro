@@ -8,6 +8,7 @@ from worlds.math import Variable
 
 from .model import SimulationModel
 from .network import build_network_equation_system
+from .session import SimulationSession
 from .solver import BranchCurrent, SimulationResult, SimulationSolver, SolverError
 
 
@@ -124,6 +125,7 @@ class SimulationAnalysis(Protocol):
         *,
         known: dict[object, float] | None = None,
         configuration: SimulationConfiguration | None = None,
+        session: SimulationSession | None = None,
     ) -> object:
         ...
 
@@ -137,13 +139,17 @@ class DCOperatingPointAnalysis:
         *,
         known: dict[object, float] | None = None,
         configuration: SimulationConfiguration | None = None,
+        session: SimulationSession | None = None,
     ) -> SimulationResult:
         equation_system = build_network_equation_system(model)
         solved = SimulationSolver().solve(equation_system, known=known)
-        return SimulationResult(
+        result = SimulationResult(
             values=solved.values,
             instances={component.name: component for component in model.components},
         )
+        if session is not None:
+            session.record_point(result, time=0.0)
+        return result
 
 
 class DCSweepAnalysis:
@@ -155,6 +161,7 @@ class DCSweepAnalysis:
         *,
         known: dict[object, float] | None = None,
         configuration: SimulationConfiguration | None = None,
+        session: SimulationSession | None = None,
     ) -> DCSweepResult:
         if configuration is None:
             raise SimulationAnalysisError("dc_sweep requires a simulation configuration")
@@ -166,6 +173,10 @@ class DCSweepAnalysis:
         errors: list[str | None] = []
 
         for point in points:
+            if session is not None and session.cancel_requested:
+                session.cancel()
+                raise SimulationAnalysisError("simulation was cancelled")
+
             swept_model = _override_component_parameter(
                 model,
                 source_id=source_id,
@@ -176,17 +187,21 @@ class DCSweepAnalysis:
                 equation_system = build_network_equation_system(swept_model)
                 solved = SimulationSolver().solve(equation_system, known=base_known)
             except SolverError as exc:
+                message = str(exc) or "DC operating point did not converge"
                 results.append(None)
-                errors.append(str(exc) or "DC operating point did not converge")
+                errors.append(message)
+                if session is not None:
+                    session.record_point({"status": "failed", "error": message}, time=float(point))
                 continue
 
-            results.append(
-                SimulationResult(
-                    values=solved.values,
-                    instances={component.name: component for component in swept_model.components},
-                )
+            result = SimulationResult(
+                values=solved.values,
+                instances={component.name: component for component in swept_model.components},
             )
+            results.append(result)
             errors.append(None)
+            if session is not None:
+                session.record_point(result, time=float(point))
 
         return DCSweepResult(
             source_id=source_id,
@@ -226,68 +241,49 @@ class DCSweepAnalysis:
                 f"dc_sweep source '{source_id}' does not expose parameter '{parameter}'"
             )
 
-        start = _parse_finite_decimal(settings.get("start"), "start")
-        stop = _parse_finite_decimal(settings.get("stop"), "stop")
-        step = _parse_finite_decimal(settings.get("step"), "step")
-
-        if step == 0:
-            raise SimulationAnalysisError("dc_sweep.settings.step must not be zero")
-        if start < stop and step < 0:
-            raise SimulationAnalysisError("dc_sweep.settings.step must be positive when start is below stop")
-        if start > stop and step > 0:
-            raise SimulationAnalysisError("dc_sweep.settings.step must be negative when start is above stop")
-
-        if _count_sweep_points(start, stop, step) > MAX_SWEEP_POINTS:
-            raise SimulationAnalysisError(f"dc_sweep produces more than {MAX_SWEEP_POINTS} points")
-
-        return source_id, parameter, start, stop, step
-
-
-_ANALYSES: dict[str, SimulationAnalysis] = {
-    DC_OPERATING_POINT: DCOperatingPointAnalysis(),
-    DC_SWEEP: DCSweepAnalysis(),
-}
-
-
-def get_simulation_analysis(analysis: str) -> SimulationAnalysis:
-    try:
-        return _ANALYSES[analysis]
-    except KeyError as exc:
-        supported = ", ".join(SUPPORTED_ANALYSES)
-        raise SimulationAnalysisError(
-            f"Unsupported simulation analysis '{analysis}'. Supported analyses: {supported}"
-        ) from exc
+        return (
+            source_id,
+            parameter,
+            _parse_finite_decimal(settings.get("start"), "start"),
+            _parse_finite_decimal(settings.get("stop"), "stop"),
+            _parse_finite_decimal(settings.get("step"), "step"),
+        )
 
 
 def _parse_finite_decimal(value: object, name: str) -> Decimal:
     if isinstance(value, bool) or value is None:
         raise SimulationAnalysisError(f"dc_sweep.settings.{name} must be a finite number")
     try:
-        decimal = Decimal(str(value))
+        parsed = Decimal(str(value))
     except (InvalidOperation, ValueError):
+        raise SimulationAnalysisError(f"dc_sweep.settings.{name} must be a finite number") from None
+    if not parsed.is_finite():
         raise SimulationAnalysisError(f"dc_sweep.settings.{name} must be a finite number")
-    if not decimal.is_finite():
-        raise SimulationAnalysisError(f"dc_sweep.settings.{name} must be a finite number")
-    return decimal
+    return parsed
 
 
 def _count_sweep_points(start: Decimal, stop: Decimal, step: Decimal) -> int:
-    span = stop - start
-    count = abs(span / step).to_integral_value(rounding="ROUND_FLOOR") + 1
-    return int(count)
+    if start == stop:
+        return 1
+    distance = abs(stop - start)
+    increment = abs(step)
+    return int(distance / increment) + 1 + int(distance % increment != 0)
 
 
 def _build_sweep_points(start: Decimal, stop: Decimal, step: Decimal) -> list[Decimal]:
     points: list[Decimal] = []
-    value = start
-    ascending = step > 0
+    current = start
+    if start == stop:
+        return [start]
 
-    while (value <= stop if ascending else value >= stop):
-        points.append(value)
-        if len(points) > MAX_SWEEP_POINTS:
-            raise SimulationAnalysisError(f"dc_sweep produces more than {MAX_SWEEP_POINTS} points")
-        value += step
-
+    if step > 0:
+        while current <= stop:
+            points.append(current)
+            current += step
+    else:
+        while current >= stop:
+            points.append(current)
+            current += step
     return points
 
 
@@ -300,18 +296,28 @@ def _override_component_parameter(
 ) -> SimulationModel:
     components = []
     found = False
-
     for component in model.components:
         if component.component_id != source_id:
             components.append(component)
             continue
-
-        parameters = dict(component.parameters)
-        parameters[parameter] = value
-        components.append(replace(component, parameters=parameters))
+        components.append(replace(component, parameters={**component.parameters, parameter: value}))
         found = True
-
     if not found:
         raise SimulationAnalysisError(f"dc_sweep source '{source_id}' does not exist in the circuit")
+    return SimulationModel(components=components)
 
-    return SimulationModel(components=components, nodes=set(model.nodes))
+
+_ANALYSES: dict[str, SimulationAnalysis] = {
+    DC_OPERATING_POINT: DCOperatingPointAnalysis(),
+    DC_SWEEP: DCSweepAnalysis(),
+}
+
+
+def get_simulation_analysis(key: str) -> SimulationAnalysis:
+    try:
+        return _ANALYSES[key]
+    except KeyError:
+        supported = ", ".join(SUPPORTED_ANALYSES)
+        raise SimulationAnalysisError(
+            f"Unsupported simulation analysis '{key}'. Supported analyses: {supported}"
+        ) from None
