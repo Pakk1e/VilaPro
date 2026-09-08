@@ -40,12 +40,18 @@ class SimulationConfiguration:
             raise SimulationAnalysisError("simulation.analysis must be a non-empty string")
         if analysis not in SUPPORTED_ANALYSES:
             raise SimulationAnalysisError(f"Unsupported simulation analysis '{analysis}'. Supported analyses: {', '.join(SUPPORTED_ANALYSES)}")
-        settings = value.get("settings", {}) or {}
-        if not isinstance(settings, Mapping):
-            raise SimulationAnalysisError("simulation.settings must be an object")
-        outputs = value.get("outputs", []) or []
-        if not isinstance(outputs, list) or not all(isinstance(item, str) for item in outputs):
-            raise SimulationAnalysisError("simulation.outputs must be a list of strings")
+        if "settings" not in value or value.get("settings") is None:
+            settings: Mapping[str, object] = {}
+        else:
+            settings = value.get("settings")
+            if not isinstance(settings, Mapping):
+                raise SimulationAnalysisError("simulation.settings must be an object")
+        if "outputs" not in value or value.get("outputs") is None:
+            outputs = []
+        else:
+            outputs = value.get("outputs")
+            if not isinstance(outputs, list) or not all(isinstance(item, str) for item in outputs):
+                raise SimulationAnalysisError("simulation.outputs must be a list of strings")
         if analysis == DC_SWEEP:
             cls._validate_dc_sweep_settings(settings)
         elif analysis == TRANSIENT:
@@ -157,8 +163,6 @@ class TransientAnalysis:
         points = transient.time_points()
         results, errors = [], []
         base_known = dict(known or {})
-        # Until dynamic state-bearing components are introduced, transient execution
-        # provides a deterministic time-domain sampling of the current circuit.
         for time in points:
             _check_cancel(session)
             try:
