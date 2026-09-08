@@ -176,6 +176,36 @@ class SimulationResult:
             return matches[0]
         if len(matches) > 1:
             raise SolverError(f"Multiple currents available for component: {component!r}")
+
+        # A component current is physically determined by KCL even when the
+        # component's own branch-current unknown is not exposed by a solver
+        # result. Derive it from the other solved branches at the terminal.
+        def current_leaving(node: str) -> float:
+            total = 0.0
+            found = False
+            for unknown, value in self.values.items():
+                if not isinstance(unknown, BranchCurrent) or unknown.component == component:
+                    continue
+                if len(unknown.arguments) != 2:
+                    continue
+                first, second = unknown.arguments
+                first_name = getattr(first, "name", None)
+                second_name = getattr(second, "name", None)
+                if first_name == node:
+                    total += value
+                    found = True
+                elif second_name == node:
+                    total -= value
+                    found = True
+            return -total if found else None
+
+        derived = current_leaving(first_node)
+        if derived is not None:
+            return derived
+        derived = current_leaving(second_node)
+        if derived is not None:
+            return -derived
+
         raise SolverError(f"No current available for component: {component!r}")
 
     @property
