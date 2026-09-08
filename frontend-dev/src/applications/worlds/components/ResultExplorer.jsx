@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createResultPlot } from "../model/resultPlot.js";
 import { RESULT_MEASUREMENTS } from "../model/sweepResults.js";
-import { getCircuitSummaryRows, getEntityMeasurementSeries, getMeasurementLabel, getResultSeries } from "../model/resultExplorer.js";
+import { getCircuitSummaryRows, getEntityMeasurementSeries, getMeasurementLabel, getResultSeries, getSummaryValue } from "../model/resultExplorer.js";
 import ResultChart from "./ResultChart";
 
 const measurements = [RESULT_MEASUREMENTS.VOLTAGE, RESULT_MEASUREMENTS.CURRENT, RESULT_MEASUREMENTS.POWER];
@@ -12,12 +12,6 @@ function formatValue(value, unit) {
   if (unit === "A") return Math.abs(number) >= 1 ? `${number.toFixed(2)} A` : `${(number * 1000).toFixed(1)} mA`;
   if (unit === "W") return Math.abs(number) >= 1 ? `${number.toFixed(2)} W` : `${(number * 1000).toFixed(1)} mW`;
   return `${number.toFixed(2)} V`;
-}
-
-function getSummaryValue(item) {
-  if (!item?.values?.length) return null;
-  const valid = item.values.filter((point) => !point?.failed && point?.value !== null && point?.value !== undefined);
-  return valid.length ? valid[valid.length - 1].value : null;
 }
 
 function SummaryTable({ title, rows, selectedRow, onSelect, isSweep }) {
@@ -58,6 +52,13 @@ function SummaryTable({ title, rows, selectedRow, onSelect, isSweep }) {
   );
 }
 
+function dispatchResultSelection(row) {
+  if (!row) return;
+  window.dispatchEvent(new CustomEvent("worlds:select-result", {
+    detail: { entityType: row.entityType, entityId: row.entityId },
+  }));
+}
+
 export default function ResultExplorer({ result }) {
   const series = useMemo(() => getResultSeries(result), [result]);
   const rows = useMemo(() => getCircuitSummaryRows(series), [series]);
@@ -76,10 +77,8 @@ export default function ResultExplorer({ result }) {
   }, [rows, selectedRow]);
 
   useEffect(() => {
-    if (selectedSeries) {
-      window.dispatchEvent(new CustomEvent("worlds:select-result", { detail: { entityType: selectedSeries.entityType, entityId: selectedSeries.entityId } }));
-    }
-  }, [selectedSeries]);
+    dispatchResultSelection(selectedRow);
+  }, [selectedRow]);
 
   useEffect(() => {
     const handleCircuitSelection = (event) => {
@@ -114,15 +113,24 @@ export default function ResultExplorer({ result }) {
       {selectedRow && (
         <div className="border-t border-[#e4e7eb]">
           <div className="flex flex-wrap items-center justify-between gap-3 bg-[#fafbfc] px-4 py-3">
-            <div>
+            <div className="min-w-0">
               <div className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[#69717b]">Selected</div>
-              <div className="mt-0.5 text-xs font-medium text-[#17253a]">{selectedRow.label}</div>
+              <div className="mt-0.5 truncate text-xs font-medium text-[#17253a]">{selectedRow.label}</div>
             </div>
-            <div className="flex items-center gap-1 rounded-md border border-[#d9dde2] bg-white p-0.5" role="group" aria-label="Y axis quantity">
-              {measurements.map((item) => {
-                const enabled = availableMeasurements.includes(item);
-                return <button key={item} type="button" disabled={!enabled} aria-pressed={effectiveMeasurement === item} onClick={() => setMeasurement(item)} className={`rounded px-3 py-1.5 text-[10px] font-medium ${effectiveMeasurement === item ? "bg-[#edf3f8] text-[#17253a]" : "text-[#69717b] hover:bg-[#f5f7f9]"} disabled:cursor-not-allowed disabled:opacity-30`}>{getMeasurementLabel(item)}</button>;
-              })}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => dispatchResultSelection(selectedRow)}
+                className="rounded-md border border-[#d9dde2] bg-white px-3 py-1.5 text-[10px] font-medium text-[#35445a] hover:bg-[#f5f7f9]"
+              >
+                Show in circuit
+              </button>
+              <div className="flex items-center gap-1 rounded-md border border-[#d9dde2] bg-white p-0.5" role="group" aria-label="Y axis quantity">
+                {measurements.map((item) => {
+                  const enabled = availableMeasurements.includes(item);
+                  return <button key={item} type="button" disabled={!enabled} aria-pressed={effectiveMeasurement === item} onClick={() => setMeasurement(item)} className={`rounded px-3 py-1.5 text-[10px] font-medium ${effectiveMeasurement === item ? "bg-[#edf3f8] text-[#17253a]" : "text-[#69717b] hover:bg-[#f5f7f9]"} disabled:cursor-not-allowed disabled:opacity-30`}>{getMeasurementLabel(item)}</button>;
+                })}
+              </div>
             </div>
           </div>
           {plot && <div className="border-t border-[#e4e7eb] p-3"><ResultChart plot={plot} series={selectedSeries} /></div>}
