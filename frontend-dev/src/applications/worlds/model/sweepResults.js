@@ -82,7 +82,7 @@ function getNodeSeriesContext(result, nodeId) {
   return {
     entityType: "node",
     entityId: nodeId,
-    contextTitle: node?.is_ground ? "Ground reference" : node?.label ?? nodeId,
+    contextTitle: node?.is_ground ? "Ground" : node?.label ?? nodeId,
     contextDescription: describeCircuitNode(result, nodeId),
     connections: getCircuitNodeConnectionSummary(result, nodeId),
   };
@@ -123,7 +123,7 @@ export function getSweepResponseSeries(result) {
     addSeries(
       series,
       `node:${node}`,
-      `V(${describeCircuitNode(result, node)})`,
+      `V(${getCircuitNode(result, node)?.label ?? node})`,
       "V",
       sweepValues.map((_, index) => nodeValues?.[index]?.[node]),
       statuses,
@@ -137,15 +137,17 @@ export function getSweepResponseSeries(result) {
       Object.keys(snapshot ?? {}).forEach((name) => branchNames.add(name));
     });
   }
-  [...branchNames].sort().forEach((branch) => {
+  [...branchNames].sort().forEach((branchKey) => {
+    const branch = getCircuitBranch(result, branchKey);
+    const branchLabel = branch?.name ?? branch?.id ?? branchKey;
     addSeries(
       series,
-      `branch:${branch}`,
-      `I(${describeCircuitBranch(result, branch)})`,
+      `branch:${branchKey}`,
+      `I(${branchLabel})`,
       "A",
-      sweepValues.map((_, index) => branchValues?.[index]?.[branch]),
+      sweepValues.map((_, index) => branchValues?.[index]?.[branchKey]),
       statuses,
-      getBranchSeriesContext(result, branch)
+      getBranchSeriesContext(result, branchKey)
     );
   });
 
