@@ -384,7 +384,7 @@ Transient Result
 
 **Current scope boundary:** 5.2 establishes the time-domain execution/result contract. The current transient engine evaluates the existing circuit model at each time point. Stateful device equations are intentionally deferred to the next phase.
 
-### Phase 5.3 — Dynamic State Infrastructure
+### Phase 5.3 — Dynamic State Infrastructure ✅
 
 Implement the state-carrying mechanism required for genuine transient device behavior.
 
@@ -392,9 +392,29 @@ Implement the state-carrying mechanism required for genuine transient device beh
 - State initialization
 - Previous-step state handling
 - Time-step context
-- State-safe solver integration
-- Convergence/error propagation
-- Regression tests proving state changes between time points
+- State-safe transient execution integration
+- Stateful preparation/acceptance extension point for dynamic devices
+- Convergence/error propagation without committing failed-step state
+- Immutable per-step state snapshots
+- Regression tests proving previous-step state is supplied and accepted state advances only after successful solves
+
+The execution flow is now:
+
+```text
+Previous accepted state
+        ↓
+TransientStepContext
+        ↓
+Prepare current-step model
+        ↓
+Solve
+        ↓
+Success ─────────→ Accept next state
+   │
+   └─ Failure ───→ Preserve previous state
+```
+
+This phase deliberately does **not** add capacitor or inductor equations. Those become concrete state handlers in the following phases.
 
 ### Phase 5.4 — Capacitor
 
