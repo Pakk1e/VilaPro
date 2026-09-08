@@ -83,6 +83,55 @@ class SimulationSessionTest(unittest.TestCase):
         with self.assertRaises(SimulationSessionError):
             SimulationSession(max_points=True)
 
+    def test_snapshot_is_immutable_and_excludes_accumulated_results(self):
+        session = SimulationSession(max_points=4, total_points=4)
+        session.start()
+        session.record_point({"value": 1}, time=0.5)
+
+        snapshot = session.snapshot()
+
+        self.assertEqual(snapshot.session_id, session.session_id)
+        self.assertEqual(snapshot.status, SimulationSessionStatus.RUNNING)
+        self.assertEqual(snapshot.time, 0.5)
+        self.assertEqual(snapshot.point_count, 1)
+        self.assertEqual(snapshot.total_points, 4)
+        self.assertAlmostEqual(snapshot.progress, 0.25)
+        self.assertFalse(hasattr(snapshot, "results"))
+
+        with self.assertRaises(AttributeError):
+            snapshot.point_count = 2
+
+    def test_snapshot_progress_is_none_when_total_is_unknown(self):
+        session = SimulationSession()
+        session.start()
+        session.record_point("first")
+
+        self.assertIsNone(session.progress)
+        self.assertIsNone(session.snapshot().progress)
+
+    def test_total_points_are_enforced_and_complete_requires_all_points(self):
+        session = SimulationSession(max_points=3, total_points=2)
+        session.start()
+
+        session.record_point("first")
+        with self.assertRaises(SimulationSessionError):
+            session.complete()
+
+        session.record_point("second")
+        self.assertEqual(session.progress, 1.0)
+        session.complete()
+        self.assertEqual(session.status, SimulationSessionStatus.COMPLETED)
+
+    def test_result_points_returns_an_immutable_collection(self):
+        session = SimulationSession()
+        session.start()
+        session.record_point({"value": 1})
+
+        points = session.result_points()
+        self.assertEqual(points, ({"value": 1},))
+        self.assertIsInstance(points, tuple)
+        self.assertIsNot(points, session.results)
+
 
 if __name__ == "__main__":
     unittest.main()
