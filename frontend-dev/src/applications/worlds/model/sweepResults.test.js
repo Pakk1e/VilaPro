@@ -127,21 +127,29 @@ test("failed sweep points retain their status and error", () => {
   ]);
 });
 
-test("response series expose contextual circuit labels", () => {
+test("response series use concise labels and keep circuit context separate", () => {
   const series = getSweepResponseSeries(result);
   const labels = series.map((item) => item.label);
 
-  assert.ok(labels.includes("V(Node 1 — Supply.+ / Load.p)"));
-  assert.ok(labels.includes("I(Supply: Node 1 — Supply.+ / Load.p → Ground)"));
-  assert.ok(labels.includes("V(Supply)"));
+  assert.ok(labels.includes("V(Node 1)"));
   assert.ok(labels.includes("I(Supply)"));
+  assert.ok(labels.includes("V(Supply)"));
   assert.ok(labels.includes("P(Supply)"));
+  assert.ok(labels.every((label) => !label.includes("—") && !label.includes(" / ")));
 
-  const nodeSeries = series.find((item) => item.label === "V(Node 1 — Supply.+ / Load.p)");
+  const nodeSeries = series.find((item) => item.label === "V(Node 1)");
   assert.equal(nodeSeries.entityType, "node");
   assert.equal(nodeSeries.entityId, "node_1");
+  assert.equal(nodeSeries.contextTitle, "Node 1");
+  assert.equal(nodeSeries.contextDescription, "Node 1 — Supply.+ / Load.p");
   assert.deepEqual(nodeSeries.values.map((item) => item.value), [0, undefined, 2]);
   assert.equal(nodeSeries.values[1].failed, true);
+
+  const branchSeries = series.find((item) => item.label === "I(Supply)");
+  assert.equal(branchSeries.entityType, "branch");
+  assert.equal(branchSeries.contextTitle, "Supply");
+  assert.equal(branchSeries.positiveNode, "node_1");
+  assert.equal(branchSeries.negativeNode, "ground");
 });
 
 test("missing sweep point data remains aligned with the independent variable", () => {
