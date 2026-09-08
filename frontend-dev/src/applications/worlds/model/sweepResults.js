@@ -1,4 +1,4 @@
-import { describeCircuitBranch, describeCircuitNode, getCircuitBranch, getCircuitComponent, getCircuitNode, getCircuitNodeConnectionSummary } from "./resultContext.js";
+import { getCircuitBranch, getCircuitComponent, getCircuitNode, getCircuitNodeConnectionSummary } from "./resultContext.js";
 
 export function getDataset(result, name) {
   const datasets = Array.isArray(result?.result?.datasets) ? result.result.datasets : [];
@@ -82,6 +82,7 @@ function getNodeSeriesContext(result, nodeId) {
   return {
     entityType: "node",
     entityId: nodeId,
+    quantity: "voltage",
     measurementType: "voltage",
     contextTitle: node?.is_ground ? "Ground" : node?.label ?? nodeId,
     contextDescription: node?.is_ground
@@ -98,6 +99,7 @@ function getBranchSeriesContext(result, branchKey) {
   return {
     entityType: "branch",
     entityId: branchKey,
+    quantity: "current",
     measurementType: "current",
     contextTitle: branch?.name ?? branchKey,
     contextDescription: branch?.name
@@ -126,15 +128,7 @@ export function getSweepResponseSeries(result) {
     });
   }
   [...nodeNames].sort().forEach((node) => {
-    addSeries(
-      series,
-      `node:${node}`,
-      `V(${getCircuitNode(result, node)?.label ?? node})`,
-      "V",
-      sweepValues.map((_, index) => nodeValues?.[index]?.[node]),
-      statuses,
-      getNodeSeriesContext(result, node)
-    );
+    addSeries(series, `node:${node}`, `V(${getCircuitNode(result, node)?.label ?? node})`, "V", sweepValues.map((_, index) => nodeValues?.[index]?.[node]), statuses, getNodeSeriesContext(result, node));
   });
 
   const branchNames = new Set();
@@ -146,15 +140,7 @@ export function getSweepResponseSeries(result) {
   [...branchNames].sort().forEach((branchKey) => {
     const branch = getCircuitBranch(result, branchKey);
     const branchLabel = branch?.name ?? branch?.id ?? branchKey;
-    addSeries(
-      series,
-      `branch:${branchKey}`,
-      `I(${branchLabel})`,
-      "A",
-      sweepValues.map((_, index) => branchValues?.[index]?.[branchKey]),
-      statuses,
-      getBranchSeriesContext(result, branchKey)
-    );
+    addSeries(series, `branch:${branchKey}`, `I(${branchLabel})`, "A", sweepValues.map((_, index) => branchValues?.[index]?.[branchKey]), statuses, getBranchSeriesContext(result, branchKey));
   });
 
   const componentMap = new Map();
@@ -163,9 +149,7 @@ export function getSweepResponseSeries(result) {
       if (!Array.isArray(snapshot)) return;
       snapshot.forEach((component) => {
         if (!component?.id) return;
-        if (!componentMap.has(component.id)) {
-          componentMap.set(component.id, { name: component.name ?? component.id });
-        }
+        if (!componentMap.has(component.id)) componentMap.set(component.id, { name: component.name ?? component.id });
       });
     });
   }
@@ -185,21 +169,9 @@ export function getSweepResponseSeries(result) {
       contextDescription: contextComponent?.type ? `${componentName} (${contextComponent.type})` : componentName,
       ports: contextComponent?.ports ?? {},
     };
-    addSeries(series, `component:${id}:voltage`, `V(${componentName})`, "V", valuesFor("voltage"), statuses, {
-      ...componentContext,
-      measurementType: "voltage",
-      contextDescription: `Voltage across ${componentName}`,
-    });
-    addSeries(series, `component:${id}:current`, `I(${componentName})`, "A", valuesFor("current"), statuses, {
-      ...componentContext,
-      measurementType: "current",
-      contextDescription: `Current through ${componentName}`,
-    });
-    addSeries(series, `component:${id}:power`, `P(${componentName})`, "W", valuesFor("power"), statuses, {
-      ...componentContext,
-      measurementType: "power",
-      contextDescription: `Power of ${componentName}`,
-    });
+    addSeries(series, `component:${id}:voltage`, `V(${componentName})`, "V", valuesFor("voltage"), statuses, { ...componentContext, quantity: "voltage", measurementType: "voltage", contextDescription: `Voltage across ${componentName}` });
+    addSeries(series, `component:${id}:current`, `I(${componentName})`, "A", valuesFor("current"), statuses, { ...componentContext, quantity: "current", measurementType: "current", contextDescription: `Current through ${componentName}` });
+    addSeries(series, `component:${id}:power`, `P(${componentName})`, "W", valuesFor("power"), statuses, { ...componentContext, quantity: "power", measurementType: "power", contextDescription: `Power of ${componentName}` });
   }
 
   return series;
