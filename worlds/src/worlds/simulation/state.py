@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from types import MappingProxyType
-from typing import Any, Mapping
+from typing import Any, Mapping, Protocol
 
 
 class DynamicStateError(ValueError):
@@ -65,3 +65,35 @@ class DynamicState:
 
     def copy(self) -> "DynamicState":
         return DynamicState(self._values)
+
+
+class TransientStateHandler(Protocol):
+    """Extension point for devices that need stateful transient equations."""
+
+    def prepare_step(
+        self,
+        model: Any,
+        previous_state: DynamicStateSnapshot,
+        context: TransientStepContext,
+    ) -> Any:
+        """Return the model/equations to solve for the current time point."""
+        ...
+
+    def accept_step(
+        self,
+        state: DynamicState,
+        result: Any,
+        context: TransientStepContext,
+    ) -> None:
+        """Commit state only after the current solve has converged."""
+        ...
+
+
+class NoOpTransientStateHandler:
+    """Default handler for circuits without stateful devices."""
+
+    def prepare_step(self, model, previous_state, context):
+        return model
+
+    def accept_step(self, state, result, context) -> None:
+        return None
