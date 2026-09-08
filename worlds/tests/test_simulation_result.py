@@ -37,8 +37,59 @@ class SimulationResultModelTest(unittest.TestCase):
                     "analysis": "future_analysis",
                     "settings": {"temperature": 25},
                 },
+                "circuit_context": {},
             },
         )
+
+    def test_circuit_context_round_trips(self):
+        context = {
+            "nodes": [
+                {
+                    "id": "node_1",
+                    "label": "Node 1",
+                    "is_ground": False,
+                    "connections": [
+                        {
+                            "instance_id": "V1-id",
+                            "instance_name": "Supply",
+                            "component_type": "VoltageSource",
+                            "port_id": "p",
+                            "port_label": "p",
+                        }
+                    ],
+                },
+                {
+                    "id": "ground",
+                    "label": "Ground",
+                    "is_ground": True,
+                    "connections": [],
+                },
+            ],
+            "components": [
+                {
+                    "id": "V1-id",
+                    "name": "Supply",
+                    "type": "VoltageSource",
+                    "ports": {
+                        "p": {"node": "node_1", "label": "p"},
+                        "n": {"node": "ground", "label": "n"},
+                    },
+                }
+            ],
+            "branches": [
+                {
+                    "id": "V1-id",
+                    "name": "Supply",
+                    "type": "VoltageSource",
+                    "positive": {"port_id": "p", "node": "node_1"},
+                    "negative": {"port_id": "n", "node": "ground"},
+                }
+            ],
+        }
+
+        result = SimulationResultModel(circuit_context=context)
+
+        self.assertEqual(result.to_dict()["circuit_context"], context)
 
 
 if __name__ == "__main__":
