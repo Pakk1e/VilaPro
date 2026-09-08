@@ -1,3 +1,5 @@
+import { describeCircuitBranch, describeCircuitNode, getCircuitComponent } from "./resultContext";
+
 export function getDataset(result, name) {
   const datasets = Array.isArray(result?.result?.datasets) ? result.result.datasets : [];
   return datasets.find((dataset) => dataset?.name === name) ?? null;
@@ -60,7 +62,7 @@ export function getSweepSourceRows(result) {
   });
 }
 
-function addSeries(series, key, label, unit, values, statuses) {
+function addSeries(series, key, label, unit, values, statuses, context = {}) {
   if (!Array.isArray(values)) return;
   series.push({
     key,
@@ -71,6 +73,7 @@ function addSeries(series, key, label, unit, values, statuses) {
       failed: statuses[index]?.status === "failed" || value === null || value === undefined,
       error: statuses[index]?.error ?? null,
     })),
+    ...context,
   });
 }
 
@@ -92,10 +95,11 @@ export function getSweepResponseSeries(result) {
     addSeries(
       series,
       `node:${node}`,
-      `V(${node})`,
+      `V(${describeCircuitNode(result, node)})`,
       "V",
       sweepValues.map((_, index) => nodeValues?.[index]?.[node]),
-      statuses
+      statuses,
+      { entityType: "node", entityId: node }
     );
   });
 
@@ -109,10 +113,11 @@ export function getSweepResponseSeries(result) {
     addSeries(
       series,
       `branch:${branch}`,
-      `I(${branch})`,
+      `I(${describeCircuitBranch(result, branch)})`,
       "A",
       sweepValues.map((_, index) => branchValues?.[index]?.[branch]),
-      statuses
+      statuses,
+      { entityType: "branch", entityId: branch }
     );
   });
 
@@ -130,14 +135,16 @@ export function getSweepResponseSeries(result) {
   }
 
   for (const [id, component] of componentMap) {
+    const contextComponent = getCircuitComponent(result, id);
+    const componentName = contextComponent?.name ?? component.name;
     const valuesFor = (property) => sweepValues.map((_, index) => {
       const snapshot = componentValues?.[index];
       if (!Array.isArray(snapshot)) return undefined;
       return snapshot.find((item) => item?.id === id)?.[property];
     });
-    addSeries(series, `component:${id}:voltage`, `V(${component.name})`, "V", valuesFor("voltage"), statuses);
-    addSeries(series, `component:${id}:current`, `I(${component.name})`, "A", valuesFor("current"), statuses);
-    addSeries(series, `component:${id}:power`, `P(${component.name})`, "W", valuesFor("power"), statuses);
+    addSeries(series, `component:${id}:voltage`, `V(${componentName})`, "V", valuesFor("voltage"), statuses, { entityType: "component", entityId: id });
+    addSeries(series, `component:${id}:current`, `I(${componentName})`, "A", valuesFor("current"), statuses, { entityType: "component", entityId: id });
+    addSeries(series, `component:${id}:power`, `P(${componentName})`, "W", valuesFor("power"), statuses, { entityType: "component", entityId: id });
   }
 
   return series;
