@@ -77,6 +77,7 @@ class SimulationService:
                 model.add_component(simulation_component)
 
             SimulationValidator().validate(model)
+            circuit_context = self._build_circuit_context(model)
 
             analysis = get_simulation_analysis(configuration.analysis)
             result = analysis.run(
@@ -86,7 +87,7 @@ class SimulationService:
             )
 
             if isinstance(result, DCSweepResult):
-                return self._build_sweep_response(result, configuration)
+                return self._build_sweep_response(result, configuration, circuit_context)
 
             if not isinstance(result, SimulationResult):
                 raise SimulationServiceError(
@@ -102,6 +103,7 @@ class SimulationService:
                 node_voltages=response.node_voltages,
                 branch_currents=response.branch_currents,
                 components=response.components,
+                circuit_context=circuit_context,
             )
 
             return SimulationResponse(
@@ -122,6 +124,7 @@ class SimulationService:
         self,
         sweep: DCSweepResult,
         configuration: SimulationConfiguration,
+        circuit_context: dict[str, object],
     ) -> SimulationResponse:
         if not sweep.results:
             raise SimulationServiceError("dc_sweep produced no simulation results")
@@ -146,6 +149,7 @@ class SimulationService:
             node_voltages=[item.node_voltages if item is not None else None for item in point_responses],
             branch_currents=[item.branch_currents if item is not None else None for item in point_responses],
             components=[item.components if item is not None else None for item in point_responses],
+            circuit_context=circuit_context,
         )
 
         return SimulationResponse(
@@ -156,6 +160,68 @@ class SimulationService:
             components=last.components,
             result=generic_result,
         )
+
+    @staticmethod
+    def _build_circuit_context(model: SimulationModel) -> dict[str, object]:
+        """Describe how simulation entities map back to the circuit instances and ports."""
+
+        nodes: dict[str, dict[str, object]] = {}
+        components: list[dict[str, object]] = []
+        branches: list[dict[str, object]] = []
+
+        for component in model.components:
+            port_context: dict[str, dict[str, str | None]] = {}
+            for port_id, node in component.ports.items():
+                port_context[port_id] = {
+                    "node": node,
+                    "label": port_id,
+                }
+                if node is None:
+                    continue
+                node_entry = nodes.setdefault(
+                    node,
+                    {
+                        "id": node,
+                        "label": "Ground" if node == "ground" else node.replace("_", " ").title(),
+                        "is_ground": node == "ground",
+                        "connections": [],
+                    },
+                )
+                node_entry["connections"].append({
+                    "instance_id": component.component_id,
+                    "instance_name": component.display_name,
+                    "component_type": component.component_type,
+                    "port_id": port_id,
+                    "port_label": port_id,
+                })
+
+            components.append({
+                "id": component.component_id,
+                "name": component.display_name,
+                "type": component.component_type,
+                "ports": port_context,
+            })
+
+            if "p" in component.ports and "n" in component.ports:
+                branches.append({
+                    "id": component.component_id,
+                    "name": component.display_name,
+                    "type": component.component_type,
+                    "positive": {
+                        "port_id": "p",
+                        "node": component.ports["p"],
+                    },
+                    "negative": {
+                        "port_id": "n",
+                        "node": component.ports["n"],
+                    },
+                })
+
+        return {
+            "nodes": list(nodes.values()),
+            "components": components,
+            "branches": branches,
+        }
 
     @staticmethod
     def _build_response(result: SimulationResult) -> "_LegacySimulationResponse":
