@@ -14,6 +14,10 @@ class TransientAnalysisError(ValueError):
     """Raised when transient-analysis configuration or execution is invalid."""
 
 
+class TransientConfigurationError(TransientAnalysisError):
+    """Raised when transient-analysis configuration is invalid."""
+
+
 @dataclass(frozen=True)
 class TransientConfiguration:
     """Validated time-domain simulation configuration."""
@@ -27,28 +31,28 @@ class TransientConfiguration:
         stop = float(self.stop)
         step = float(self.step)
         if step <= 0:
-            raise TransientAnalysisError("transient.settings.step must be greater than zero")
+            raise TransientConfigurationError("transient.settings.step must be greater than zero")
         if stop < start:
-            raise TransientAnalysisError("transient.settings.stop must not be below start")
+            raise TransientConfigurationError("transient.settings.stop must not be below start")
         if len(self.time_points()) > 10_000:
-            raise TransientAnalysisError("transient produces more than 10000 points")
+            raise TransientConfigurationError("transient produces more than 10000 points")
 
     def time_points(self) -> tuple[float, ...]:
         start = float(self.start)
         stop = float(self.stop)
         step = float(self.step)
-        points = [start]
+        points = [round(start, 12)]
         current = start
         epsilon = abs(step) * 1e-12 + 1e-15
         while current + step <= stop + epsilon:
             current += step
             if current > stop and current - stop <= epsilon:
                 current = stop
-            points.append(current)
+            points.append(round(current, 12))
             if len(points) > 10_000:
                 break
         if points[-1] < stop - epsilon:
-            points.append(stop)
+            points.append(round(stop, 12))
         return tuple(points)
 
     @classmethod
