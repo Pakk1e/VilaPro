@@ -105,6 +105,11 @@ export default function WorldCanvas({ workspace = "design" }) {
   const handleNodeClick = (_event, node) => { setSelectedNodeId(node.id); setSelectedEdgeId(null); };
   const handleEdgeClick = (_event, edge) => { if (!isDesignWorkspace) return; setSelectedEdgeId(edge.id); setSelectedNodeId(null); };
   const handlePaneClick = () => { setSelectedNodeId(null); setSelectedEdgeId(null); };
+  const handleSchematicComponentSelect = (id) => {
+    setSelectedNodeId(id);
+    setSelectedEdgeId(null);
+    window.dispatchEvent(new CustomEvent("worlds:select-result", { detail: { entityType: "component", entityId: id } }));
+  };
   const onKeyDown = (event) => {
     const target = event.target;
     const isFormControl = target instanceof HTMLElement && (target.matches("input, textarea, select, button") || target.isContentEditable);
@@ -152,10 +157,15 @@ export default function WorldCanvas({ workspace = "design" }) {
     setSelectedNodeId(junctionId); setSelectedEdgeId(null);
   };
 
-  const sweepTargets = nodes.filter((node) => node.type === "world").map((node) => { const definition = worldDefinitions[node.data?.definitionKey]; const parameters = definition?.simulationParameters ?? []; if (parameters.length === 0) return null; return { id: node.id, label: node.data?.label ?? node.id, componentType: node.data?.componentType ?? "Component", parameters }; }).filter(Boolean);
+  const sweepTargets = nodes.filter((node) => node.type === "world").map((node) => {
+    const definition = worldDefinitions[node.data?.definitionKey];
+    const parameters = definition?.simulationParameters ?? [];
+    if (parameters.length === 0) return null;
+    return { id: node.id, label: node.data?.label ?? node.id, componentType: node.data?.componentType ?? "Component", parameters };
+  }).filter(Boolean);
 
   return <div className={`relative h-full w-full ${isDesignWorkspace ? "" : "bg-[#f6f6f4]"}`} tabIndex={0} onKeyDown={onKeyDown}>
-    {isDesignWorkspace ? <div className="h-full w-full"><ReactFlow nodes={nodes} edges={edges} edgeTypes={edgeTypes} nodeTypes={nodeTypes} connectionMode="loose" defaultEdgeOptions={{ type: "circuit", interactionWidth: 30 }} connectionLineType="smoothstep" nodesDraggable nodesConnectable elementsSelectable onNodesChange={handleNodesChange} onEdgesChange={onEdgesChange} onEdgeClick={handleEdgeClick} onConnect={onConnect} onConnectEnd={handleConnectEnd} onInit={setReactFlowInstance} onNodeClick={handleNodeClick} onPaneClick={handlePaneClick} onEdgeDoubleClick={insertJunctionOnEdge} fitView><Background /><Controls /><ComponentSidebar nodes={nodes.filter((node) => node.type === "world")} selectedNode={selectedNode?.type === "world" ? selectedNode : null} onAddComponent={addComponent} onSelectComponent={(id) => { setSelectedNodeId(id); setSelectedEdgeId(null); }} onChangeProperty={updateSelectedProperty} /></ReactFlow></div> : <SchematicPreview nodes={nodes} edges={edges} selectedNodeId={selectedNodeId} onSelectComponent={setSelectedNodeId} selectedResultEntity={selectedResultEntity} />}
+    {isDesignWorkspace ? <div className="h-full w-full"><ReactFlow nodes={nodes} edges={edges} edgeTypes={edgeTypes} nodeTypes={nodeTypes} connectionMode="loose" defaultEdgeOptions={{ type: "circuit", interactionWidth: 30 }} connectionLineType="smoothstep" nodesDraggable nodesConnectable elementsSelectable onNodesChange={handleNodesChange} onEdgesChange={onEdgesChange} onEdgeClick={handleEdgeClick} onConnect={onConnect} onConnectEnd={handleConnectEnd} onInit={setReactFlowInstance} onNodeClick={handleNodeClick} onPaneClick={handlePaneClick} onEdgeDoubleClick={insertJunctionOnEdge} fitView><Background /><Controls /><ComponentSidebar nodes={nodes.filter((node) => node.type === "world")} selectedNode={selectedNode?.type === "world" ? selectedNode : null} onAddComponent={addComponent} onSelectComponent={(id) => { setSelectedNodeId(id); setSelectedEdgeId(null); }} onChangeProperty={updateSelectedProperty} /></ReactFlow></div> : <SchematicPreview nodes={nodes} edges={edges} selectedNodeId={selectedNodeId} onSelectComponent={handleSchematicComponentSelect} selectedResultEntity={selectedResultEntity} />}
     {!isDesignWorkspace && <SimulationPanel nodes={nodes} edges={edges} sweepTargets={sweepTargets} voltageSources={sweepTargets} onSelectComponent={setSelectedNodeId} />}
   </div>;
 }
