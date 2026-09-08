@@ -1,5 +1,5 @@
 import { getCircuitComponent, getCircuitNode, getCircuitBranch } from "./resultContext.js";
-import { RESULT_MEASUREMENTS, getSweepResponseSeries } from "./sweepResults.js";
+import { RESULT_MEASUREMENTS, RESULT_SCOPES, getSweepResponseSeries } from "./sweepResults.js";
 
 function addSeries(series, key, label, quantity, unit, value, context) {
   if (value === undefined || value === null) return;
@@ -36,6 +36,20 @@ export function getOperatingPointResponseSeries(result) {
 
 export function getResultSeries(result) {
   return result?.analysis === "dc_sweep" ? getSweepResponseSeries(result) : getOperatingPointResponseSeries(result);
+}
+
+function matchesScope(item, scope) {
+  return scope === RESULT_SCOPES.NODES ? item.entityType === "node" : item.entityType === "component";
+}
+
+// Compatibility helpers retained for the existing explorer component/tests.
+export function getExplorerMeasurements(scope, series) {
+  const measurements = [RESULT_MEASUREMENTS.VOLTAGE, RESULT_MEASUREMENTS.CURRENT, RESULT_MEASUREMENTS.POWER];
+  return measurements.filter((measurement) => series.some((item) => matchesScope(item, scope) && item.measurementType === measurement));
+}
+
+export function getExplorerSeries(series, scope, measurement) {
+  return series.filter((item) => matchesScope(item, scope) && item.measurementType === measurement);
 }
 
 export function getCircuitSummaryRows(series) {
