@@ -344,48 +344,106 @@ without creating custom plotting implementations for each simulation type.
 
 ---
 
-## Phase 5 — New Components
+## Phase 5 — Dynamic Simulation
 
 ### Goal
-Expand the supported component library using the new simulation and visualization foundation.
+Introduce a time-domain simulation framework built on the Phase 2 session architecture and Phase 4 generic result model.
 
-### Planned Components
+### Phase 5.1 — Simulation Session / Execution State ✅
 
-#### Passive Components
+- Simulation session identity
+- Lifecycle: created → running → completed / failed / cancelled
+- Point counting and limits
+- Progress calculation
+- Cancellation request/state
+- Immutable execution snapshots
+- Integration with existing DC operating point and DC sweep execution
 
-- Capacitor
-- Inductor
+### Phase 5.2 — Transient Analysis Foundation ✅
 
-#### Semiconductor Components
+- `transient` analysis type
+- Start / stop / step configuration
+- Deterministic time-grid generation
+- Time-point limit enforcement
+- Session integration and cancellation handling
+- Per-point failure preservation
+- Generic transient result datasets
+- Public simulation API export
+- Backend regression coverage
 
-- Diode
+The transient result uses the shared generic dataset architecture:
 
-#### Switching Components
+```text
+Transient Result
+    ├─ time
+    ├─ time_status
+    ├─ node_voltages
+    ├─ branch_currents
+    └─ components
+```
 
-- Switches
+**Current scope boundary:** 5.2 establishes the time-domain execution/result contract. The current transient engine evaluates the existing circuit model at each time point. Stateful device equations are intentionally deferred to the next phase.
 
-#### Sources
+### Phase 5.3 — Dynamic State Infrastructure
 
-- Dependent voltage sources
-- Dependent current sources
+Implement the state-carrying mechanism required for genuine transient device behavior.
 
-#### Future Expansion
+- Per-component dynamic state
+- State initialization
+- Previous-step state handling
+- Time-step context
+- State-safe solver integration
+- Convergence/error propagation
+- Regression tests proving state changes between time points
 
-Additional device models can be added using the same architecture.
+### Phase 5.4 — Capacitor
 
-### Design Principle
+- Capacitor component definition
+- Capacitance parameter
+- Dynamic companion/state equation
+- Initial-condition handling
+- Transient validation
+- Result quantities V/I/P
+- Tests
 
-Each component should:
+### Phase 5.5 — Inductor
 
-1. Define its schematic representation.
-2. Define its simulation model.
-3. Integrate through the shared circuit model.
-4. Work with existing analysis types.
-5. Produce data compatible with the generic results and plotting systems.
+- Inductor component definition
+- Inductance parameter
+- Dynamic companion/state equation
+- Initial-condition handling
+- Transient validation
+- Result quantities V/I/P
+- Tests
 
-### Expected Result
+### Phase 5.6 — Time-Varying Sources
 
-New components should plug into the simulation ecosystem without requiring custom frontend or backend implementations for every individual component.
+- Time-dependent source value representation
+- Source evaluation at simulation time
+- Voltage/current source waveform support
+- Validation
+- Tests
+
+### Phase 5.7 — Transient Result Explorer
+
+- Time as X-axis
+- Node-voltage plotting
+- Branch-current plotting
+- Component V/I/P plotting
+- Shared response selection
+- Failed-point visualization
+- Frontend tests
+
+### Phase 5.8 — Dynamic Validation Circuits
+
+Validate the full dynamic engine with canonical circuits:
+
+- RC charging/discharging
+- RL response
+- RLC response
+- Initial-condition cases
+- Time-step sensitivity
+- Expected analytical-response comparisons
 
 ---
 
