@@ -1,4 +1,4 @@
-import { describeCircuitBranch, describeCircuitNode, getCircuitComponent } from "./resultContext";
+import { describeCircuitBranch, describeCircuitNode, getCircuitComponent } from "./resultContext.js";
 
 export function getDataset(result, name) {
   const datasets = Array.isArray(result?.result?.datasets) ? result.result.datasets : [];
