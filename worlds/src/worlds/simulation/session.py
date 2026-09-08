@@ -18,6 +18,13 @@ class SimulationSessionStatus(str, Enum):
     CANCELLED = "cancelled"
 
 
+class _ResultPoints(tuple):
+    """Immutable result collection that remains callable for old callers."""
+
+    def __call__(self):
+        return self
+
+
 @dataclass(frozen=True)
 class SimulationSessionSnapshot:
     """Immutable execution snapshot safe to expose to callers."""
@@ -41,16 +48,8 @@ class SimulationSessionSnapshot:
 
 @dataclass
 class SimulationSession:
-    """Mutable lifecycle state for one simulation execution.
+    """Mutable lifecycle state for one simulation execution."""
 
-    The session deliberately does not know how a circuit is solved. Analysis
-    implementations can use it to track execution state, simulation time,
-    accumulated result points, cancellation, and point limits without putting
-    execution state into the circuit model or result representation.
-    """
-
-    # Keep session_id first so SimulationSession("op", ...) remains a valid
-    # and intuitive construction. Resource limits remain keyword-friendly.
     session_id: str = field(default_factory=lambda: uuid4().hex)
     max_points: int = 10_000
     total_points: int | None = None
@@ -136,7 +135,6 @@ class SimulationSession:
         self.status = SimulationSessionStatus.CANCELLED
 
     def snapshot(self) -> SimulationSessionSnapshot:
-        """Return an immutable view of execution state without exposing results."""
         return SimulationSessionSnapshot(
             session_id=self.session_id,
             status=self.status,
@@ -147,9 +145,10 @@ class SimulationSession:
             cancel_requested=self.cancel_requested,
         )
 
+    @property
     def result_points(self) -> tuple[Any, ...]:
-        """Return a frozen copy of accumulated points for finalization."""
-        return tuple(self.results)
+        """Return an immutable view, while remaining callable for compatibility."""
+        return _ResultPoints(self.results)
 
     def _require_running(self) -> None:
         if self.status != SimulationSessionStatus.RUNNING:
