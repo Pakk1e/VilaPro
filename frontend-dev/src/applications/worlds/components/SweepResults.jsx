@@ -17,16 +17,25 @@ function formatValue(value, unit) {
   return `${number.toFixed(2)} ${unit}`;
 }
 
-function SeriesContext({ result, series }) {
+function SeriesContext({ result, series, onSelectCircuit }) {
   if (!series) return null;
+
+  const selectCircuit = () => onSelectCircuit?.({ entityType: series.entityType, entityId: series.entityId });
 
   if (series.entityType === "node") {
     const node = getCircuitNode(result, series.entityId);
     const connections = series.connections ?? [];
     return (
       <div className="border-b border-[#e4e7eb] bg-[#f7f9fb] px-4 py-3">
-        <div className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[#58718f]">Measurement location</div>
-        <div className="mt-1 text-xs font-medium text-[#17253a]">{series.contextTitle}</div>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[#58718f]">Measurement location</div>
+            <div className="mt-1 text-xs font-medium text-[#17253a]">{series.contextTitle}</div>
+          </div>
+          <button type="button" onClick={selectCircuit} className="shrink-0 rounded-md border border-[#cfd5dc] bg-white px-2.5 py-1.5 text-[10px] font-medium text-[#26364d] hover:bg-[#f3f5f7]">
+            Show in circuit
+          </button>
+        </div>
         <div className="mt-1 text-[11px] leading-5 text-[#69717b]">
           Node voltage is measured at this electrical node.
           {node?.is_ground ? " Ground is the 0 V reference." : " The same node is shared by every connection shown below."}
@@ -51,8 +60,15 @@ function SeriesContext({ result, series }) {
   if (series.entityType === "branch") {
     return (
       <div className="border-b border-[#e4e7eb] bg-[#f7f9fb] px-4 py-3">
-        <div className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[#58718f]">Measurement location</div>
-        <div className="mt-1 text-xs font-medium text-[#17253a]">{series.contextTitle}</div>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[#58718f]">Measurement location</div>
+            <div className="mt-1 text-xs font-medium text-[#17253a]">{series.contextTitle}</div>
+          </div>
+          <button type="button" onClick={selectCircuit} className="shrink-0 rounded-md border border-[#cfd5dc] bg-white px-2.5 py-1.5 text-[10px] font-medium text-[#26364d] hover:bg-[#f3f5f7]">
+            Show in circuit
+          </button>
+        </div>
         <div className="mt-1 text-[11px] leading-5 text-[#69717b]">Branch current is reported in the component's positive-to-negative direction.</div>
         <div className="mt-2 grid gap-1.5 sm:grid-cols-2">
           <div className="rounded-md border border-[#e4e7eb] bg-white px-2.5 py-2">
@@ -73,8 +89,15 @@ function SeriesContext({ result, series }) {
     const ports = component?.ports ?? series.ports ?? {};
     return (
       <div className="border-b border-[#e4e7eb] bg-[#f7f9fb] px-4 py-3">
-        <div className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[#58718f]">Measurement location</div>
-        <div className="mt-1 text-xs font-medium text-[#17253a]">{series.contextTitle}</div>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[#58718f]">Measurement location</div>
+            <div className="mt-1 text-xs font-medium text-[#17253a]">{series.contextTitle}</div>
+          </div>
+          <button type="button" onClick={selectCircuit} className="shrink-0 rounded-md border border-[#cfd5dc] bg-white px-2.5 py-1.5 text-[10px] font-medium text-[#26364d] hover:bg-[#f3f5f7]">
+            Show in circuit
+          </button>
+        </div>
         <div className="mt-1 text-[11px] leading-5 text-[#69717b]">Component result for this circuit instance. Its electrical terminals are connected to:</div>
         <div className="mt-2 grid gap-1.5 sm:grid-cols-2">
           {Object.entries(ports).map(([port, portValue]) => {
@@ -95,7 +118,7 @@ function SeriesContext({ result, series }) {
   return null;
 }
 
-export default function SweepResults({ result }) {
+export default function SweepResults({ result, onSelectCircuit }) {
   const information = getSweepInformation(result);
   const sweepValues = getSweepValues(result);
   const statuses = getSweepPointStatuses(result);
@@ -189,7 +212,7 @@ export default function SweepResults({ result }) {
         <div className="border-b border-[#e4e7eb] bg-[#fafbfc] px-4 py-2.5 text-xs text-[#26364d]">
           <span className="font-medium">Selected response:</span> {selectedEntityDescription}
         </div>
-        <SeriesContext result={result} series={selectedSeries} />
+        <SeriesContext result={result} series={selectedSeries} onSelectCircuit={onSelectCircuit} />
         <div className="p-3">
           {selectedSeries ? (
             <SweepChart
