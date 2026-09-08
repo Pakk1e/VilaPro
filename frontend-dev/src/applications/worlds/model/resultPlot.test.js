@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { createResultPlot, getPlotAxisLabel, getPlotRows, getPlotSeries } from "./resultPlot.js";
+import { createResultPlot, getNearestPlotRow, getPlotAxisLabel, getPlotRows, getPlotSeries } from "./resultPlot.js";
 
 test("result plot keeps the independent variable separate from response series", () => {
   const plot = createResultPlot({
@@ -34,4 +34,16 @@ test("plot axis labels include units only when available", () => {
   assert.equal(getPlotAxisLabel({ label: "Voltage", unit: "V" }), "Voltage (V)");
   assert.equal(getPlotAxisLabel({ label: "Time" }), "Time");
   assert.equal(getPlotAxisLabel(null), "");
+});
+
+test("result plot can select the nearest sweep point for inspection", () => {
+  const rows = [
+    { sweepValue: 0, value: 0, failed: false, error: null },
+    { sweepValue: 1, value: 2, failed: false, error: null },
+    { sweepValue: 2, value: 4, failed: false, error: null },
+  ];
+
+  assert.deepEqual(getNearestPlotRow(rows, 1.7), rows[2]);
+  assert.deepEqual(getNearestPlotRow(rows, 0.4), rows[0]);
+  assert.equal(getNearestPlotRow(rows, "not-a-number"), null);
 });
