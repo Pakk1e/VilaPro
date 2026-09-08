@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 
-import { getCircuitComponent } from "../model/resultContext";
-import { getSweepInformation, getSweepResponseSeries, getSweepValues, getSweepPointStatuses } from "../model/sweepResults";
+import { describeCircuitNode, getCircuitComponent } from "../model/resultContext.js";
+import { getSweepInformation, getSweepResponseSeries, getSweepValues, getSweepPointStatuses } from "../model/sweepResults.js";
 import SweepChart from "./SweepChart";
 
 function formatNumber(value, digits = 2) {
@@ -15,6 +15,74 @@ function formatValue(value, unit) {
   if (unit === "A") return Math.abs(number) >= 1 ? `${number.toFixed(2)} A` : `${(number * 1000).toFixed(1)} mA`;
   if (unit === "W") return Math.abs(number) >= 1 ? `${number.toFixed(2)} W` : `${(number * 1000).toFixed(1)} mW`;
   return `${number.toFixed(2)} ${unit}`;
+}
+
+function SeriesContext({ result, series }) {
+  if (!series) return null;
+
+  if (series.entityType === "node") {
+    return (
+      <div className="border-b border-[#e4e7eb] bg-[#f7f9fb] px-4 py-3">
+        <div className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[#58718f]">Where is this measured?</div>
+        <div className="mt-1 text-xs font-medium text-[#17253a]">{series.contextTitle}</div>
+        <div className="mt-1 text-[11px] leading-5 text-[#69717b]">This is the electrical node represented by <span className="font-mono text-[#26364d]">{series.entityId}</span>. It is the same electrical point shared by the connections below.</div>
+        {series.connections?.length > 0 && (
+          <div className="mt-2 space-y-1">
+            {series.connections.map((connection, index) => (
+              <div key={`${connection.instance_id}-${connection.port_id}-${index}`} className="flex flex-wrap items-center gap-x-2 gap-y-0.5 rounded-md border border-[#e4e7eb] bg-white px-2.5 py-1.5 text-[10px]">
+                <span className="font-medium text-[#17253a]">{connection.instance_name ?? connection.instance_id}</span>
+                <span className="text-[#8a929c]">{connection.component_type ?? "Component"}</span>
+                <span className="font-mono text-[#58718f]">port {connection.port_label ?? connection.port_id}</span>
+              </div>
+            ))}
+          </div>
+        )}
+        {series.connections?.length === 0 && <div className="mt-1 text-[10px] text-[#8a929c]">No component connection details were returned for this node.</div>}
+      </div>
+    );
+  }
+
+  if (series.entityType === "branch") {
+    return (
+      <div className="border-b border-[#e4e7eb] bg-[#f7f9fb] px-4 py-3">
+        <div className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[#58718f]">Where is this measured?</div>
+        <div className="mt-1 text-xs font-medium text-[#17253a]">{series.contextTitle}</div>
+        <div className="mt-1 text-[11px] leading-5 text-[#69717b]">Branch current follows the component's positive-to-negative terminal direction.</div>
+        <div className="mt-2 grid gap-1.5 sm:grid-cols-2">
+          <div className="rounded-md border border-[#e4e7eb] bg-white px-2.5 py-2">
+            <div className="text-[9px] uppercase tracking-[0.08em] text-[#8a929c]">Positive terminal</div>
+            <div className="mt-0.5 text-[10px] text-[#26364d]">{describeCircuitNode(result, series.positiveNode)}</div>
+          </div>
+          <div className="rounded-md border border-[#e4e7eb] bg-white px-2.5 py-2">
+            <div className="text-[9px] uppercase tracking-[0.08em] text-[#8a929c]">Negative terminal</div>
+            <div className="mt-0.5 text-[10px] text-[#26364d]">{describeCircuitNode(result, series.negativeNode)}</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (series.entityType === "component") {
+    const component = getCircuitComponent(result, series.entityId);
+    const ports = component?.ports ?? series.ports ?? {};
+    return (
+      <div className="border-b border-[#e4e7eb] bg-[#f7f9fb] px-4 py-3">
+        <div className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[#58718f]">Where is this measured?</div>
+        <div className="mt-1 text-xs font-medium text-[#17253a]">{series.contextTitle}</div>
+        <div className="mt-1 text-[11px] leading-5 text-[#69717b]">Component result for the selected circuit instance. Its electrical terminals are connected to:</div>
+        <div className="mt-2 grid gap-1.5 sm:grid-cols-2">
+          {Object.entries(ports).map(([port, node]) => (
+            <div key={port} className="rounded-md border border-[#e4e7eb] bg-white px-2.5 py-2">
+              <div className="text-[9px] uppercase tracking-[0.08em] text-[#8a929c]">Port {port}</div>
+              <div className="mt-0.5 text-[10px] text-[#26364d]">{describeCircuitNode(result, node)}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return null;
 }
 
 export default function SweepResults({ result }) {
@@ -111,6 +179,7 @@ export default function SweepResults({ result }) {
         <div className="border-b border-[#e4e7eb] bg-[#fafbfc] px-4 py-2.5 text-xs text-[#26364d]">
           <span className="font-medium">Selected response:</span> {selectedEntityDescription}
         </div>
+        <SeriesContext result={result} series={selectedSeries} />
         <div className="p-3">
           {selectedSeries ? (
             <SweepChart
