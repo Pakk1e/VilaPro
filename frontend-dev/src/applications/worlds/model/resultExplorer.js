@@ -68,6 +68,17 @@ export function getEntityMeasurementSeries(series, entityType, entityId, measure
   return series.find((item) => item.entityType === entityType && item.entityId === entityId && item.measurementType === measurement) ?? null;
 }
 
+/** Return the latest successful value in a result series for summary display. */
+export function getSummaryValue(series) {
+  const values = Array.isArray(series?.values) ? series.values : [];
+  for (let index = values.length - 1; index >= 0; index -= 1) {
+    const point = values[index];
+    const value = Number(point?.value);
+    if (!point?.failed && Number.isFinite(value)) return value;
+  }
+  return null;
+}
+
 export function getMeasurementLabel(measurement) {
   return ({
     [RESULT_MEASUREMENTS.VOLTAGE]: "V",
