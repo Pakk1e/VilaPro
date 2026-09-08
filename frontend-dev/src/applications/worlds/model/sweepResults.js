@@ -82,8 +82,11 @@ function getNodeSeriesContext(result, nodeId) {
   return {
     entityType: "node",
     entityId: nodeId,
+    measurementType: "voltage",
     contextTitle: node?.is_ground ? "Ground" : node?.label ?? nodeId,
-    contextDescription: describeCircuitNode(result, nodeId),
+    contextDescription: node?.is_ground
+      ? "Reference node (0 V)"
+      : `Voltage at ${node?.label ?? nodeId}`,
     connections: getCircuitNodeConnectionSummary(result, nodeId),
   };
 }
@@ -95,8 +98,11 @@ function getBranchSeriesContext(result, branchKey) {
   return {
     entityType: "branch",
     entityId: branchKey,
+    measurementType: "current",
     contextTitle: branch?.name ?? branchKey,
-    contextDescription: describeCircuitBranch(result, branchKey),
+    contextDescription: branch?.name
+      ? `Current through ${branch.name}`
+      : "Current through this branch",
     positiveNode: branch?.positive?.node ?? firstNode,
     negativeNode: branch?.negative?.node ?? secondNode,
     positivePort: branch?.positive?.port_id ?? "p",
@@ -179,9 +185,21 @@ export function getSweepResponseSeries(result) {
       contextDescription: contextComponent?.type ? `${componentName} (${contextComponent.type})` : componentName,
       ports: contextComponent?.ports ?? {},
     };
-    addSeries(series, `component:${id}:voltage`, `V(${componentName})`, "V", valuesFor("voltage"), statuses, componentContext);
-    addSeries(series, `component:${id}:current`, `I(${componentName})`, "A", valuesFor("current"), statuses, componentContext);
-    addSeries(series, `component:${id}:power`, `P(${componentName})`, "W", valuesFor("power"), statuses, componentContext);
+    addSeries(series, `component:${id}:voltage`, `V(${componentName})`, "V", valuesFor("voltage"), statuses, {
+      ...componentContext,
+      measurementType: "voltage",
+      contextDescription: `Voltage across ${componentName}`,
+    });
+    addSeries(series, `component:${id}:current`, `I(${componentName})`, "A", valuesFor("current"), statuses, {
+      ...componentContext,
+      measurementType: "current",
+      contextDescription: `Current through ${componentName}`,
+    });
+    addSeries(series, `component:${id}:power`, `P(${componentName})`, "W", valuesFor("power"), statuses, {
+      ...componentContext,
+      measurementType: "power",
+      contextDescription: `Power of ${componentName}`,
+    });
   }
 
   return series;
