@@ -10,6 +10,7 @@ from .model import SimulationModel
 from .network import build_network_equation_system
 from .session import SimulationSession
 from .solver import SimulationResult, SimulationSolver, SolverError
+from .state import DynamicState, DynamicStateSnapshot, TransientStepContext
 from .transient import TransientConfiguration, TransientConfigurationError
 
 DC_OPERATING_POINT = "dc_operating_point"
@@ -101,6 +102,8 @@ class TransientResult:
     points: tuple[float, ...]
     results: tuple[SimulationResult | None, ...]
     errors: tuple[str | None, ...]
+    state_snapshots: tuple[DynamicStateSnapshot, ...] = ()
+    step_contexts: tuple[TransientStepContext, ...] = ()
 
 
 class SimulationAnalysis(Protocol):
@@ -156,25 +159,45 @@ class DCSweepAnalysis:
 
 class TransientAnalysis:
     key = TRANSIENT
+
     def run(self, model, *, known=None, configuration=None, session=None):
         if configuration is None:
             raise SimulationAnalysisError("transient requires a simulation configuration")
         transient = TransientConfiguration.from_dict(configuration.settings)
         points = transient.time_points()
         results, errors = [], []
+        states: list[DynamicStateSnapshot] = []
+        contexts: list[TransientStepContext] = []
         base_known = dict(known or {})
+        state = DynamicState()
+        previous_time = None
+
         for time in points:
             _check_cancel(session)
+            dt = None if previous_time is None else time - previous_time
+            context = TransientStepContext(time=time, previous_time=previous_time, dt=dt)
             try:
                 result = _solve(model, base_known)
             except SolverError as exc:
                 message = str(exc) or "Transient operating point did not converge"
                 results.append(None); errors.append(message)
+                states.append(state.snapshot())
+                contexts.append(context)
                 if session is not None: session.record_point({"status": "failed", "error": message}, time=time)
+                previous_time = time
                 continue
+
             results.append(result); errors.append(None)
+            # The accepted snapshot is deliberately captured only after a
+            # successful solve. Stateful devices will update DynamicState here
+            # in later phases without changing the transient result contract.
+            snapshot = state.snapshot()
+            states.append(snapshot)
+            contexts.append(context)
             if session is not None: session.record_point(result, time=time)
-        return TransientResult(points, tuple(results), tuple(errors))
+            previous_time = time
+
+        return TransientResult(points, tuple(results), tuple(errors), tuple(states), tuple(contexts))
 
 
 def _solve(model, known):
