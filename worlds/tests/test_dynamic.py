@@ -2,8 +2,6 @@ import unittest
 
 from worlds.math import Binary, Equation, FunctionCall, Number, Variable
 from worlds.simulation import (
-    CapacitorStateHandler,
-    DynamicComponentError,
     DynamicStateSnapshot,
     SimulationComponent,
     SimulationConfiguration,
@@ -11,6 +9,7 @@ from worlds.simulation import (
     TransientAnalysis,
     TransientStepContext,
 )
+from worlds.simulation.dynamic import CapacitorStateHandler, DynamicComponentError
 
 
 class CapacitorModelTest(unittest.TestCase):
@@ -47,8 +46,8 @@ class CapacitorModelTest(unittest.TestCase):
         prepared = handler.prepare_step(model, DynamicStateSnapshot({"C1": 3.0}), context(0.5, 0.0))
         equation = prepared.components[0].equations[0]
         self.assertEqual(equation.left.name, "current")
-        self.assertEqual(equation.right.left.value, 4.0)  # C / dt
-        self.assertEqual(equation.right.right.right.value, 3.0)  # previous voltage
+        self.assertEqual(equation.right.left.value, 4.0)
+        self.assertEqual(equation.right.right.right.value, 3.0)
 
     def test_prepare_does_not_mutate_previous_state(self):
         handler = CapacitorStateHandler()
@@ -70,11 +69,7 @@ class CapacitorTransientIntegrationTest(unittest.TestCase):
             parameters={"R": 1.0}, ports={"p": "source", "n": "out"},
             equations=[Equation(
                 FunctionCall("current", (Variable("p"), Variable("n"))),
-                Binary(
-                    FunctionCall("voltage", (Variable("p"), Variable("n"))),
-                    "/",
-                    Variable("R"),
-                ),
+                Binary(FunctionCall("voltage", (Variable("p"), Variable("n"))), "/", Variable("R")),
             )],
         )
         capacitor = SimulationComponent(
