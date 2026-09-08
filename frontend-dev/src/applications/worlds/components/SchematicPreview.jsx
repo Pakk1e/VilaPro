@@ -82,19 +82,16 @@ function SchematicSymbol({ instance, position, orientation, selected, resultHigh
 }
 
 function getResultHighlight(schematic, selectedResultEntity) {
-  if (!selectedResultEntity || !schematic) return { instanceIds: new Set(), nodeId: null };
+  if (!selectedResultEntity || !schematic) return { instanceIds: new Set(), nodeId: null, branchId: null };
 
   if (selectedResultEntity.entityType === "component") {
-    return { instanceIds: new Set([selectedResultEntity.entityId]), nodeId: null };
+    return { instanceIds: new Set([selectedResultEntity.entityId]), nodeId: null, branchId: null };
   }
 
   if (selectedResultEntity.entityType === "node") {
-    const nodeId = selectedResultEntity.entityId;
-    const endpoints = schematic.netGraph.get(nodeId) ?? [];
-    return {
-      instanceIds: new Set(endpoints.map(({ instance }) => instance.id)),
-      nodeId,
-    };
+    // A node is a shared electrical point, not a component. Highlight its net
+    // and terminals rather than putting a box around every connected component.
+    return { instanceIds: new Set(), nodeId: selectedResultEntity.entityId, branchId: null };
   }
 
   if (selectedResultEntity.entityType === "branch") {
@@ -107,10 +104,10 @@ function getResultHighlight(schematic, selectedResultEntity) {
         })
         .map((instance) => instance.id)
     );
-    return { instanceIds, nodeId: null };
+    return { instanceIds, nodeId: null, branchId: selectedResultEntity.entityId };
   }
 
-  return { instanceIds: new Set(), nodeId: null };
+  return { instanceIds: new Set(), nodeId: null, branchId: null };
 }
 
 export default function SchematicPreview({
@@ -169,6 +166,10 @@ export default function SchematicPreview({
       }).filter(Boolean)
     : [];
 
+  const selectedResultLabel = selectedResultEntity?.label ?? selectedResultEntity?.entityId ?? null;
+  const isNodeResult = selectedResultEntity?.entityType === "node";
+  const isBranchResult = selectedResultEntity?.entityType === "branch";
+
   return (
     <div className="flex h-full w-[38%] min-w-0 flex-col overflow-hidden border-r border-[#d9dde2] bg-white">
       <div className="flex shrink-0 items-center justify-between border-b border-[#e4e7eb] px-4 py-3">
@@ -178,6 +179,18 @@ export default function SchematicPreview({
         </div>
         <div className="text-[10px] text-[#8a929c]">{schematic?.instances.length ?? 0} components</div>
       </div>
+
+      {selectedResultEntity && (
+        <div className="flex shrink-0 items-center gap-2 border-b border-[#ead8ca] bg-[#fff8f3] px-4 py-2.5">
+          <span className="h-2 w-2 shrink-0 rounded-full bg-[#c26a2e]" />
+          <div className="min-w-0 truncate text-[10px] text-[#6f4428]">
+            <span className="font-semibold">Result location</span>
+            {selectedResultLabel ? <span> · {selectedResultLabel}</span> : null}
+            {isNodeResult ? <span> · highlighted net</span> : null}
+            {isBranchResult ? <span> · highlighted branch</span> : null}
+          </div>
+        </div>
+      )}
 
       <div className="min-h-0 flex-1 overflow-auto bg-[#fbfbfa] p-3">
         {schematic?.error ? (
@@ -191,7 +204,7 @@ export default function SchematicPreview({
 
             {selectedNodeNet !== null && (
               <>
-                <line x1={selectedNodeNet} y1={80} x2={selectedNodeNet} y2={GROUND_BUS_Y - 24} stroke={RESULT_HIGHLIGHT} strokeWidth="5" strokeDasharray="9 7" opacity="0.7" />
+                <line x1={selectedNodeNet} y1={80} x2={selectedNodeNet} y2={GROUND_BUS_Y - 24} stroke={RESULT_HIGHLIGHT} strokeWidth="6" strokeDasharray="9 7" opacity="0.6" />
                 <rect x={selectedNodeNet - 42} y="74" width="84" height="24" rx="6" fill="white" stroke={RESULT_HIGHLIGHT} strokeWidth="2" />
                 <text x={selectedNodeNet} y="90" textAnchor="middle" fontSize="11" fontWeight="700" fill={RESULT_HIGHLIGHT}>{resultHighlight.nodeId.replace("_", " ")}</text>
               </>
@@ -202,7 +215,12 @@ export default function SchematicPreview({
               <line x1={groundMinX} y1={GROUND_BUS_Y} x2={groundMaxX} y2={GROUND_BUS_Y} />
             </g>
 
-            {selectedNodeEndpoints.map((point) => <circle key={`${point.instanceId}-${point.portId}`} cx={point.x} cy={point.y} r="9" fill="white" stroke={RESULT_HIGHLIGHT} strokeWidth="4" />)}
+            {selectedNodeEndpoints.map((point) => (
+              <g key={`${point.instanceId}-${point.portId}`}>
+                <circle cx={point.x} cy={point.y} r="10" fill="white" stroke={RESULT_HIGHLIGHT} strokeWidth="4" />
+                <circle cx={point.x} cy={point.y} r="3" fill={RESULT_HIGHLIGHT} />
+              </g>
+            ))}
             {schematic.junctions.map((junction) => <circle key={junction.id} cx={junction.x} cy={junction.y} r="5" fill={STROKE} />)}
 
             <g>
