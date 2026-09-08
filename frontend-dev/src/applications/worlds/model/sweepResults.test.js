@@ -12,6 +12,54 @@ import {
 const result = {
   analysis: "dc_sweep",
   result: {
+    circuit_context: {
+      nodes: [
+        {
+          id: "ground",
+          label: "Ground",
+          is_ground: true,
+          connections: [{ instance_id: "V1", instance_name: "Supply", port_id: "n", port_label: "-" }],
+        },
+        {
+          id: "node_1",
+          label: "Node 1",
+          is_ground: false,
+          connections: [
+            { instance_id: "V1", instance_name: "Supply", port_id: "p", port_label: "+" },
+            { instance_id: "R1", instance_name: "Load", port_id: "p", port_label: "p" },
+          ],
+        },
+      ],
+      components: [
+        {
+          id: "V1",
+          name: "Supply",
+          type: "VoltageSource",
+          ports: {
+            p: { node: "node_1", label: "+" },
+            n: { node: "ground", label: "-" },
+          },
+        },
+        {
+          id: "R1",
+          name: "Load",
+          type: "Resistor",
+          ports: {
+            p: { node: "node_1", label: "p" },
+            n: { node: "ground", label: "n" },
+          },
+        },
+      ],
+      branches: [
+        {
+          id: "V1",
+          name: "Supply",
+          type: "VoltageSource",
+          positive: { port_id: "p", node: "node_1" },
+          negative: { port_id: "n", node: "ground" },
+        },
+      ],
+    },
     datasets: [
       { name: "sweep", values: [0, 1, 2], dimensions: ["sweep"] },
       {
@@ -79,17 +127,19 @@ test("failed sweep points retain their status and error", () => {
   ]);
 });
 
-test("response series expose nodes, branches and component quantities", () => {
+test("response series expose contextual circuit labels", () => {
   const series = getSweepResponseSeries(result);
   const labels = series.map((item) => item.label);
 
-  assert.ok(labels.includes("V(node_1)"));
-  assert.ok(labels.includes("I(node_1->ground)"));
+  assert.ok(labels.includes("V(Node 1 — Supply.+ / Load.p)"));
+  assert.ok(labels.includes("I(Supply: p → n)"));
   assert.ok(labels.includes("V(Supply)"));
   assert.ok(labels.includes("I(Supply)"));
   assert.ok(labels.includes("P(Supply)"));
 
-  const nodeSeries = series.find((item) => item.label === "V(node_1)");
+  const nodeSeries = series.find((item) => item.label === "V(Node 1 — Supply.+ / Load.p)");
+  assert.equal(nodeSeries.entityType, "node");
+  assert.equal(nodeSeries.entityId, "node_1");
   assert.deepEqual(nodeSeries.values.map((item) => item.value), [0, undefined, 2]);
   assert.equal(nodeSeries.values[1].failed, true);
 });
