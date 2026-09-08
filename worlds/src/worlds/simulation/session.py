@@ -49,9 +49,11 @@ class SimulationSession:
     execution state into the circuit model or result representation.
     """
 
+    # Keep session_id first so SimulationSession("op", ...) remains a valid
+    # and intuitive construction. Resource limits remain keyword-friendly.
+    session_id: str = field(default_factory=lambda: uuid4().hex)
     max_points: int = 10_000
     total_points: int | None = None
-    session_id: str = field(default_factory=lambda: uuid4().hex)
     status: SimulationSessionStatus = SimulationSessionStatus.CREATED
     time: float = 0.0
     point_count: int = 0
@@ -60,6 +62,8 @@ class SimulationSession:
     cancel_requested: bool = False
 
     def __post_init__(self) -> None:
+        if not isinstance(self.session_id, str) or not self.session_id:
+            raise SimulationSessionError("session_id must be a non-empty string")
         if isinstance(self.max_points, bool) or not isinstance(self.max_points, int):
             raise SimulationSessionError("max_points must be an integer")
         if self.max_points <= 0:
@@ -71,8 +75,6 @@ class SimulationSession:
                 raise SimulationSessionError("total_points must be greater than zero")
             if self.total_points > self.max_points:
                 raise SimulationSessionError("total_points cannot exceed max_points")
-        if not isinstance(self.session_id, str) or not self.session_id:
-            raise SimulationSessionError("session_id must be a non-empty string")
 
     @property
     def is_terminal(self) -> bool:
