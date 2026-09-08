@@ -31,6 +31,20 @@ export default function ResultExplorer({ result }) {
   const selectedSeries = scopedSeries.find((item) => item.key === selectedKey) ?? scopedSeries[0] ?? null;
   const isSweep = result?.analysis === "dc_sweep";
 
+  useEffect(() => {
+    const handleCircuitSelection = (event) => {
+      const entity = event.detail;
+      if (!entity) return;
+      const item = series.find((entry) => entry.entityType === entity.entityType && entry.entityId === entity.entityId);
+      if (!item) return;
+      setScope(item.entityType === "node" ? RESULT_SCOPES.NODES : RESULT_SCOPES.COMPONENTS);
+      setMeasurement(item.measurementType);
+      setSelectedKey(item.key);
+    };
+    window.addEventListener("worlds:select-result", handleCircuitSelection);
+    return () => window.removeEventListener("worlds:select-result", handleCircuitSelection);
+  }, [series]);
+
   useEffect(() => { if (selectedSeries) dispatchSelection(selectedSeries); }, [selectedSeries]);
 
   const selectScope = (next) => { setScope(next); setSelectedKey(null); };
@@ -73,7 +87,7 @@ export default function ResultExplorer({ result }) {
       ) : (
         <>
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#e4e7eb] bg-[#fafbfc] px-4 py-3">
-            <div className="text-xs font-medium text-[#17253a]">{scopedSeries.length} {scope === RESULT_SCOPES.NODES ? "nodes" : "components"}</div>
+            <div className="text-xs font-medium text-[#17253a]">{scopedSeries.length} {scope === RESULT_SCOPES.NODES ? "nodes" : "results"}</div>
             <div className="flex items-center gap-1 rounded-md border border-[#d9dde2] bg-white p-0.5" role="group" aria-label="Result measurement">
               {[RESULT_MEASUREMENTS.VOLTAGE, RESULT_MEASUREMENTS.CURRENT, RESULT_MEASUREMENTS.POWER].map((item) => <button key={item} type="button" disabled={!availableMeasurements.includes(item)} aria-pressed={effectiveMeasurement === item} onClick={() => selectMeasurement(item)} className={`rounded px-2.5 py-1.5 text-[10px] font-medium ${effectiveMeasurement === item ? "bg-[#edf3f8] text-[#17253a]" : "text-[#69717b] hover:bg-[#f5f7f9]"} disabled:cursor-not-allowed disabled:opacity-35`}>{units[item]}</button>)}
             </div>
