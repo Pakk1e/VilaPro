@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 
 import { getCircuitComponent, getCircuitNode } from "../model/resultContext.js";
 import { getSweepInformation, getSweepResponseSeries, getSweepValues, getSweepPointStatuses } from "../model/sweepResults.js";
+import { createResultPlot } from "../model/resultPlot.js";
 import SweepChart from "./SweepChart";
 
 function formatNumber(value, digits = 2) {
@@ -95,11 +96,16 @@ export default function SweepResults({ result }) {
   const selectedSeries = series.find((item) => item.key === selectedSeriesKey) ?? series[0] ?? null;
   if (!information) return null;
 
-  const chartRows = selectedSeries ? sweepValues.map((sweepValue, index) => ({ sweepValue, value: selectedSeries.values[index]?.value, failed: statuses[index]?.status === "failed" || selectedSeries.values[index]?.failed, error: statuses[index]?.error ?? selectedSeries.values[index]?.error ?? null })) : [];
   const failedCount = statuses.filter((item) => item.status === "failed").length;
   const sourceComponent = getCircuitComponent(result, information.source);
   const sourceName = sourceComponent?.name ?? information.source;
   const parameterUnit = information.parameter === "I" ? "A" : "V";
+  const plot = createResultPlot({
+    xLabel: sourceName,
+    xUnit: parameterUnit,
+    xValues: sweepValues,
+    series,
+  });
 
   return (
     <section aria-label="DC sweep results" className="space-y-4">
@@ -110,7 +116,7 @@ export default function SweepResults({ result }) {
       <div className="overflow-hidden rounded-xl border border-[#d9dde2] bg-white">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#e4e7eb] px-4 py-3"><div><div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#69717b]">Result Series</div><div className="mt-1 text-xs text-[#8a929c]">Choose what to plot. The sweep source remains the X-axis.</div></div>{series.length > 0 && <select aria-label="Sweep result series" value={selectedSeries?.key ?? ""} onChange={(event) => setSelectedSeriesKey(event.target.value)} className="max-w-[280px] rounded-md border border-[#d9dde2] bg-white px-2.5 py-2 text-xs text-[#26364d] outline-none focus:border-[#58718f]"><>{series.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}</></select>}</div>
         <SeriesContext result={result} series={selectedSeries} />
-        <div className="p-3">{selectedSeries ? <SweepChart rows={chartRows} xLabel={`Sweep (${parameterUnit})`} yLabel={selectedSeries.label} /> : <div className="flex h-56 items-center justify-center rounded-lg border border-dashed border-[#d9dde2] bg-[#fafbfc] px-4 text-center text-xs text-[#69717b]">No circuit response datasets are available for this sweep.</div>}</div>
+        <div className="p-3">{selectedSeries ? <SweepChart plot={plot} series={selectedSeries} /> : <div className="flex h-56 items-center justify-center rounded-lg border border-dashed border-[#d9dde2] bg-[#fafbfc] px-4 text-center text-xs text-[#69717b]">No circuit response datasets are available for this sweep.</div>}</div>
       </div>
     </section>
   );
