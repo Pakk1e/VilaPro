@@ -1,16 +1,38 @@
+function normalizeAxis(axis, fallbackLabel = "X") {
+  return {
+    key: axis?.key ?? "independent",
+    label: axis?.label ?? fallbackLabel,
+    unit: axis?.unit ?? "",
+    values: Array.isArray(axis?.values) ? axis.values : [],
+  };
+}
+
+function normalizeSeries(series) {
+  return {
+    key: series?.key ?? "series",
+    label: series?.label ?? "Response",
+    quantity: series?.quantity ?? series?.measurementType ?? "measurement",
+    unit: series?.unit ?? "",
+    values: Array.isArray(series?.values) ? series.values : [],
+    ...series,
+  };
+}
+
 export function createResultPlot({
   xLabel = "X",
   xUnit = "",
+  xKey = "independent",
   xValues = [],
+  independentVariable,
   series = [],
 } = {}) {
+  const x = independentVariable
+    ? normalizeAxis(independentVariable, xLabel)
+    : normalizeAxis({ key: xKey, label: xLabel, unit: xUnit, values: xValues }, xLabel);
+
   return {
-    x: {
-      label: xLabel,
-      unit: xUnit,
-      values: Array.isArray(xValues) ? xValues : [],
-    },
-    series: Array.isArray(series) ? series : [],
+    x,
+    series: Array.isArray(series) ? series.map(normalizeSeries) : [],
   };
 }
 
@@ -33,6 +55,23 @@ export function getPlotRows(plot, series) {
 export function getPlotAxisLabel(axis) {
   if (!axis?.label) return "";
   return axis.unit ? `${axis.label} (${axis.unit})` : axis.label;
+}
+
+export function getPlotSeriesLabel(series) {
+  if (!series) return "Response";
+  return series.unit ? `${series.label ?? "Response"} (${series.unit})` : series.label ?? "Response";
+}
+
+export function getPlotSeriesQuantityLabel(series) {
+  const quantityLabels = {
+    voltage: "Voltage",
+    current: "Current",
+    power: "Power",
+    resistance: "Resistance",
+    time: "Time",
+    frequency: "Frequency",
+  };
+  return quantityLabels[series?.quantity] ?? series?.quantityLabel ?? "Response";
 }
 
 export function getNearestPlotRow(rows, xValue) {
