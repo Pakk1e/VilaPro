@@ -103,7 +103,8 @@ class SimulationService:
                 )
 
             response = self._build_response(result)
-            session.record_point(response, time=session.time)
+            # The analysis owns execution-point recording. The service only
+            # finalizes the session and assembles the public response.
             session.complete()
             generic_result = SimulationResultModel.from_dc_operating_point(
                 analysis=configuration.analysis,
