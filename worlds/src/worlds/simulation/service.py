@@ -13,10 +13,9 @@ from worlds.simulation.builder import build_simulation_component
 from worlds.simulation.model import SimulationModel
 from worlds.simulation.result import SimulationResultModel
 from worlds.simulation.session import SimulationSession, SimulationSessionError
-from worlds.simulation.solver import BranchCurrent, SimulationResult
+from worlds.simulation.solver import SimulationResult, SolverError
 from worlds.simulation.validation import SimulationValidator
 from worlds.vdl import Parser
-from worlds.math import Variable
 
 
 class SimulationServiceError(Exception):
@@ -103,8 +102,6 @@ class SimulationService:
                 )
 
             response = self._build_response(result)
-            # The analysis owns execution-point recording. The service only
-            # finalizes the session and assembles the public response.
             session.complete()
             generic_result = SimulationResultModel.from_dc_operating_point(
                 analysis=configuration.analysis,
@@ -170,14 +167,21 @@ class SimulationService:
         if not sweep.results:
             raise SimulationServiceError("dc_sweep produced no simulation results")
 
-        point_responses = [self._build_response(result) if result is not None else None for result in sweep.results]
+        point_responses = [
+            self._build_response(result) if result is not None else None
+            for result in sweep.results
+        ]
         successful_responses = [response for response in point_responses if response is not None]
         last = successful_responses[-1] if successful_responses else _LegacySimulationResponse({}, {}, [])
         point_statuses = [
             {"status": "completed"} if error is None else {"status": "failed", "error": error}
             for error in sweep.errors
         ]
-        result_status = "completed_with_failures" if any(item["status"] == "failed" for item in point_statuses) else "completed"
+        result_status = (
+            "completed_with_failures"
+            if any(item["status"] == "failed" for item in point_statuses)
+            else "completed"
+        )
 
         generic_result = SimulationResultModel.from_dc_sweep(
             status=result_status,
@@ -205,7 +209,6 @@ class SimulationService:
     @staticmethod
     def _build_circuit_context(model: SimulationModel) -> dict[str, object]:
         """Describe how simulation entities map back to the circuit instances and ports."""
-
         nodes: dict[str, dict[str, object]] = {}
         components: list[dict[str, object]] = []
         branches: list[dict[str, object]] = []
@@ -213,10 +216,7 @@ class SimulationService:
         for component in model.components:
             port_context: dict[str, dict[str, str | None]] = {}
             for port_id, node in component.ports.items():
-                port_context[port_id] = {
-                    "node": node,
-                    "label": port_id,
-                }
+                port_context[port_id] = {"node": node, "label": port_id}
                 if node is None:
                     continue
                 node_entry = nodes.setdefault(
@@ -248,21 +248,11 @@ class SimulationService:
                     "id": component.component_id,
                     "name": component.display_name,
                     "type": component.component_type,
-                    "positive": {
-                        "port_id": "p",
-                        "node": component.ports["p"],
-                    },
-                    "negative": {
-                        "port_id": "n",
-                        "node": component.ports["n"],
-                    },
+                    "positive": {"port_id": "p", "node": component.ports["p"]},
+                    "negative": {"port_id": "n", "node": component.ports["n"]},
                 })
 
-        return {
-            "nodes": list(nodes.values()),
-            "components": components,
-            "branches": branches,
-        }
+        return {"nodes": list(nodes.values()), "components": components, "branches": branches}
 
     @staticmethod
     def _build_response(result: SimulationResult) -> "_LegacySimulationResponse":
@@ -276,12 +266,15 @@ class SimulationService:
                 )
 
             voltage = result.node_voltage(ports["p"]) - result.node_voltage(ports["n"])
-            current_unknown = BranchCurrent(
-                name="current",
-                arguments=(Variable(ports["p"]), Variable(ports["n"])),
-                component=name,
-            )
-            current = result.value(current_unknown)
+            try:
+                current = result.branch_current(ports["p"], ports["n"])
+            except SolverError:
+                # Some component equations (notably ideal voltage sources) do
+                # not directly expose their branch-current unknown. The KCL
+                # solution still contains it, and branch_current resolves it
+                # by terminal direction without reconstructing an internal
+                # BranchCurrent object that may differ in identity.
+                raise
 
             components.append({
                 "id": component.component_id,
@@ -307,7 +300,6 @@ class SimulationService:
 @dataclass(frozen=True)
 class _LegacySimulationResponse:
     """Internal legacy-shaped values used to assemble the generic response."""
-
     node_voltages: dict[str, float]
     branch_currents: dict[str, float]
     components: list[dict]
