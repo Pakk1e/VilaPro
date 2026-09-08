@@ -71,12 +71,15 @@ function SeriesContext({ result, series }) {
         <div className="mt-1 text-xs font-medium text-[#17253a]">{series.contextTitle}</div>
         <div className="mt-1 text-[11px] leading-5 text-[#69717b]">Component result for the selected circuit instance. Its electrical terminals are connected to:</div>
         <div className="mt-2 grid gap-1.5 sm:grid-cols-2">
-          {Object.entries(ports).map(([port, node]) => (
-            <div key={port} className="rounded-md border border-[#e4e7eb] bg-white px-2.5 py-2">
-              <div className="text-[9px] uppercase tracking-[0.08em] text-[#8a929c]">Port {port}</div>
-              <div className="mt-0.5 text-[10px] text-[#26364d]">{describeCircuitNode(result, node)}</div>
-            </div>
-          ))}
+          {Object.entries(ports).map(([port, portValue]) => {
+            const nodeId = typeof portValue === "string" ? portValue : portValue?.node;
+            return (
+              <div key={port} className="rounded-md border border-[#e4e7eb] bg-white px-2.5 py-2">
+                <div className="text-[9px] uppercase tracking-[0.08em] text-[#8a929c]">Port {port}</div>
+                <div className="mt-0.5 text-[10px] text-[#26364d]">{describeCircuitNode(result, nodeId)}</div>
+              </div>
+            );
+          })}
         </div>
       </div>
     );
