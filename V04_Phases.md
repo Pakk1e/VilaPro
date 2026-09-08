@@ -382,7 +382,7 @@ Transient Result
     └─ components
 ```
 
-**Current scope boundary:** 5.2 establishes the time-domain execution/result contract. The current transient engine evaluates the existing circuit model at each time point. Stateful device equations are intentionally deferred to the next phase.
+**Original 5.2 scope boundary:** 5.2 established the time-domain execution/result contract. Stateful device equations were intentionally deferred to the dynamic-device phases below.
 
 ### Phase 5.3 — Dynamic State Infrastructure ✅
 
@@ -414,17 +414,62 @@ Success ─────────→ Accept next state
    └─ Failure ───→ Preserve previous state
 ```
 
-This phase deliberately does **not** add capacitor or inductor equations. Those become concrete state handlers in the following phases.
+### Phase 5.4 — Capacitor 🔄
 
-### Phase 5.4 — Capacitor
+Implement the first concrete dynamic component while preserving the separation between physical component identity, layer-specific representation, and numerical analysis method.
 
-- Capacitor component definition
-- Capacitance parameter
-- Dynamic companion/state equation
-- Initial-condition handling
-- Transient validation
-- Result quantities V/I/P
-- Tests
+#### Component Model
+
+The capacitor's canonical electrical relationship is:
+
+```text
+i = C · dv/dt
+```
+
+The transient engine may use a numerical representation of that relationship without changing the underlying component definition.
+
+Initial implementation uses a **Backward Euler** companion model:
+
+```text
+iₙ = (C / Δt) · (vₙ - vₙ₋₁)
+```
+
+This is an analysis/numerical representation, not the definition of the capacitor itself.
+
+#### Deliverables
+
+- Capacitor component identification in the simulation model
+- Capacitance parameter validation (`C > 0`)
+- Dynamic capacitor state storing previous capacitor voltage
+- Initial capacitor voltage support
+- Backward-Euler companion equation
+- Automatic transient dynamic-state handling
+- Capacitor V/I/P result quantities through the existing result model
+- Validation of RC transient behavior
+- Backend regression tests
+
+#### Layering Rule
+
+The implementation must keep the physical component separate from its analysis representation so future Worlds layers can expose richer models of the same capacitor.
+
+Conceptually:
+
+```text
+Capacitor
+   │
+   ├─ Electrical representation
+   │     ├─ DC
+   │     ├─ AC
+   │     └─ Transient
+   │
+   ├─ Physical representation      (future)
+   │
+   ├─ Material representation      (future)
+   │
+   └─ Microscopic representation   (future)
+```
+
+Different layers may therefore use different, appropriate formulas while referring to the same underlying component/entity.
 
 ### Phase 5.5 — Inductor
 
@@ -469,14 +514,18 @@ Validate the full dynamic engine with canonical circuits:
 
 # Long-Term Vision
 
+The simulation stack should remain layered so that the same component can have multiple valid representations depending on the engineering/physical layer and analysis being explored.
+
 ```text
-Circuit Design
+World / Visual Layer
         ↓
-Shared Circuit Model
+Shared Circuit / Component Entity
         ↓
-Simulation Configuration
+Layer-specific Representation
         ↓
-Simulation Engine
+Analysis Model
+        ↓
+Numerical / Analytical Method
         ↓
 Result Model
         ↓
@@ -487,4 +536,17 @@ Series
 Plot
 ```
 
-This architecture provides a scalable foundation for advanced circuit simulation features while keeping the system maintainable and extensible.
+For example, a capacitor may eventually be explored as:
+
+```text
+Circuit layer       → i = C · dv/dt
+AC layer             → Z = 1 / (jωC)
+Laplace layer        → I(s) = sC V(s) - C v(0⁻)
+Physical layer       → Q = C V, electric field, stored energy
+Material layer       → dielectric / polarization behavior
+Microscopic layer    → charge carriers and interactions
+```
+
+These are not competing definitions; they are progressively different representations of the same underlying phenomenon. The deeper physical layers are future work and are not part of Phase 5.
+
+This architecture provides a scalable foundation for advanced circuit simulation and future multi-layer Worlds exploration while keeping the system maintainable and extensible.
