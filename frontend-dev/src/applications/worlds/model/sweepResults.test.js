@@ -132,7 +132,7 @@ test("response series expose contextual circuit labels", () => {
   const labels = series.map((item) => item.label);
 
   assert.ok(labels.includes("V(Node 1 — Supply.+ / Load.p)"));
-  assert.ok(labels.includes("I(Supply: p → n)"));
+  assert.ok(labels.includes("I(Supply: Node 1 — Supply.+ / Load.p → Ground)"));
   assert.ok(labels.includes("V(Supply)"));
   assert.ok(labels.includes("I(Supply)"));
   assert.ok(labels.includes("P(Supply)"));
