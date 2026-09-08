@@ -56,6 +56,13 @@ from .transient import (
     build_time_points,
 )
 
+from .state import (
+    DynamicState,
+    DynamicStateError,
+    DynamicStateSnapshot,
+    TransientStepContext,
+)
+
 from .request import (
     SimulationRequest,
     SimulationRequestError,
@@ -142,6 +149,10 @@ __all__ = [
     "TransientConfiguration",
     "parse_transient_settings",
     "build_time_points",
+    "DynamicState",
+    "DynamicStateError",
+    "DynamicStateSnapshot",
+    "TransientStepContext",
     "SimulationValidationError",
     "SimulationValidator",
     "ValidationIssue",
