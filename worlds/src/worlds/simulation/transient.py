@@ -15,6 +15,53 @@ class TransientAnalysisError(ValueError):
 
 
 @dataclass(frozen=True)
+class TransientConfiguration:
+    """Validated time-domain simulation configuration."""
+
+    start: float = 0.0
+    stop: float = 1.0
+    step: float = 0.01
+
+    def __post_init__(self) -> None:
+        start = float(self.start)
+        stop = float(self.stop)
+        step = float(self.step)
+        if step <= 0:
+            raise TransientAnalysisError("transient.settings.step must be greater than zero")
+        if stop < start:
+            raise TransientAnalysisError("transient.settings.stop must not be below start")
+        if len(self.time_points()) > 10_000:
+            raise TransientAnalysisError("transient produces more than 10000 points")
+
+    def time_points(self) -> tuple[float, ...]:
+        start = float(self.start)
+        stop = float(self.stop)
+        step = float(self.step)
+        points = [start]
+        current = start
+        epsilon = abs(step) * 1e-12 + 1e-15
+        while current + step <= stop + epsilon:
+            current += step
+            if current > stop and current - stop <= epsilon:
+                current = stop
+            points.append(current)
+            if len(points) > 10_000:
+                break
+        if points[-1] < stop - epsilon:
+            points.append(stop)
+        return tuple(points)
+
+    @classmethod
+    def from_dict(cls, settings: Mapping[str, object] | None) -> "TransientConfiguration":
+        settings = settings or {}
+        return cls(
+            start=float(settings.get("start", 0.0)),
+            stop=float(settings.get("stop", 1.0)),
+            step=float(settings.get("step", 0.01)),
+        )
+
+
+@dataclass(frozen=True)
 class TransientResult:
     """Time-domain result containing one operating-point snapshot per time point."""
 
@@ -24,7 +71,7 @@ class TransientResult:
 
 
 def parse_transient_settings(settings: Mapping[str, object]) -> tuple[Decimal, Decimal, Decimal]:
-    """Validate and return stop, step, and start times."""
+    """Validate and return start, stop, and step times."""
     start = _finite_decimal(settings.get("start", 0), "start")
     stop = _finite_decimal(settings.get("stop"), "stop")
     step = _finite_decimal(settings.get("step"), "step")
@@ -102,7 +149,7 @@ def _finite_decimal(value: object, name: str) -> Decimal:
     except (InvalidOperation, ValueError):
         raise TransientAnalysisError(f"transient.settings.{name} must be a finite number") from None
     if not parsed.is_finite():
-        raise TransientAnalysisError(f"transient.settings.{name} must be a finite number")
+        raise TransientAnalysisError(f"transient.settings.{name} must be a finite number") from None
     return parsed
 
 
