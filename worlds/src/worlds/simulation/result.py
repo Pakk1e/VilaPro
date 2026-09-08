@@ -28,6 +28,7 @@ class SimulationResultModel:
     datasets: tuple[SimulationDataset, ...] = ()
     statistics: Mapping[str, object] = field(default_factory=dict)
     analysis_information: Mapping[str, object] = field(default_factory=dict)
+    circuit_context: Mapping[str, object] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -35,6 +36,7 @@ class SimulationResultModel:
             "datasets": [dataset.to_dict() for dataset in self.datasets],
             "statistics": dict(self.statistics),
             "analysis_information": dict(self.analysis_information),
+            "circuit_context": dict(self.circuit_context),
         }
 
     @classmethod
@@ -48,6 +50,7 @@ class SimulationResultModel:
         node_voltages: Mapping[str, float],
         branch_currents: Mapping[str, float],
         components: list[dict],
+        circuit_context: Mapping[str, object] | None = None,
     ) -> "SimulationResultModel":
         """Build the generic result envelope for a DC operating-point run."""
 
@@ -64,6 +67,7 @@ class SimulationResultModel:
                 "settings": dict(settings),
                 "outputs": list(outputs),
             },
+            circuit_context=dict(circuit_context or {}),
         )
 
     @classmethod
@@ -80,6 +84,7 @@ class SimulationResultModel:
         node_voltages: list[dict[str, float] | None],
         branch_currents: list[dict[str, float] | None],
         components: list[list[dict] | None],
+        circuit_context: Mapping[str, object] | None = None,
     ) -> "SimulationResultModel":
         """Build the generic result envelope for a DC source sweep."""
 
@@ -105,4 +110,5 @@ class SimulationResultModel:
                 "outputs": list(outputs),
                 "sweep": {"source": sweep_source, "parameter": sweep_parameter},
             },
+            circuit_context=dict(circuit_context or {}),
         )
