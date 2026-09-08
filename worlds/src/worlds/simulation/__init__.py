@@ -55,6 +55,12 @@ from .result import (
     SimulationResultModel,
 )
 
+from .session import (
+    SimulationSession,
+    SimulationSessionError,
+    SimulationSessionStatus,
+)
+
 from .simulate import (
     SimulationError,
     simulate,
@@ -93,6 +99,9 @@ __all__ = [
     "SimulationDataset",
     "SimulationRequest",
     "SimulationRequestError",
+    "SimulationSession",
+    "SimulationSessionError",
+    "SimulationSessionStatus",
     "DC_OPERATING_POINT",
     "DC_SWEEP",
     "DCOperatingPointAnalysis",
