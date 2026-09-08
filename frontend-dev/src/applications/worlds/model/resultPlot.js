@@ -34,3 +34,22 @@ export function getPlotAxisLabel(axis) {
   if (!axis?.label) return "";
   return axis.unit ? `${axis.label} (${axis.unit})` : axis.label;
 }
+
+export function getNearestPlotRow(rows, xValue) {
+  if (!Array.isArray(rows) || !Number.isFinite(Number(xValue))) return null;
+
+  let nearest = null;
+  let nearestDistance = Infinity;
+
+  for (const row of rows) {
+    const rowX = Number(row?.sweepValue);
+    if (!Number.isFinite(rowX)) continue;
+    const distance = Math.abs(rowX - Number(xValue));
+    if (distance < nearestDistance) {
+      nearest = row;
+      nearestDistance = distance;
+    }
+  }
+
+  return nearest;
+}
