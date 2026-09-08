@@ -1,9 +1,19 @@
-import { getPlotAxisLabel, getPlotRows } from "../model/resultPlot.js";
+import { useState } from "react";
+
+import { getNearestPlotRow, getPlotAxisLabel, getPlotRows } from "../model/resultPlot.js";
 
 function formatTick(value) {
   const number = Number(value);
   if (!Number.isFinite(number)) return "—";
   return Math.abs(number) >= 1 ? number.toFixed(1) : number.toFixed(2);
+}
+
+function formatMeasurement(value, unit) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return "—";
+  if (unit === "A") return Math.abs(number) >= 1 ? `${number.toFixed(2)} A` : `${(number * 1000).toFixed(1)} mA`;
+  if (unit === "W") return Math.abs(number) >= 1 ? `${number.toFixed(2)} W` : `${(number * 1000).toFixed(1)} mW`;
+  return unit ? `${number.toFixed(3)} ${unit}` : number.toFixed(3);
 }
 
 function getFiniteRows(rows) {
@@ -33,6 +43,7 @@ export default function ResultChart({ plot, series }) {
   const rows = getPlotRows(plot, series);
   const points = getFiniteRows(rows);
   const failedRows = rows.filter((row) => row.failed && Number.isFinite(Number(row.sweepValue)));
+  const [selectedRow, setSelectedRow] = useState(null);
   const xLabel = getPlotAxisLabel(plot?.x);
   const yLabel = series?.unit ? `${series.label} (${series.unit})` : series?.label ?? "Response";
 
@@ -68,6 +79,20 @@ export default function ResultChart({ plot, series }) {
   const xTicks = xMin === xMax ? [xMin] : [xMin, xMin + xRange / 2, xMax];
   const yTicks = [chartYMin, chartYMin + chartYRange / 2, chartYMax];
 
+  const selectAtX = (xValue) => {
+    const nearest = getNearestPlotRow(rows, xValue);
+    setSelectedRow(nearest?.failed ? null : nearest);
+  };
+
+  const handleChartClick = (event) => {
+    const svg = event.currentTarget;
+    const rect = svg.getBoundingClientRect();
+    const svgX = ((event.clientX - rect.left) / rect.width) * width;
+    const clampedX = Math.max(margin.left, Math.min(width - margin.right, svgX));
+    const xValue = xMin + ((clampedX - margin.left) / plotWidth) * xRange;
+    selectAtX(xValue);
+  };
+
   return (
     <div className="overflow-hidden rounded-lg border border-[#e4e7eb] bg-white">
       <div className="flex items-center justify-between border-b border-[#e4e7eb] px-4 py-3">
@@ -77,8 +102,19 @@ export default function ResultChart({ plot, series }) {
         </div>
         <div className="text-[10px] text-[#69717b]">{points.length} valid points{failedRows.length > 0 ? ` · ${failedRows.length} failed` : ""}</div>
       </div>
+      <div className="border-b border-[#e4e7eb] bg-[#fafbfc] px-4 py-2.5">
+        {selectedRow ? (
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-[#26364d]" aria-live="polite">
+            <span><span className="text-[#69717b]">{xLabel}:</span> <strong className="font-mono">{formatMeasurement(selectedRow.sweepValue, plot?.x?.unit)}</strong></span>
+            <span><span className="text-[#69717b]">{series?.label ?? "Response"}:</span> <strong className="font-mono">{formatMeasurement(selectedRow.value, series?.unit)}</strong></span>
+            <button type="button" onClick={() => setSelectedRow(null)} className="ml-auto text-[10px] font-medium text-[#58718f] hover:underline">Clear</button>
+          </div>
+        ) : (
+          <div className="text-[10px] text-[#69717b]">Click the plot to inspect the nearest result point.</div>
+        )}
+      </div>
       <div className="overflow-x-auto px-3 py-3">
-        <svg viewBox={`0 0 ${width} ${height}`} className="h-auto min-w-[560px] w-full" role="img" aria-label={`${series?.label ?? "Response"} versus ${xLabel} result plot`}>
+        <svg viewBox={`0 0 ${width} ${height}`} className="h-auto min-w-[560px] w-full cursor-crosshair" role="img" aria-label={`${series?.label ?? "Response"} versus ${xLabel} result plot`} onClick={handleChartClick}>
           {yTicks.map((tick) => {
             const y = scaleY(tick);
             return <g key={`y-${tick}`}><line x1={margin.left} x2={width - margin.right} y1={y} y2={y} stroke="#e4e7eb" strokeWidth="1" /><text x={margin.left - 9} y={y + 4} textAnchor="end" fontSize="10" fill="#69717b">{formatTick(tick)}</text></g>;
@@ -90,7 +126,13 @@ export default function ResultChart({ plot, series }) {
           <line x1={margin.left} x2={width - margin.right} y1={height - margin.bottom} y2={height - margin.bottom} stroke="#cfd5dc" strokeWidth="1" />
           <line x1={margin.left} x2={margin.left} y1={margin.top} y2={height - margin.bottom} stroke="#cfd5dc" strokeWidth="1" />
           {paths.map((path, index) => <path key={`path-${index}`} d={path} fill="none" stroke="currentColor" strokeWidth="2" className="text-[#26364d]" />)}
-          {points.map((point, index) => <circle key={`${point.sweepValue}-${index}`} cx={scaleX(Number(point.sweepValue))} cy={scaleY(Number(point.value))} r="3.5" fill="currentColor" className="text-[#26364d]" />)}
+          {points.map((point, index) => {
+            const selected = selectedRow?.sweepValue === point.sweepValue && selectedRow?.value === point.value;
+            return <circle key={`${point.sweepValue}-${index}`} cx={scaleX(Number(point.sweepValue))} cy={scaleY(Number(point.value))} r={selected ? "5" : "3.5"} fill="currentColor" className="text-[#26364d]" onClick={(event) => { event.stopPropagation(); setSelectedRow(point); }} />;
+          })}
+          {selectedRow && (
+            <line x1={scaleX(Number(selectedRow.sweepValue))} x2={scaleX(Number(selectedRow.sweepValue))} y1={margin.top} y2={height - margin.bottom} stroke="currentColor" strokeDasharray="4 4" strokeWidth="1" className="text-[#58718f]" pointerEvents="none" />
+          )}
           {failedRows.map((row, index) => {
             const x = scaleX(Number(row.sweepValue));
             const y = margin.top + plotHeight / 2;
