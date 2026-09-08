@@ -6,11 +6,12 @@ from typing import Mapping, Protocol
 
 from worlds.math import Variable
 
+from .dynamic import TransientDynamicStateHandler
 from .model import SimulationModel
 from .network import build_network_equation_system
 from .session import SimulationSession
 from .solver import SimulationResult, SimulationSolver, SolverError
-from .state import DynamicState, DynamicStateSnapshot, NoOpTransientStateHandler, TransientStateHandler, TransientStepContext
+from .state import DynamicState, DynamicStateSnapshot, TransientStateHandler, TransientStepContext
 from .transient import TransientConfiguration, TransientConfigurationError
 
 DC_OPERATING_POINT = "dc_operating_point"
@@ -161,7 +162,7 @@ class TransientAnalysis:
     key = TRANSIENT
 
     def __init__(self, state_handler: TransientStateHandler | None = None):
-        self.state_handler = state_handler or NoOpTransientStateHandler()
+        self.state_handler = state_handler or TransientDynamicStateHandler()
 
     def run(self, model, *, known=None, configuration=None, session=None):
         if configuration is None:
