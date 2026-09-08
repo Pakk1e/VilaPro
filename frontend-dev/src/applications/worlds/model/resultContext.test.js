@@ -58,6 +58,6 @@ test("node description explains where the electrical node is connected", () => {
 test("branch description resolves the component and terminal direction", () => {
   assert.equal(
     describeCircuitBranch(result, "node_1->ground"),
-    "Supply: p → n"
+    "Supply: Node 1 — Supply.+ / Load.p → Ground"
   );
 });
