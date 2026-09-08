@@ -10,7 +10,7 @@ from .model import SimulationModel
 from .network import build_network_equation_system
 from .session import SimulationSession
 from .solver import SimulationResult, SimulationSolver, SolverError
-from .state import DynamicState, DynamicStateSnapshot, TransientStepContext
+from .state import DynamicState, DynamicStateSnapshot, NoOpTransientStateHandler, TransientStateHandler, TransientStepContext
 from .transient import TransientConfiguration, TransientConfigurationError
 
 DC_OPERATING_POINT = "dc_operating_point"
@@ -160,6 +160,9 @@ class DCSweepAnalysis:
 class TransientAnalysis:
     key = TRANSIENT
 
+    def __init__(self, state_handler: TransientStateHandler | None = None):
+        self.state_handler = state_handler or NoOpTransientStateHandler()
+
     def run(self, model, *, known=None, configuration=None, session=None):
         if configuration is None:
             raise SimulationAnalysisError("transient requires a simulation configuration")
@@ -176,23 +179,24 @@ class TransientAnalysis:
             _check_cancel(session)
             dt = None if previous_time is None else time - previous_time
             context = TransientStepContext(time=time, previous_time=previous_time, dt=dt)
+            previous_state = state.snapshot()
+            step_model = self.state_handler.prepare_step(model, previous_state, context)
+            if step_model is None:
+                raise SimulationAnalysisError("transient state handler returned no model")
             try:
-                result = _solve(model, base_known)
+                result = _solve(step_model, base_known)
             except SolverError as exc:
                 message = str(exc) or "Transient operating point did not converge"
                 results.append(None); errors.append(message)
-                states.append(state.snapshot())
+                states.append(previous_state)
                 contexts.append(context)
                 if session is not None: session.record_point({"status": "failed", "error": message}, time=time)
                 previous_time = time
                 continue
 
+            self.state_handler.accept_step(state, result, context)
             results.append(result); errors.append(None)
-            # The accepted snapshot is deliberately captured only after a
-            # successful solve. Stateful devices will update DynamicState here
-            # in later phases without changing the transient result contract.
-            snapshot = state.snapshot()
-            states.append(snapshot)
+            states.append(state.snapshot())
             contexts.append(context)
             if session is not None: session.record_point(result, time=time)
             previous_time = time
