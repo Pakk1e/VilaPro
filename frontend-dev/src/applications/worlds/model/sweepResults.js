@@ -85,9 +85,7 @@ function getNodeSeriesContext(result, nodeId) {
     quantity: "voltage",
     measurementType: "voltage",
     contextTitle: node?.is_ground ? "Ground" : node?.label ?? nodeId,
-    contextDescription: node?.is_ground
-      ? "Reference node (0 V)"
-      : `Voltage at ${node?.label ?? nodeId}`,
+    contextDescription: node?.is_ground ? "Reference node (0 V)" : `Voltage at ${node?.label ?? nodeId}`,
     connections: getCircuitNodeConnectionSummary(result, nodeId),
   };
 }
@@ -95,16 +93,13 @@ function getNodeSeriesContext(result, nodeId) {
 function getBranchSeriesContext(result, branchKey) {
   const branch = getCircuitBranch(result, branchKey);
   const [firstNode, secondNode] = String(branchKey).split("->");
-
   return {
     entityType: "branch",
     entityId: branchKey,
     quantity: "current",
     measurementType: "current",
     contextTitle: branch?.name ?? branchKey,
-    contextDescription: branch?.name
-      ? `Current through ${branch.name}`
-      : "Current through this branch",
+    contextDescription: branch?.name ? `Current through ${branch.name}` : "Current through this branch",
     positiveNode: branch?.positive?.node ?? firstNode,
     negativeNode: branch?.negative?.node ?? secondNode,
     positivePort: branch?.positive?.port_id ?? "p",
@@ -122,21 +117,13 @@ export function getSweepResponseSeries(result) {
   const componentValues = getDataset(result, "components")?.values;
 
   const nodeNames = new Set();
-  if (Array.isArray(nodeValues)) {
-    nodeValues.forEach((snapshot) => {
-      Object.keys(snapshot ?? {}).forEach((name) => nodeNames.add(name));
-    });
-  }
+  if (Array.isArray(nodeValues)) nodeValues.forEach((snapshot) => Object.keys(snapshot ?? {}).forEach((name) => nodeNames.add(name)));
   [...nodeNames].sort().forEach((node) => {
     addSeries(series, `node:${node}`, `V(${getCircuitNode(result, node)?.label ?? node})`, "V", sweepValues.map((_, index) => nodeValues?.[index]?.[node]), statuses, getNodeSeriesContext(result, node));
   });
 
   const branchNames = new Set();
-  if (Array.isArray(branchValues)) {
-    branchValues.forEach((snapshot) => {
-      Object.keys(snapshot ?? {}).forEach((name) => branchNames.add(name));
-    });
-  }
+  if (Array.isArray(branchValues)) branchValues.forEach((snapshot) => Object.keys(snapshot ?? {}).forEach((name) => branchNames.add(name)));
   [...branchNames].sort().forEach((branchKey) => {
     const branch = getCircuitBranch(result, branchKey);
     const branchLabel = branch?.name ?? branch?.id ?? branchKey;
@@ -144,15 +131,13 @@ export function getSweepResponseSeries(result) {
   });
 
   const componentMap = new Map();
-  if (Array.isArray(componentValues)) {
-    componentValues.forEach((snapshot) => {
-      if (!Array.isArray(snapshot)) return;
-      snapshot.forEach((component) => {
-        if (!component?.id) return;
-        if (!componentMap.has(component.id)) componentMap.set(component.id, { name: component.name ?? component.id });
-      });
+  if (Array.isArray(componentValues)) componentValues.forEach((snapshot) => {
+    if (!Array.isArray(snapshot)) return;
+    snapshot.forEach((component) => {
+      if (!component?.id) return;
+      if (!componentMap.has(component.id)) componentMap.set(component.id, { name: component.name ?? component.id });
     });
-  }
+  });
 
   for (const [id, component] of componentMap) {
     const contextComponent = getCircuitComponent(result, id);
@@ -175,4 +160,22 @@ export function getSweepResponseSeries(result) {
   }
 
   return series;
+}
+
+export const RESULT_SCOPES = Object.freeze({ COMPONENTS: "components", NODES: "nodes" });
+export const RESULT_MEASUREMENTS = Object.freeze({ VOLTAGE: "voltage", CURRENT: "current", POWER: "power" });
+
+export function getResultSeriesForScope(series, scope, measurement) {
+  return series.filter((item) => {
+    const matchesScope = scope === RESULT_SCOPES.NODES
+      ? item.entityType === "node"
+      : item.entityType === "component" || item.entityType === "branch";
+    if (!matchesScope) return false;
+    return item.measurementType === measurement;
+  });
+}
+
+export function getAvailableMeasurements(scope, series) {
+  const measurements = [RESULT_MEASUREMENTS.VOLTAGE, RESULT_MEASUREMENTS.CURRENT, RESULT_MEASUREMENTS.POWER];
+  return measurements.filter((measurement) => getResultSeriesForScope(series, scope, measurement).length > 0);
 }
