@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { getCircuitSummaryRows, getEntityMeasurementSeries, getOperatingPointResponseSeries } from "./resultExplorer.js";
+import { getCircuitSummaryRows, getEntityMeasurementSeries, getOperatingPointResponseSeries, getSummaryValue } from "./resultExplorer.js";
 import { RESULT_MEASUREMENTS } from "./sweepResults.js";
 
 const result = {
@@ -51,4 +51,15 @@ test("entity measurement lookup returns the series used by result selection", ()
     getEntityMeasurementSeries(series, "component", "R1", RESULT_MEASUREMENTS.CURRENT)?.values[0]?.value,
     0.01,
   );
+});
+
+test("summary value uses the latest successful point", () => {
+  const series = { values: [
+    { value: 1, failed: false },
+    { value: 2, failed: false },
+    { value: null, failed: true, error: "solver failed" },
+  ] };
+  assert.equal(getSummaryValue(series), 2);
+  assert.equal(getSummaryValue({ values: [{ value: null, failed: true }] }), null);
+  assert.equal(getSummaryValue(null), null);
 });
