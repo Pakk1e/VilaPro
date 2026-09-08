@@ -13,11 +13,7 @@ class SimulationDataset:
     dimensions: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, object]:
-        return {
-            "name": self.name,
-            "values": self.values,
-            "dimensions": list(self.dimensions),
-        }
+        return {"name": self.name, "values": self.values, "dimensions": list(self.dimensions)}
 
 
 @dataclass(frozen=True)
@@ -40,75 +36,33 @@ class SimulationResultModel:
         }
 
     @classmethod
-    def from_dc_operating_point(
-        cls,
-        *,
-        analysis: str,
-        status: str,
-        settings: Mapping[str, object],
-        outputs: tuple[str, ...],
-        node_voltages: Mapping[str, float],
-        branch_currents: Mapping[str, float],
-        components: list[dict],
-        circuit_context: Mapping[str, object] | None = None,
-    ) -> "SimulationResultModel":
-        """Build the generic result envelope for a DC operating-point run."""
-
+    def from_dc_operating_point(cls, *, analysis: str, status: str, settings: Mapping[str, object], outputs: tuple[str, ...], node_voltages: Mapping[str, float], branch_currents: Mapping[str, float], components: list[dict], circuit_context: Mapping[str, object] | None = None) -> "SimulationResultModel":
         return cls(
             metadata={"status": status},
-            datasets=(
-                SimulationDataset(name="node_voltages", values=dict(node_voltages)),
-                SimulationDataset(name="branch_currents", values=dict(branch_currents)),
-                SimulationDataset(name="components", values=list(components)),
-            ),
+            datasets=(SimulationDataset("node_voltages", dict(node_voltages)), SimulationDataset("branch_currents", dict(branch_currents)), SimulationDataset("components", list(components))),
             statistics={},
-            analysis_information={
-                "analysis": analysis,
-                "settings": dict(settings),
-                "outputs": list(outputs),
-            },
+            analysis_information={"analysis": analysis, "settings": dict(settings), "outputs": list(outputs)},
             circuit_context=dict(circuit_context or {}),
         )
 
     @classmethod
-    def from_dc_sweep(
-        cls,
-        *,
-        status: str,
-        settings: Mapping[str, object],
-        outputs: tuple[str, ...],
-        sweep_source: str,
-        sweep_parameter: str,
-        points: list[float],
-        point_statuses: list[dict[str, object]],
-        node_voltages: list[dict[str, float] | None],
-        branch_currents: list[dict[str, float] | None],
-        components: list[list[dict] | None],
-        circuit_context: Mapping[str, object] | None = None,
-    ) -> "SimulationResultModel":
-        """Build the generic result envelope for a DC source sweep."""
-
+    def from_dc_sweep(cls, *, status: str, settings: Mapping[str, object], outputs: tuple[str, ...], sweep_source: str, sweep_parameter: str, points: list[float], point_statuses: list[dict[str, object]], node_voltages: list[dict[str, float] | None], branch_currents: list[dict[str, float] | None], components: list[list[dict] | None], circuit_context: Mapping[str, object] | None = None) -> "SimulationResultModel":
         failed_count = sum(1 for item in point_statuses if item.get("status") == "failed")
-        completed_count = len(point_statuses) - failed_count
         return cls(
             metadata={"status": status},
-            datasets=(
-                SimulationDataset(name="sweep", values=points, dimensions=("sweep",)),
-                SimulationDataset(name="sweep_status", values=point_statuses, dimensions=("sweep",)),
-                SimulationDataset(name="node_voltages", values=node_voltages, dimensions=("sweep", "node")),
-                SimulationDataset(name="branch_currents", values=branch_currents, dimensions=("sweep", "branch")),
-                SimulationDataset(name="components", values=components, dimensions=("sweep", "component")),
-            ),
-            statistics={
-                "point_count": len(points),
-                "completed_point_count": completed_count,
-                "failed_point_count": failed_count,
-            },
-            analysis_information={
-                "analysis": "dc_sweep",
-                "settings": dict(settings),
-                "outputs": list(outputs),
-                "sweep": {"source": sweep_source, "parameter": sweep_parameter},
-            },
+            datasets=(SimulationDataset("sweep", points, ("sweep",)), SimulationDataset("sweep_status", point_statuses, ("sweep",)), SimulationDataset("node_voltages", node_voltages, ("sweep", "node")), SimulationDataset("branch_currents", branch_currents, ("sweep", "branch")), SimulationDataset("components", components, ("sweep", "component"))),
+            statistics={"point_count": len(points), "completed_point_count": len(point_statuses) - failed_count, "failed_point_count": failed_count},
+            analysis_information={"analysis": "dc_sweep", "settings": dict(settings), "outputs": list(outputs), "sweep": {"source": sweep_source, "parameter": sweep_parameter}},
+            circuit_context=dict(circuit_context or {}),
+        )
+
+    @classmethod
+    def from_transient(cls, *, status: str, settings: Mapping[str, object], outputs: tuple[str, ...], points: list[float], point_statuses: list[dict[str, object]], node_voltages: list[dict[str, float] | None], branch_currents: list[dict[str, float] | None], components: list[list[dict] | None], circuit_context: Mapping[str, object] | None = None) -> "SimulationResultModel":
+        failed_count = sum(1 for item in point_statuses if item.get("status") == "failed")
+        return cls(
+            metadata={"status": status},
+            datasets=(SimulationDataset("time", points, ("time",)), SimulationDataset("time_status", point_statuses, ("time",)), SimulationDataset("node_voltages", node_voltages, ("time", "node")), SimulationDataset("branch_currents", branch_currents, ("time", "branch")), SimulationDataset("components", components, ("time", "component"))),
+            statistics={"point_count": len(points), "completed_point_count": len(point_statuses) - failed_count, "failed_point_count": failed_count},
+            analysis_information={"analysis": "transient", "settings": dict(settings), "outputs": list(outputs)},
             circuit_context=dict(circuit_context or {}),
         )
