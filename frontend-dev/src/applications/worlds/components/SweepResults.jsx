@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 
 import { getCircuitComponent, getCircuitNode } from "../model/resultContext.js";
 import { getSweepInformation, getSweepResponseSeries, getSweepValues, getSweepPointStatuses } from "../model/sweepResults.js";
-import { createResultPlot, getNearestPlotPoint } from "../model/resultPlot.js";
+import { createResultPlot, getNearestPlotRow } from "../model/resultPlot.js";
 import ResultChart from "./ResultChart";
 
 function formatNumber(value, digits = 2) {
@@ -74,7 +74,8 @@ export default function SweepResults({ result }) {
   const sourceName = sourceComponent?.name ?? information.source;
   const parameterUnit = information.parameter === "I" ? "A" : "V";
   const plot = createResultPlot({ xLabel: sourceName, xUnit: parameterUnit, xValues: sweepValues, series });
-  const inspectedIndex = selectedPointIndex == null ? null : getNearestPlotPoint(plot, sweepValues[selectedPointIndex])?.index ?? selectedPointIndex;
+  const inspectedRow = selectedPointIndex == null ? null : getNearestPlotRow(plot, sweepValues[selectedPointIndex]);
+  const inspectedIndex = selectedPointIndex == null ? null : inspectedRow ? sweepValues.findIndex((value) => value === inspectedRow.sweepValue) : selectedPointIndex;
   const inspectedValue = inspectedIndex == null ? null : selectedSeries?.values[inspectedIndex];
   const inspectedSweep = inspectedIndex == null ? null : sweepValues[inspectedIndex];
   const inspectedFailed = inspectedIndex != null && (statuses[inspectedIndex]?.status === "failed" || inspectedValue?.failed);
@@ -86,7 +87,7 @@ export default function SweepResults({ result }) {
         {sweepValues.length === 0 ? <div className="px-4 py-5 text-xs text-[#69717b]">No sweep result points were returned.</div> : <div className="overflow-x-auto"><table className="w-full min-w-[560px] border-collapse text-left"><thead><tr className="border-b border-[#e4e7eb] bg-[#fafbfc]"><th className="px-4 py-2.5 text-[9px] font-semibold uppercase tracking-[0.1em] text-[#69717b]">Sweep ({parameterUnit})</th><th className="px-4 py-2.5 text-[9px] font-semibold uppercase tracking-[0.1em] text-[#69717b]">Response</th><th className="px-4 py-2.5 text-[9px] font-semibold uppercase tracking-[0.1em] text-[#69717b]">Status</th></tr></thead><tbody>{sweepValues.map((sweepValue, index) => { const point = selectedSeries?.values[index]; const failed = statuses[index]?.status === "failed" || point?.failed; return <tr key={`${sweepValue}-${index}`} onClick={() => setSelectedPointIndex(index)} className={`cursor-pointer border-b border-[#e4e7eb] last:border-b-0 ${selectedPointIndex === index ? "bg-[#f0f5fa]" : "hover:bg-[#fafbfc]"}`}><td className="px-4 py-2.5 font-mono text-xs font-medium text-[#17253a]">{formatNumber(sweepValue)} {parameterUnit}</td><td className="px-4 py-2.5 font-mono text-xs text-[#26364d]">{failed ? "—" : formatValue(point?.value, selectedSeries?.unit ?? "")}</td><td className={`px-4 py-2.5 text-[10px] font-medium ${failed ? "text-red-700" : "text-[#69717b]"}`}>{failed ? (statuses[index]?.error ?? point?.error ?? "Failed") : "Completed"}</td></tr>; })}</tbody></table></div>}
       </div>
       <div className="overflow-hidden rounded-xl border border-[#d9dde2] bg-white">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#e4e7eb] px-4 py-3"><div><div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#69717b]">Result Series</div><div className="mt-1 text-xs text-[#8a929c]">Choose what to plot. The sweep source remains the X-axis.</div></div>{series.length > 0 && <select aria-label="Sweep result series" value={selectedSeries?.key ?? ""} onChange={(event) => { setSelectedSeriesKey(event.target.value); setSelectedPointIndex(null); }} className="max-w-[280px] rounded-md border border-[#d9dde2] bg-white px-2.5 py-2 text-xs text-[#26364d] outline-none focus:border-[#58718f]"><>{series.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}</>}</select>}</div>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#e4e7eb] px-4 py-3"><div><div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#69717b]">Result Series</div><div className="mt-1 text-xs text-[#8a929c]">Choose what to plot. The sweep source remains the X-axis.</div></div>{series.length > 0 && <select aria-label="Sweep result series" value={selectedSeries?.key ?? ""} onChange={(event) => { setSelectedSeriesKey(event.target.value); setSelectedPointIndex(null); }} className="max-w-[280px] rounded-md border border-[#d9dde2] bg-white px-2.5 py-2 text-xs text-[#26364d] outline-none focus:border-[#58718f]"><>{series.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}</>}</div>
         <SeriesContext result={result} series={selectedSeries} />
         {selectedPointIndex != null && inspectedSweep != null && (
           <div className="border-b border-[#e4e7eb] px-4 py-3">
