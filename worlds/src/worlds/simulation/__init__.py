@@ -61,6 +61,8 @@ from .state import (
     DynamicStateError,
     DynamicStateSnapshot,
     TransientStepContext,
+    TransientStateHandler,
+    NoOpTransientStateHandler,
 )
 
 from .request import (
@@ -153,6 +155,8 @@ __all__ = [
     "DynamicStateError",
     "DynamicStateSnapshot",
     "TransientStepContext",
+    "TransientStateHandler",
+    "NoOpTransientStateHandler",
     "SimulationValidationError",
     "SimulationValidator",
     "ValidationIssue",
