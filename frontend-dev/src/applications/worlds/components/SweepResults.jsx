@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 
+import { getCircuitComponent } from "../model/resultContext";
 import { getSweepInformation, getSweepResponseSeries, getSweepValues, getSweepPointStatuses } from "../model/sweepResults";
 import SweepChart from "./SweepChart";
 
@@ -16,7 +17,7 @@ function formatValue(value, unit) {
   return `${number.toFixed(2)} ${unit}`;
 }
 
-export default function SweepResults({ result, nodes = [] }) {
+export default function SweepResults({ result }) {
   const information = getSweepInformation(result);
   const sweepValues = getSweepValues(result);
   const statuses = getSweepPointStatuses(result);
@@ -37,9 +38,10 @@ export default function SweepResults({ result, nodes = [] }) {
     : [];
 
   const failedCount = statuses.filter((item) => item.status === "failed").length;
-  const sourceNode = nodes.find((node) => node.id === information.source);
-  const sourceName = sourceNode?.data?.label ?? information.source;
+  const sourceComponent = getCircuitComponent(result, information.source);
+  const sourceName = sourceComponent?.name ?? information.source;
   const parameterUnit = information.parameter === "I" ? "A" : "V";
+  const selectedEntityDescription = selectedSeries?.label ?? "No result series selected";
 
   return (
     <section aria-label="DC sweep results" className="space-y-4">
@@ -98,13 +100,16 @@ export default function SweepResults({ result, nodes = [] }) {
               aria-label="Sweep result series"
               value={selectedSeries?.key ?? ""}
               onChange={(event) => setSelectedSeriesKey(event.target.value)}
-              className="max-w-[260px] rounded-md border border-[#d9dde2] bg-white px-2.5 py-2 text-xs text-[#26364d] outline-none focus:border-[#58718f]"
+              className="max-w-[320px] rounded-md border border-[#d9dde2] bg-white px-2.5 py-2 text-xs text-[#26364d] outline-none focus:border-[#58718f]"
             >
               {series.map((item) => (
                 <option key={item.key} value={item.key}>{item.label}</option>
               ))}
             </select>
           )}
+        </div>
+        <div className="border-b border-[#e4e7eb] bg-[#fafbfc] px-4 py-2.5 text-xs text-[#26364d]">
+          <span className="font-medium">Selected response:</span> {selectedEntityDescription}
         </div>
         <div className="p-3">
           {selectedSeries ? (
