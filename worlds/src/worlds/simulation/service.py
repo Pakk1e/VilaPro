@@ -12,6 +12,7 @@ from worlds.simulation.analysis import (
 from worlds.simulation.builder import build_simulation_component
 from worlds.simulation.model import SimulationModel
 from worlds.simulation.result import SimulationResultModel
+from worlds.simulation.session import SimulationSession, SimulationSessionError
 from worlds.simulation.solver import BranchCurrent, SimulationResult
 from worlds.simulation.validation import SimulationValidator
 from worlds.vdl import Parser
@@ -44,6 +45,7 @@ class SimulationService:
         known: dict[object, float] | None = None,
         simulation: dict | None = None,
     ) -> SimulationResponse:
+        session: SimulationSession | None = None
         try:
             configuration = SimulationConfiguration.from_dict(simulation)
             world = Parser(world_source).parse()
@@ -80,13 +82,19 @@ class SimulationService:
             circuit_context = self._build_circuit_context(model)
 
             analysis = get_simulation_analysis(configuration.analysis)
+            total_points = self._expected_point_count(analysis, configuration)
+            session = SimulationSession(total_points=total_points)
+            session.start()
+
             result = analysis.run(
                 model,
                 known=known,
                 configuration=configuration,
+                session=session,
             )
 
             if isinstance(result, DCSweepResult):
+                session.complete()
                 return self._build_sweep_response(result, configuration, circuit_context)
 
             if not isinstance(result, SimulationResult):
@@ -95,6 +103,8 @@ class SimulationService:
                 )
 
             response = self._build_response(result)
+            session.record_point(response, time=session.time)
+            session.complete()
             generic_result = SimulationResultModel.from_dc_operating_point(
                 analysis=configuration.analysis,
                 status="completed",
@@ -115,10 +125,40 @@ class SimulationService:
                 result=generic_result,
             )
 
+        except SimulationSessionError as exc:
+            raise SimulationServiceError(str(exc)) from exc
         except Exception as exc:
             if isinstance(exc, SimulationServiceError):
                 raise
+            if session is not None and not session.is_terminal and str(exc):
+                session.fail(str(exc))
             raise SimulationServiceError(str(exc)) from exc
+
+    @staticmethod
+    def _expected_point_count(analysis, configuration: SimulationConfiguration) -> int | None:
+        if configuration.analysis != "dc_sweep":
+            return 1
+        start, stop, step = (
+            configuration.settings["start"],
+            configuration.settings["stop"],
+            configuration.settings["step"],
+        )
+        values = [float(start)]
+        current = float(start)
+        target = float(stop)
+        increment = float(step)
+        epsilon = abs(increment) * 1e-12 + 1e-15
+        while True:
+            next_value = current + increment
+            if (increment > 0 and next_value > target + epsilon) or (
+                increment < 0 and next_value < target - epsilon
+            ):
+                break
+            values.append(next_value)
+            current = next_value
+            if len(values) > 10_000:
+                return None
+        return len(values)
 
     def _build_sweep_response(
         self,
