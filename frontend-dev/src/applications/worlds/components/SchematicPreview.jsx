@@ -1,13 +1,15 @@
 import { useMemo } from "react";
 
 import { buildCircuitDescription } from "../model/worldGraphSerializer";
-import { generateSchematic } from "../model/schematicGenerator";
+import { generateSchematic, getSchematicPort } from "../model/schematicGenerator";
+import { getCircuitBranch, getCircuitComponent, getCircuitNode } from "../model/resultContext.js";
 
 const TERMINAL_OFFSET = 92;
 const STROKE = "#26364d";
 const TEXT = "#17253a";
 const MUTED = "#69717b";
 const SELECTED = "#58718f";
+const RESULT_HIGHLIGHT = "#c26a2e";
 const GROUND_BUS_Y = 520;
 
 function getSymbol(instance) {
@@ -22,7 +24,7 @@ function getValueLabel(instance) {
   return "";
 }
 
-function SchematicSymbol({ instance, position, orientation, selected, onSelect }) {
+function SchematicSymbol({ instance, position, orientation, selected, resultHighlighted, onSelect }) {
   const symbol = getSymbol(instance);
   const value = getValueLabel(instance);
   const label = instance.name ?? "Component";
@@ -42,7 +44,10 @@ function SchematicSymbol({ instance, position, orientation, selected, onSelect }
         }
       }}
     >
-      {selected && (
+      {resultHighlighted && (
+        <rect x="-86" y="-56" width="172" height="112" rx="10" fill="none" stroke={RESULT_HIGHLIGHT} strokeWidth="4" />
+      )}
+      {selected && !resultHighlighted && (
         <rect
           x="-82"
           y="-52"
@@ -69,13 +74,7 @@ function SchematicSymbol({ instance, position, orientation, selected, onSelect }
         ) : symbol === "resistor" ? (
           <>
             <line x1={-TERMINAL_OFFSET} y1="0" x2="-40" y2="0" stroke={STROKE} strokeWidth="3" />
-            <path
-              d="M -40 0 L -28 -14 L -10 14 L 8 -14 L 26 14 L 40 0"
-              fill="none"
-              stroke={STROKE}
-              strokeWidth="4"
-              strokeLinejoin="round"
-            />
+            <path d="M -40 0 L -28 -14 L -10 14 L 8 -14 L 26 14 L 40 0" fill="none" stroke={STROKE} strokeWidth="4" strokeLinejoin="round" />
             <line x1="40" y1="0" x2={TERMINAL_OFFSET} y2="0" stroke={STROKE} strokeWidth="3" />
           </>
         ) : (
@@ -104,13 +103,12 @@ export default function SchematicPreview({
   edges,
   selectedNodeId,
   onSelectComponent,
+  selectedResultEntity,
 }) {
   const schematic = useMemo(() => {
     if (!nodes.length) return null;
 
     try {
-      // The schematic is derived exclusively from the normalized electrical
-      // description. React Flow node positions are intentionally ignored.
       const description = buildCircuitDescription(nodes, edges);
       return {
         ...generateSchematic(description),
@@ -128,6 +126,31 @@ export default function SchematicPreview({
       };
     }
   }, [edges, nodes]);
+
+  const resultHighlight = useMemo(() => {
+    if (!selectedResultEntity || !schematic) return { instanceIds: new Set(), nodeId: null, branch: null };
+
+    if (selectedResultEntity.entityType === "component") {
+      return { instanceIds: new Set([selectedResultEntity.entityId]), nodeId: null, branch: null };
+    }
+
+    if (selectedResultEntity.entityType === "branch") {
+      const branch = getCircuitBranch({ result: { circuit_context: { branches: [] } } }, selectedResultEntity.entityId);
+      return { instanceIds: new Set(), nodeId: null, branch };
+    }
+
+    if (selectedResultEntity.entityType === "node") {
+      const node = getCircuitNode(selectedResultEntity.result, selectedResultEntity.entityId);
+      const instanceIds = new Set((node?.connections ?? []).map((connection) => connection.instance_id));
+      return { instanceIds, nodeId: selectedResultEntity.entityId, branch: null };
+    }
+
+    return { instanceIds: new Set(), nodeId: null, branch: null };
+  }, [schematic, selectedResultEntity]);
+
+  const resultBranchInstanceId = selectedResultEntity?.entityType === "branch"
+    ? String(selectedResultEntity.entityId ?? "").split("->")[0]
+    : null;
 
   if (!nodes.length) {
     return (
@@ -149,6 +172,16 @@ export default function SchematicPreview({
   const groundMinX = Math.min(...groundCenters.map((x) => x - TERMINAL_OFFSET), -20);
   const groundMaxX = Math.max(...groundCenters.map((x) => x + TERMINAL_OFFSET), 220);
   const groundSymbolX = (groundMinX + groundMaxX) / 2;
+
+  const selectedNodeNet = resultHighlight.nodeId && schematic.netColumns.has(resultHighlight.nodeId)
+    ? schematic.netColumns.get(resultHighlight.nodeId)
+    : null;
+  const selectedNodeEndpoints = resultHighlight.nodeId
+    ? (schematic.netGraph.get(resultHighlight.nodeId) ?? []).map(({ instance, portId }) => {
+        const point = getSchematicPort(instance, portId, schematic);
+        return point ? { ...point, instanceId: instance.id, portId } : null;
+      }).filter(Boolean)
+    : [];
 
   return (
     <div className="flex h-full w-[38%] min-w-0 flex-col overflow-hidden border-r border-[#d9dde2] bg-white">
@@ -186,13 +219,15 @@ export default function SchematicPreview({
               </pattern>
             </defs>
 
-            <rect
-              x={schematic.bounds.minX}
-              y={schematic.bounds.minY}
-              width={schematic.bounds.width}
-              height={schematic.bounds.height}
-              fill="url(#schematic-grid)"
-            />
+            <rect x={schematic.bounds.minX} y={schematic.bounds.minY} width={schematic.bounds.width} height={schematic.bounds.height} fill="url(#schematic-grid)" />
+
+            {selectedNodeNet !== null && (
+              <>
+                <line x1={selectedNodeNet} y1={80} x2={selectedNodeNet} y2={GROUND_BUS_Y - 24} stroke={RESULT_HIGHLIGHT} strokeWidth="5" strokeDasharray="9 7" opacity="0.7" />
+                <rect x={selectedNodeNet - 42} y="74" width="84" height="24" rx="6" fill="white" stroke={RESULT_HIGHLIGHT} strokeWidth="2" />
+                <text x={selectedNodeNet} y="90" textAnchor="middle" fontSize="11" fontWeight="700" fill={RESULT_HIGHLIGHT}>{resultHighlight.nodeId.replace("_", " ")}</text>
+              </>
+            )}
 
             <g fill="none" stroke={STROKE} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
               {schematic.wires.map((wire) =>
@@ -201,14 +236,12 @@ export default function SchematicPreview({
               <line x1={groundMinX} y1={GROUND_BUS_Y} x2={groundMaxX} y2={GROUND_BUS_Y} />
             </g>
 
+            {selectedNodeEndpoints.map((point) => (
+              <circle key={`${point.instanceId}-${point.portId}`} cx={point.x} cy={point.y} r="9" fill="white" stroke={RESULT_HIGHLIGHT} strokeWidth="4" />
+            ))}
+
             {schematic.junctions.map((junction) => (
-              <circle
-                key={junction.id}
-                cx={junction.x}
-                cy={junction.y}
-                r="5"
-                fill={STROKE}
-              />
+              <circle key={junction.id} cx={junction.x} cy={junction.y} r="5" fill={STROKE} />
             ))}
 
             <g>
@@ -216,14 +249,14 @@ export default function SchematicPreview({
               <line x1={groundSymbolX - 20} y1={GROUND_BUS_Y + 20} x2={groundSymbolX + 20} y2={GROUND_BUS_Y + 20} stroke={STROKE} strokeWidth="3" />
               <line x1={groundSymbolX - 13} y1={GROUND_BUS_Y + 27} x2={groundSymbolX + 13} y2={GROUND_BUS_Y + 27} stroke={STROKE} strokeWidth="3" />
               <line x1={groundSymbolX - 6} y1={GROUND_BUS_Y + 34} x2={groundSymbolX + 6} y2={GROUND_BUS_Y + 34} stroke={STROKE} strokeWidth="3" />
-              <text x={groundSymbolX} y={GROUND_BUS_Y + 52} textAnchor="middle" fontSize="11" fill={MUTED}>
-                GND
-              </text>
+              <text x={groundSymbolX} y={GROUND_BUS_Y + 52} textAnchor="middle" fontSize="11" fill={MUTED}>GND</text>
             </g>
 
             {schematic.instances.map((instance) => {
               const position = schematic.positions.get(instance.id);
               if (!position) return null;
+              const branchHighlighted = resultBranchInstanceId === instance.id;
+              const resultHighlighted = resultHighlight.instanceIds.has(instance.id) || branchHighlighted;
               return (
                 <SchematicSymbol
                   key={instance.id}
@@ -231,6 +264,7 @@ export default function SchematicPreview({
                   position={position}
                   orientation={schematic.orientations.get(instance.id) ?? "normal"}
                   selected={selectedNodeId === instance.id}
+                  resultHighlighted={resultHighlighted}
                   onSelect={onSelectComponent}
                 />
               );
