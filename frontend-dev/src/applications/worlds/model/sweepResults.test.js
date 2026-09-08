@@ -127,7 +127,7 @@ test("failed sweep points retain their status and error", () => {
   ]);
 });
 
-test("response series use concise labels and keep circuit context separate", () => {
+test("response series use concise labels and human-readable semantic descriptions", () => {
   const series = getSweepResponseSeries(result);
   const labels = series.map((item) => item.label);
 
@@ -141,13 +141,14 @@ test("response series use concise labels and keep circuit context separate", () 
   assert.equal(nodeSeries.entityType, "node");
   assert.equal(nodeSeries.entityId, "node_1");
   assert.equal(nodeSeries.contextTitle, "Node 1");
-  assert.equal(nodeSeries.contextDescription, "Node 1 — Supply.+ / Load.p");
+  assert.equal(nodeSeries.contextDescription, "Voltage at Node 1");
   assert.deepEqual(nodeSeries.values.map((item) => item.value), [0, undefined, 2]);
   assert.equal(nodeSeries.values[1].failed, true);
 
   const branchSeries = series.find((item) => item.label === "I(Supply)");
   assert.equal(branchSeries.entityType, "branch");
   assert.equal(branchSeries.contextTitle, "Supply");
+  assert.equal(branchSeries.contextDescription, "Current through Supply");
   assert.equal(branchSeries.positiveNode, "node_1");
   assert.equal(branchSeries.negativeNode, "ground");
 });
