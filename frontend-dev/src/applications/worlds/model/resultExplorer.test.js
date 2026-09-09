@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { getCircuitSummaryRows, getEntityMeasurementSeries, getOperatingPointResponseSeries, getSummaryValue, getVisualizationSeries } from "./resultExplorer.js";
+import { getCircuitSummaryRows, getEntityMeasurementSeries, getExplorerMeasurements, getExplorerSeries, getOperatingPointResponseSeries, getSummaryValue, getVisualizationSeries } from "./resultExplorer.js";
 import { RESULT_MEASUREMENTS } from "./sweepResults.js";
 import { createResultPlot } from "./resultPlot.js";
 
@@ -73,4 +73,28 @@ test("result plot uses canonical time axis for transient response", () => {
   const plot = createResultPlot({ independentVariable: { key: "time", label: "Time", unit: "s", values: [0, 0.5, 1] }, series: [{ key: "v", label: "V(out)", quantity: "voltage", unit: "V", values: [{ value: 0 }, { value: 2 }, { value: 1 }] }] });
   assert.deepEqual(plot.x, { key: "time", label: "Time", unit: "s", values: [0, 0.5, 1] });
   assert.equal(plot.series[0].quantity, "voltage");
+});
+
+test("component transient series are grouped into explorer component measurements", () => {
+  const series = getVisualizationSeries({ visualization: { plots: [{ id: "rlc", independent_variable: { key: "time", label: "Time", unit: "s", values: [0, 1] }, series: [
+    { id: "components:C1:voltage", label: "V(C1)", quantity: "voltage", unit: "V", source: "component:C1", y: [0, 1] },
+    { id: "components:C1:current", label: "I(C1)", quantity: "current", unit: "A", source: "component:C1", y: [0, 2] },
+    { id: "components:C1:power", label: "P(C1)", quantity: "power", unit: "W", source: "component:C1", y: [0, 2] },
+  ] }] } });
+  assert.deepEqual(getExplorerMeasurements("components", series), ["voltage", "current", "power"]);
+  assert.equal(getExplorerSeries(series, "components", "current")[0].entityId, "C1");
+  assert.equal(getExplorerSeries(series, "components", "current")[0].label, "I(C1)");
+});
+
+test("component transient summary keeps latest valid V/I/P values", () => {
+  const series = getVisualizationSeries({ visualization: { plots: [{ independent_variable: { key: "time", label: "Time", unit: "s", values: [0, 1, 2] }, series: [
+    { id: "components:L1:voltage", label: "V(L1)", quantity: "voltage", unit: "V", source: "component:L1", y: [0, 3, null] },
+    { id: "components:L1:current", label: "I(L1)", quantity: "current", unit: "A", source: "component:L1", y: [0, 1, null] },
+    { id: "components:L1:power", label: "P(L1)", quantity: "power", unit: "W", source: "component:L1", y: [0, 3, null] },
+  ] }] } });
+  const row = getCircuitSummaryRows(series)[0];
+  assert.equal(row.entityType, "component");
+  assert.equal(getSummaryValue(row.values.voltage), 3);
+  assert.equal(getSummaryValue(row.values.current), 1);
+  assert.equal(getSummaryValue(row.values.power), 3);
 });
