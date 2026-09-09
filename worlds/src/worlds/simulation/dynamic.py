@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from typing import Any
 
 from worlds.math import Binary, Equation, FunctionCall, Number, Variable
 
 from .model import SimulationComponent, SimulationModel
+from .representation import ElectricalComponentRepresentation
 from .state import DynamicState, DynamicStateSnapshot, TransientStepContext, TransientStateHandler
 
 
@@ -13,7 +14,8 @@ class DynamicComponentError(ValueError):
     """Raised when a dynamic component definition is invalid."""
 
 
-class CapacitorTransientModel:
+@dataclass(frozen=True)
+class CapacitorTransientModel(ElectricalComponentRepresentation):
     """Backward-Euler transient representation of an electrical capacitor.
 
     The component's physical relationship is i = C * dv/dt. This class only
@@ -21,7 +23,9 @@ class CapacitorTransientModel:
     component's physical identity or its other analysis representations.
     """
 
-    component_type = "Capacitor"
+    component_type: str = "Capacitor"
+    layer: str = "electrical"
+    method: str = "backward_euler"
 
     @staticmethod
     def capacitance(component: SimulationComponent) -> float:
@@ -84,7 +88,6 @@ class CapacitorStateHandler(TransientStateHandler):
                 components.append(component)
                 continue
 
-            # Validate the physical parameter even on the initial step.
             self.model.capacitance(component)
             previous_voltage = previous_state.get(component.component_id, self.model.initial_voltage(component))
             if not isinstance(previous_voltage, (int, float)) or isinstance(previous_voltage, bool):
