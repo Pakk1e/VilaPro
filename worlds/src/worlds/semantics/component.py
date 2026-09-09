@@ -9,7 +9,7 @@ from worlds.math import (
     Unary,
     Variable,
 )
-from worlds.units import Dimension
+from worlds.units import Dimension, TIME
 
 from .physical import PhysicalFunctionRegistry
 from .types import PortType, Symbol, SymbolKind, TypeEnvironment
@@ -17,9 +17,6 @@ from .types import PortType, Symbol, SymbolKind, TypeEnvironment
 
 class ComponentSemanticError(Exception):
     pass
-
-
-
 
 
 class ComponentSemanticAnalyzer:
@@ -102,8 +99,6 @@ class ComponentSemanticAnalyzer:
                     port_type=symbol.port_type,
                 )
             )
-
-
 
     def _validate_equations(self):
         for representation in self.component.representations:
@@ -201,6 +196,9 @@ class ComponentSemanticAnalyzer:
             )
 
         if isinstance(expression, FunctionCall):
+            if expression.name == "derivative":
+                return self._derivative_dimension(expression)
+
             try:
                 signature = self.functions.require(
                     expression.name
@@ -234,6 +232,34 @@ class ComponentSemanticAnalyzer:
             f"Unsupported expression: "
             f"{expression!r}"
         )
+
+    def _derivative_dimension(
+        self,
+        expression: FunctionCall,
+    ) -> Dimension:
+        if len(expression.arguments) != 2:
+            raise ComponentSemanticError(
+                "Function derivative expects 2 arguments, got "
+                f"{len(expression.arguments)}"
+            )
+
+        value_expression, variable_expression = expression.arguments
+
+        if not isinstance(variable_expression, Variable):
+            raise ComponentSemanticError(
+                "Second argument of derivative must be the time variable"
+            )
+
+        if variable_expression.name not in ("time", "t"):
+            raise ComponentSemanticError(
+                "Second argument of derivative must be 'time' or 't'"
+            )
+
+        value_dimension = self._expression_dimension(
+            value_expression
+        )
+
+        return value_dimension / TIME
 
     def _validate_function_argument(
         self,
