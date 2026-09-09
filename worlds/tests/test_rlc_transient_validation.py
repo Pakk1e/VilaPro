@@ -73,12 +73,15 @@ class RLCTransientValidationTest(unittest.TestCase):
         )
 
     def test_zero_initial_rlc_matches_analytical_step_response(self):
+        # Backward Euler has first-order truncation error. Use a timestep small
+        # enough that the validation threshold measures the circuit behavior
+        # rather than dominating the result with discretization error.
         simulation = TransientAnalysis().run(
-            self._model(), configuration=self._configuration(0.01, 0.0001)
+            self._model(), configuration=self._configuration(0.01, 0.00001)
         )
         self.assertTrue(all(result is not None for result in simulation.results))
 
-        sample_indices = (10, 25, 50, 75, 100)
+        sample_indices = (100, 250, 500, 750, 1000)
         actual_current = [simulation.results[i].instance("L1").current() for i in sample_indices]
         expected_current = [self._analytical_current(float(simulation.points[i])) for i in sample_indices]
         actual_voltage = [simulation.results[i].node_voltage("out") for i in sample_indices]
