@@ -168,7 +168,9 @@ class TransientAnalysis:
         if configuration is None:
             raise SimulationAnalysisError("transient requires a simulation configuration")
         transient = TransientConfiguration.from_dict(configuration.settings)
-        points = transient.time_points()
+        output_points = transient.time_points()
+        execution_points = _build_transient_execution_points(transient)
+        output_start = float(transient.start)
         results, errors = [], []
         states: list[DynamicStateSnapshot] = []
         contexts: list[TransientStepContext] = []
@@ -176,7 +178,7 @@ class TransientAnalysis:
         state = DynamicState()
         previous_time = None
 
-        for time in points:
+        for time in execution_points:
             _check_cancel(session)
             dt = None if previous_time is None else time - previous_time
             context = TransientStepContext(time=time, previous_time=previous_time, dt=dt)
@@ -188,21 +190,34 @@ class TransientAnalysis:
                 result = _solve(step_model, base_known)
             except SolverError as exc:
                 message = str(exc) or "Transient operating point did not converge"
-                results.append(None); errors.append(message)
-                states.append(previous_state)
-                contexts.append(context)
-                if session is not None: session.record_point({"status": "failed", "error": message}, time=time)
+                if time >= output_start:
+                    results.append(None); errors.append(message)
+                    states.append(previous_state)
+                    contexts.append(context)
+                    if session is not None: session.record_point({"status": "failed", "error": message}, time=time)
                 previous_time = time
                 continue
 
             self.state_handler.accept_step(state, result, context)
-            results.append(result); errors.append(None)
-            states.append(state.snapshot())
-            contexts.append(context)
-            if session is not None: session.record_point(result, time=time)
+            if time >= output_start:
+                results.append(result); errors.append(None)
+                states.append(state.snapshot())
+                contexts.append(context)
+                if session is not None: session.record_point(result, time=time)
             previous_time = time
 
-        return TransientResult(points, tuple(results), tuple(errors), tuple(states), tuple(contexts))
+        return TransientResult(tuple(output_points), tuple(results), tuple(errors), tuple(states), tuple(contexts))
+
+
+def _build_transient_execution_points(configuration: TransientConfiguration) -> tuple[float, ...]:
+    """Build the physical simulation timeline, warming from t=0 when output starts later."""
+    output_points = configuration.time_points()
+    start = float(configuration.start)
+    if start <= 0:
+        return output_points
+
+    warmup = TransientConfiguration(start=0.0, stop=start, step=float(configuration.step)).time_points()
+    return tuple(warmup)
 
 
 def _solve(model, known):
