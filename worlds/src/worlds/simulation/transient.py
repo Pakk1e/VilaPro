@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from typing import Mapping
 
-from .capacitor import CapacitorTransientStateHandler
+from .dynamic import TransientDynamicStateHandler
 from .model import SimulationModel
 from .session import SimulationSession
 from .solver import SimulationResult, SimulationSolver, SolverError
@@ -120,7 +120,7 @@ class TransientAnalysis:
         base_known = dict(known or {})
         dynamic_state = DynamicState()
         previous_time: float | None = None
-        capacitor_handler = CapacitorTransientStateHandler()
+        state_handler = TransientDynamicStateHandler()
 
         for time in points:
             current_time = float(time)
@@ -136,24 +136,21 @@ class TransientAnalysis:
             previous_state: DynamicStateSnapshot = dynamic_state.snapshot()
 
             try:
-                step_model = capacitor_handler.prepare_step(model, previous_state, context)
+                step_model = state_handler.prepare_step(model, previous_state, context)
                 system = build_network_equation_system(step_model)
                 solved = SimulationSolver().solve(system, known=base_known)
                 result = SimulationResult(
                     values=solved.values,
                     instances={component.name: component for component in step_model.components},
                 )
-                # State is committed only after a successful solve. A failed
-                # point therefore cannot corrupt the next accepted state.
-                capacitor_handler.accept_step(dynamic_state, result, context)
+                # Dynamic state is committed only after a successful solve.
+                state_handler.accept_step(dynamic_state, result, context)
             except (SolverError, ValueError) as exc:
                 message = str(exc) or "Transient operating point did not converge"
                 results.append(None)
                 errors.append(message)
                 if session is not None:
                     session.record_point({"status": "failed", "error": message}, time=current_time)
-                # Keep previous_time unchanged: the next successful step still
-                # advances from the last accepted state/time.
                 continue
 
             results.append(result)
@@ -173,7 +170,7 @@ def _finite_decimal(value: object, name: str) -> Decimal:
     except (InvalidOperation, ValueError):
         raise TransientAnalysisError(f"transient.settings.{name} must be a finite number") from None
     if not parsed.is_finite():
-        raise TransientAnalysisError(f"transient.settings.{name} must be a finite number") from None
+        raise TransientAnalysisError(f"transient.settings.{name} must be a finite number")
     return parsed
 
 
