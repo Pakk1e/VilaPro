@@ -14,14 +14,22 @@ class DynamicComponentError(ValueError):
     """Raised when a dynamic component definition is invalid."""
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, init=False)
 class CapacitorTransientModel(ElectricalComponentRepresentation):
     """Backward-Euler transient representation of an electrical capacitor."""
 
-    capacitance: float | None = None
     component_type: str = "Capacitor"
     layer: str = "electrical"
+    analysis: str = "transient"
     method: str = "backward_euler"
+    _configured_capacitance: float | None = None
+
+    def __init__(self, capacitance: float | None = None) -> None:
+        object.__setattr__(self, "component_type", "Capacitor")
+        object.__setattr__(self, "layer", "electrical")
+        object.__setattr__(self, "analysis", "transient")
+        object.__setattr__(self, "method", "backward_euler")
+        object.__setattr__(self, "_configured_capacitance", capacitance)
 
     def _validate_capacitance_value(self, value: object, name: str = "Capacitor") -> float:
         if value is None:
@@ -36,12 +44,20 @@ class CapacitorTransientModel(ElectricalComponentRepresentation):
             raise DynamicComponentError(f"{name} capacitance must be greater than zero")
         return capacitance
 
-    def capacitance_for(self, component: SimulationComponent) -> float:
-        value = component.parameters.get("C", component.parameters.get("capacitance", self.capacitance))
+    def capacitance(self, component: SimulationComponent) -> float:
+        """Resolve and validate capacitance from a component instance."""
+        value = component.parameters.get(
+            "C", component.parameters.get("capacitance", self._configured_capacitance)
+        )
         return self._validate_capacitance_value(value, f"Capacitor '{component.name}'")
 
+    def capacitance_for(self, component: SimulationComponent) -> float:
+        """Compatibility alias for callers using the explicit resolver name."""
+        return self.capacitance(component)
+
     def capacitance_value(self) -> float:
-        return self._validate_capacitance_value(self.capacitance)
+        """Return the configured representation capacitance."""
+        return self._validate_capacitance_value(self._configured_capacitance)
 
     def initial_voltage(self, component: SimulationComponent) -> float:
         value = component.parameters.get("initial_voltage", component.parameters.get("initialVoltage", 0.0))
@@ -62,7 +78,7 @@ class CapacitorTransientModel(ElectricalComponentRepresentation):
                 right=Number(previous_voltage),
             )
 
-        conductance = self.capacitance_for(component) / dt
+        conductance = self.capacitance(component) / dt
         return Equation(
             left=FunctionCall("current", (Variable("p"), Variable("n"))),
             right=Binary(
