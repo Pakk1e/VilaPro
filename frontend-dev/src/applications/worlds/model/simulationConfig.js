@@ -1,6 +1,7 @@
 export const SIMULATION_ANALYSES = {
   DC_OPERATING_POINT: "dc_operating_point",
   DC_SWEEP: "dc_sweep",
+  TRANSIENT: "transient",
 };
 
 export const DEFAULT_SIMULATION_CONFIG = {
@@ -17,6 +18,12 @@ export const DEFAULT_DC_SWEEP_SETTINGS = {
   step: 1,
 };
 
+export const DEFAULT_TRANSIENT_SETTINGS = {
+  start: 0,
+  stop: 1,
+  step: 0.001,
+};
+
 export function createSimulationConfig(overrides = {}) {
   return {
     ...DEFAULT_SIMULATION_CONFIG,
@@ -31,19 +38,15 @@ export function createSimulationConfig(overrides = {}) {
 
 export function getSimulationAnalysisLabel(analysis) {
   switch (analysis) {
-    case SIMULATION_ANALYSES.DC_OPERATING_POINT:
-      return "DC Operating Point";
-    case SIMULATION_ANALYSES.DC_SWEEP:
-      return "DC Sweep";
-    default:
-      return "Unknown analysis";
+    case SIMULATION_ANALYSES.DC_OPERATING_POINT: return "DC Operating Point";
+    case SIMULATION_ANALYSES.DC_SWEEP: return "DC Sweep";
+    case SIMULATION_ANALYSES.TRANSIENT: return "Transient";
+    default: return "Unknown analysis";
   }
 }
 
 function normalizeSweepTargets(sweepTargets = []) {
-  return sweepTargets.map((target) => (
-    typeof target === "string" ? { id: target, parameters: [], legacy: true } : target
-  ));
+  return sweepTargets.map((target) => (typeof target === "string" ? { id: target, parameters: [], legacy: true } : target));
 }
 
 export function getDcSweepValidationError(settings, sweepTargets = []) {
@@ -51,43 +54,33 @@ export function getDcSweepValidationError(settings, sweepTargets = []) {
   const targets = normalizeSweepTargets(sweepTargets);
   const target = targets.find((item) => item.id === source);
   const legacyTargets = targets.some((item) => item.legacy);
-
   if (!source) return legacyTargets ? "Select a voltage source to sweep." : "Select a voltage or current source to sweep.";
   if (!target) return "The selected sweep source is no longer available.";
-
   const parameter = settings?.parameter ?? target.parameters?.[0]?.parameter ?? (target.legacy ? "V" : "");
   if (!parameter) return "The selected sweep source has no sweep parameter.";
-
-  if (Array.isArray(target.parameters) && target.parameters.length > 0) {
-    const parameterExists = target.parameters.some((item) =>
-      (typeof item === "string" ? item : item.parameter) === parameter
-    );
-    if (!parameterExists) return "The selected sweep source parameter is no longer available.";
-  }
-
-  const start = Number(settings?.start);
-  const stop = Number(settings?.stop);
-  const step = Number(settings?.step);
-
-  if (![start, stop, step].every(Number.isFinite)) {
-    return "Start, stop and step must be finite numbers.";
-  }
+  if (Array.isArray(target.parameters) && target.parameters.length > 0 && !target.parameters.some((item) => (typeof item === "string" ? item : item.parameter) === parameter)) return "The selected sweep source parameter is no longer available.";
+  const start = Number(settings?.start), stop = Number(settings?.stop), step = Number(settings?.step);
+  if (![start, stop, step].every(Number.isFinite)) return "Start, stop and step must be finite numbers.";
   if (step === 0) return "Step cannot be zero.";
   if (start < stop && step < 0) return "Step must be positive when start is below stop.";
   if (start > stop && step > 0) return "Step must be negative when start is above stop.";
   if (start === stop) return "Start and stop must be different.";
+  return null;
+}
 
+export function getTransientValidationError(settings) {
+  const start = Number(settings?.start), stop = Number(settings?.stop), step = Number(settings?.step);
+  if (![start, stop, step].every(Number.isFinite)) return "Start, stop and step must be finite numbers.";
+  if (step <= 0) return "Transient step must be greater than zero.";
+  if (stop <= start) return "Transient stop time must be greater than start time.";
+  const points = Math.floor((stop - start) / step + 1e-12) + 1;
+  if (points > 10000) return "Transient configuration exceeds the 10,000 time-point limit.";
   return null;
 }
 
 export function getSimulationConfigValidationError(config, sweepTargets = []) {
-  if (!config || !Object.values(SIMULATION_ANALYSES).includes(config.analysis)) {
-    return "Select a supported simulation analysis.";
-  }
-
-  if (config.analysis === SIMULATION_ANALYSES.DC_SWEEP) {
-    return getDcSweepValidationError(config.settings, sweepTargets);
-  }
-
+  if (!config || !Object.values(SIMULATION_ANALYSES).includes(config.analysis)) return "Select a supported simulation analysis.";
+  if (config.analysis === SIMULATION_ANALYSES.DC_SWEEP) return getDcSweepValidationError(config.settings, sweepTargets);
+  if (config.analysis === SIMULATION_ANALYSES.TRANSIENT) return getTransientValidationError(config.settings);
   return null;
 }
