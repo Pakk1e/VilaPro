@@ -6,17 +6,22 @@ const PREFIXES = [
   { factor: 1e-6, symbol: "µ" },
   { factor: 1e-9, symbol: "n" },
   { factor: 1e-12, symbol: "p" },
+  { factor: 1e-15, symbol: "f" },
 ];
 
 function cleanNumber(value) {
   const number = Number(value);
   if (!Number.isFinite(number)) return null;
-  if (number === 0) return "0";
+
+  // Avoid rendering a rounded negative zero while retaining genuinely small
+  // non-zero values at a useful precision.
+  if (Math.abs(number) < 1e-15) return "0";
 
   const absolute = Math.abs(number);
-  if (absolute >= 100) return number.toFixed(0);
-  if (absolute >= 10) return number.toFixed(1);
-  return number.toFixed(2);
+  if (absolute >= 100) return number.toFixed(1).replace(/\.0$/, "");
+  if (absolute >= 10) return number.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
+  if (absolute >= 1) return number.toFixed(3).replace(/0+$/, "").replace(/\.$/, "");
+  return number.toFixed(3).replace(/0+$/, "").replace(/\.$/, "");
 }
 
 export function getEngineeringScale(values, unit = "") {
