@@ -4,10 +4,12 @@ from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from typing import Mapping
 
+from .capacitor import CapacitorTransientStateHandler
 from .model import SimulationModel
 from .session import SimulationSession
 from .solver import SimulationResult, SimulationSolver, SolverError
 from .network import build_network_equation_system
+from .state import DynamicState, DynamicStateSnapshot, TransientStepContext
 
 
 class TransientAnalysisError(ValueError):
@@ -110,37 +112,55 @@ class TransientAnalysis:
     ) -> TransientResult:
         if configuration is None:
             raise TransientAnalysisError("transient requires a simulation configuration")
+
         start, stop, step = parse_transient_settings(configuration.settings)
         points = build_time_points(start, stop, step)
         results: list[SimulationResult | None] = []
         errors: list[str | None] = []
         base_known = dict(known or {})
+        dynamic_state = DynamicState()
+        previous_time: float | None = None
+        capacitor_handler = CapacitorTransientStateHandler()
 
-        # Phase 5.2 establishes the time-domain dataset/execution contract.
-        # Dynamic device companion models (capacitor/inductor state) are added
-        # later; until then each point is a valid DC snapshot at that time.
         for time in points:
+            current_time = float(time)
             if session is not None and session.cancel_requested:
                 session.cancel()
                 raise TransientAnalysisError("simulation was cancelled")
+
+            context = TransientStepContext(
+                time=current_time,
+                previous_time=previous_time,
+                dt=None if previous_time is None else current_time - previous_time,
+            )
+            previous_state: DynamicStateSnapshot = dynamic_state.snapshot()
+
             try:
-                system = build_network_equation_system(model)
+                step_model = capacitor_handler.prepare_step(model, previous_state, context)
+                system = build_network_equation_system(step_model)
                 solved = SimulationSolver().solve(system, known=base_known)
                 result = SimulationResult(
                     values=solved.values,
-                    instances={component.name: component for component in model.components},
+                    instances={component.name: component for component in step_model.components},
                 )
-            except SolverError as exc:
+                # State is committed only after a successful solve. A failed
+                # point therefore cannot corrupt the next accepted state.
+                capacitor_handler.accept_step(dynamic_state, result, context)
+            except (SolverError, ValueError) as exc:
                 message = str(exc) or "Transient operating point did not converge"
                 results.append(None)
                 errors.append(message)
                 if session is not None:
-                    session.record_point({"status": "failed", "error": message}, time=float(time))
+                    session.record_point({"status": "failed", "error": message}, time=current_time)
+                # Keep previous_time unchanged: the next successful step still
+                # advances from the last accepted state/time.
                 continue
+
             results.append(result)
             errors.append(None)
+            previous_time = current_time
             if session is not None:
-                session.record_point(result, time=float(time))
+                session.record_point(result, time=current_time)
 
         return TransientResult(tuple(points), tuple(results), tuple(errors))
 
