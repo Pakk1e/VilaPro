@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { formatEngineeringValue } from "../model/engineeringFormat.js";
 
 import { getCircuitComponent, getCircuitNode } from "../model/resultContext.js";
 import {
@@ -19,13 +20,6 @@ function formatNumber(value, digits = 2) {
   return Number.isFinite(number) ? number.toFixed(digits) : "—";
 }
 
-function formatValue(value, unit) {
-  const number = Number(value);
-  if (!Number.isFinite(number)) return "—";
-  if (unit === "A") return Math.abs(number) >= 1 ? `${number.toFixed(2)} A` : `${(number * 1000).toFixed(1)} mA`;
-  if (unit === "W") return Math.abs(number) >= 1 ? `${number.toFixed(2)} W` : `${(number * 1000).toFixed(1)} mW`;
-  return `${number.toFixed(2)} ${unit}`;
-}
 
 function measurementLabel(type) {
   if (type === RESULT_MEASUREMENTS.VOLTAGE) return "Voltage";
@@ -172,7 +166,7 @@ export default function SweepResults({ result }) {
           <div className="border-b border-[#e4e7eb] px-4 py-3">
             <div className="flex flex-wrap items-end justify-between gap-3">
               <div><div className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[#69717b]">Selected point</div><div className="mt-1 text-xs text-[#69717b]">{sourceName} = <span className="font-mono font-medium text-[#17253a]">{formatNumber(inspectedSweep)} {parameterUnit}</span></div></div>
-              <div className="text-right"><div className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[#69717b]">{measurementLabel(effectiveMeasurement)}</div><div className={`mt-1 font-mono text-sm font-semibold ${inspectedFailed ? "text-red-700" : "text-[#17253a]"}`}>{inspectedFailed ? (statuses[inspectedIndex]?.error ?? inspectedValue?.error ?? "Failed") : formatValue(inspectedValue?.value, selectedSeries.unit)}</div></div>
+              <div className="text-right"><div className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[#69717b]">{measurementLabel(effectiveMeasurement)}</div><div className={`mt-1 font-mono text-sm font-semibold ${inspectedFailed ? "text-red-700" : "text-[#17253a]"}`}>{inspectedFailed ? (statuses[inspectedIndex]?.error ?? inspectedValue?.error ?? "Failed") : formatEngineeringValue(inspectedValue?.value, selectedSeries.unit)}</div></div>
             </div>
           </div>
         )}

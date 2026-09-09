@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import { getNearestPlotRow, getPlotAxisLabel, getPlotRows, getPlotSeriesLabel, getPlotSeriesQuantityLabel } from "../model/resultPlot.js";
+import { formatEngineeringValue } from "../model/engineeringFormat.js";
 
 function formatTick(value) {
   const number = Number(value);
@@ -8,13 +9,6 @@ function formatTick(value) {
   return Math.abs(number) >= 1 ? number.toFixed(1) : number.toFixed(2);
 }
 
-function formatMeasurement(value, unit) {
-  const number = Number(value);
-  if (!Number.isFinite(number)) return "—";
-  if (unit === "A") return Math.abs(number) >= 1 ? `${number.toFixed(2)} A` : `${(number * 1000).toFixed(1)} mA`;
-  if (unit === "W") return Math.abs(number) >= 1 ? `${number.toFixed(2)} W` : `${(number * 1000).toFixed(1)} mW`;
-  return unit ? `${number.toFixed(3)} ${unit}` : number.toFixed(3);
-}
 
 function getFiniteRows(rows) {
   return rows.filter((row) => Number.isFinite(Number(row.sweepValue)) && Number.isFinite(Number(row.value)) && !row.failed);
@@ -97,8 +91,8 @@ export default function ResultChart({ plot, series }) {
       <div className="border-b border-[#e4e7eb] bg-[#fafbfc] px-4 py-2.5">
         {selectedRow ? (
           <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-[#26364d]" aria-live="polite">
-            <span><span className="text-[#69717b]">{xLabel}:</span> <strong className="font-mono">{formatMeasurement(selectedRow.sweepValue, plot?.x?.unit)}</strong></span>
-            <span><span className="text-[#69717b]">{yLabel}:</span> <strong className="font-mono">{formatMeasurement(selectedRow.value, series?.unit)}</strong></span>
+            <span><span className="text-[#69717b]">{xLabel}:</span> <strong className="font-mono">{formatEngineeringValue(selectedRow.sweepValue, plot?.x?.unit)}</strong></span>
+            <span><span className="text-[#69717b]">{yLabel}:</span> <strong className="font-mono">{formatEngineeringValue(selectedRow.value, series?.unit)}</strong></span>
             <button type="button" onClick={() => setSelectedRow(null)} className="ml-auto text-[10px] font-medium text-[#58718f] hover:underline">Clear</button>
           </div>
         ) : <div className="text-[10px] text-[#69717b]">Click the plot to inspect the nearest result point.</div>}
