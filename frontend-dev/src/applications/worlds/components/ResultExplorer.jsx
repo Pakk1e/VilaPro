@@ -60,8 +60,16 @@ export default function ResultExplorer({ result }) {
 
   let plot = null;
   if (selectedSeries) {
-    if (isTransient && Array.isArray(selectedSeries.xValues)) plot = createResultPlot({ xLabel: "Time", xUnit: "s", xValues: selectedSeries.xValues, series: [selectedSeries] });
-    else if (isSweep) plot = createResultPlot({ xLabel: result?.result?.analysis_information?.sweep?.source ?? "Sweep", xUnit: result?.result?.analysis_information?.sweep?.parameter === "I" ? "A" : "V", xValues: result?.result?.datasets?.find((dataset) => dataset.name === "sweep")?.values ?? [], series: [selectedSeries] });
+    const xValues = Array.isArray(selectedSeries.xValues) ? selectedSeries.xValues : [];
+    if (xValues.length > 0) {
+      plot = createResultPlot({
+        xKey: selectedSeries.xKey,
+        xLabel: selectedSeries.xLabel || (isTransient ? "Time" : isSweep ? "Sweep" : "X"),
+        xUnit: selectedSeries.xUnit || (isTransient ? "s" : ""),
+        xValues,
+        series: [selectedSeries],
+      });
+    }
   }
 
   return <section role="region" aria-label="Simulation results" className="overflow-hidden rounded-xl border border-[#d9dde2] bg-white">
