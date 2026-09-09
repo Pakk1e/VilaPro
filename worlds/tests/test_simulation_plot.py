@@ -1,4 +1,5 @@
 import unittest
+from dataclasses import FrozenInstanceError
 
 from worlds.simulation import SimulationPlot, SimulationPlotError, SimulationSeries
 
@@ -28,9 +29,9 @@ class SimulationPlotTest(unittest.TestCase):
 
     def test_plot_is_immutable(self):
         plot = SimulationPlot.from_series(id="plot", title="Plot", series=[self._series("v", "V")])
-        with self.assertRaises(AttributeError):
+        with self.assertRaises(FrozenInstanceError):
             plot.title = "Changed"
-        with self.assertRaises(TypeError):
+        with self.assertRaises(FrozenInstanceError):
             plot.series += (self._series("i", "I"),)
 
     def test_plot_rejects_empty_series(self):
