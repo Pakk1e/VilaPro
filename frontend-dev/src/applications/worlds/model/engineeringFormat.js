@@ -9,6 +9,10 @@ const PREFIXES = [
   { factor: 1e-15, symbol: "f" },
 ];
 
+function trimTrailingZeros(value) {
+  return value.replace(/0+$/, "").replace(/\.$/, "");
+}
+
 function cleanNumber(value) {
   const number = Number(value);
   if (!Number.isFinite(number)) return null;
@@ -18,10 +22,10 @@ function cleanNumber(value) {
   if (Math.abs(number) < 1e-15) return "0";
 
   const absolute = Math.abs(number);
-  if (absolute >= 100) return number.toFixed(1).replace(/\.0$/, "");
-  if (absolute >= 10) return number.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
-  if (absolute >= 1) return number.toFixed(3).replace(/0+$/, "").replace(/\.$/, "");
-  return number.toFixed(3).replace(/0+$/, "").replace(/\.$/, "");
+  if (absolute >= 100) return trimTrailingZeros(number.toFixed(1));
+  if (absolute >= 10) return number.toFixed(1);
+  if (absolute >= 1) return trimTrailingZeros(number.toFixed(2));
+  return trimTrailingZeros(number.toFixed(3));
 }
 
 export function getEngineeringScale(values, unit = "") {
