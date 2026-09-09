@@ -6,6 +6,56 @@ function addSeries(series, key, label, quantity, unit, value, context) {
   series.push({ key, label, quantity, measurementType: quantity, unit, values: [{ value, failed: false, error: null }], ...context });
 }
 
+function getVisualizationPlots(result) {
+  const visualization = result?.visualization;
+  if (!visualization) return [];
+  if (Array.isArray(visualization.plots)) return visualization.plots;
+  if (Array.isArray(visualization.series)) return [visualization];
+  return [];
+}
+
+/**
+ * Adapt the backend's canonical plot/series payload to the existing Worlds
+ * result-explorer series shape. This keeps the UI independent of the Python
+ * plotting implementation while retaining entity metadata when available.
+ */
+export function getVisualizationSeries(result) {
+  const plots = getVisualizationPlots(result);
+  const series = [];
+  for (const plot of plots) {
+    const xValues = plot?.series?.[0]?.x ?? [];
+    for (const item of Array.isArray(plot?.series) ? plot.series : []) {
+      const quantity = item?.quantity ?? "measurement";
+      const source = String(item?.source ?? item?.id ?? "series");
+      const [sourceKind, ...sourceParts] = source.split(":");
+      const entityId = sourceParts.join(":") || item?.id || source;
+      const entityType = sourceKind === "node" || sourceKind === "branch" || sourceKind === "component" ? sourceKind : "series";
+      const yValues = Array.isArray(item?.y) ? item.y : [];
+      const values = yValues.map((value, index) => ({
+        value,
+        failed: value === null || value === undefined,
+        error: value === null || value === undefined ? "No result value was returned." : null,
+      }));
+      series.push({
+        key: item?.id ?? `${plot?.id ?? "plot"}:${source}`,
+        label: item?.label ?? source,
+        quantity,
+        measurementType: quantity,
+        unit: item?.unit ?? "",
+        values,
+        xValues: Array.isArray(xValues) ? xValues : [],
+        plotId: plot?.id ?? null,
+        plotTitle: plot?.title ?? "Simulation result",
+        entityType,
+        entityId,
+        contextTitle: item?.label ?? entityId,
+        contextDescription: source,
+      });
+    }
+  }
+  return series;
+}
+
 export function getOperatingPointResponseSeries(result) {
   const series = [];
   for (const [id, component] of Object.entries(result?.components ?? {})) {
@@ -35,6 +85,10 @@ export function getOperatingPointResponseSeries(result) {
 }
 
 export function getResultSeries(result) {
+  if (result?.visualization) {
+    const visualizationSeries = getVisualizationSeries(result);
+    if (visualizationSeries.length > 0) return visualizationSeries;
+  }
   return result?.analysis === "dc_sweep" ? getSweepResponseSeries(result) : getOperatingPointResponseSeries(result);
 }
 
@@ -42,7 +96,6 @@ function matchesScope(item, scope) {
   return scope === RESULT_SCOPES.NODES ? item.entityType === "node" : item.entityType === "component";
 }
 
-// Compatibility helpers retained for the existing explorer component/tests.
 export function getExplorerMeasurements(scope, series) {
   const measurements = [RESULT_MEASUREMENTS.VOLTAGE, RESULT_MEASUREMENTS.CURRENT, RESULT_MEASUREMENTS.POWER];
   return measurements.filter((measurement) => series.some((item) => matchesScope(item, scope) && item.measurementType === measurement));
@@ -55,7 +108,7 @@ export function getExplorerSeries(series, scope, measurement) {
 export function getCircuitSummaryRows(series) {
   const map = new Map();
   for (const item of series) {
-    if (!item.entityId || !item.entityType || item.entityType === "branch") continue;
+    if (!item.entityId || !item.entityType || item.entityType === "branch" || item.entityType === "series") continue;
     const key = `${item.entityType}:${item.entityId}`;
     const row = map.get(key) ?? { key, entityType: item.entityType, entityId: item.entityId, label: item.contextTitle ?? item.label, values: {} };
     row.values[item.measurementType] = item;
@@ -68,7 +121,6 @@ export function getEntityMeasurementSeries(series, entityType, entityId, measure
   return series.find((item) => item.entityType === entityType && item.entityId === entityId && item.measurementType === measurement) ?? null;
 }
 
-/** Return the latest successful value in a result series for summary display. */
 export function getSummaryValue(series) {
   const values = Array.isArray(series?.values) ? series.values : [];
   for (let index = values.length - 1; index >= 0; index -= 1) {
