@@ -18,7 +18,8 @@ class AnalyticalTransientValidationTest(unittest.TestCase):
         self.assertAlmostEqual(value, 5.0, places=10)
 
     def test_rc_time_constant(self):
-        value = rc_voltage(0.001, 1_000.0, 1e-3, 5.0)
+        # tau = R*C = 1000 * 1e-3 = 1 second.
+        value = rc_voltage(1.0, 1_000.0, 1e-3, 5.0)
         self.assertAlmostEqual(value, 5.0 * (1.0 - math.exp(-1.0)), places=12)
 
     def test_rl_initial_condition(self):
