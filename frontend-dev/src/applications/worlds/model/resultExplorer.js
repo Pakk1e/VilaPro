@@ -99,7 +99,7 @@ export function getExplorerSeries(series, scope, measurement) {
 export function getCircuitSummaryRows(series) {
   const map = new Map();
   for (const item of series) {
-    if (!item.entityId || !item.entityType || item.entityType === "branch" || item.entityType === "series") continue;
+    if (!item.entityId || !item.entityType || item.entityType === "series") continue;
     const key = `${item.entityType}:${item.entityId}`;
     const row = map.get(key) ?? { key, entityType: item.entityType, entityId: item.entityId, label: item.contextTitle ?? item.label, values: {} };
     row.values[item.measurementType] = item;
