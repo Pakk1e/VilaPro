@@ -12,8 +12,8 @@ function formatXAxisTick(value) {
   return number.toFixed(2);
 }
 
-function formatMeasurement(value, unit, scale) {
-  return formatEngineeringValue(value, unit, { scale });
+function formatMeasurement(value, unit) {
+  return formatEngineeringValue(value, unit);
 }
 
 function getFiniteRows(rows) {
@@ -99,7 +99,7 @@ export default function ResultChart({ plot, series }) {
         {selectedRow ? (
           <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-[#26364d]" aria-live="polite">
             <span><span className="text-[#69717b]">{xLabel}:</span> <strong className="font-mono">{formatXAxisTick(selectedRow.sweepValue)}{plot?.x?.unit ? ` ${plot.x.unit}` : ""}</strong></span>
-            <span><span className="text-[#69717b]">{yLabel}:</span> <strong className="font-mono">{formatMeasurement(selectedRow.value, series?.unit, yScale)}</strong></span>
+            <span><span className="text-[#69717b]">{yLabel}:</span> <strong className="font-mono">{formatMeasurement(selectedRow.value, series?.unit)}</strong></span>
             <button type="button" onClick={() => setSelectedRow(null)} className="ml-auto text-[10px] font-medium text-[#58718f] hover:underline">Clear</button>
           </div>
         ) : <div className="text-[10px] text-[#69717b]">Click the plot to inspect the nearest result point.</div>}
