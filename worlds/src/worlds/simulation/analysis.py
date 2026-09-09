@@ -114,7 +114,7 @@ class SimulationAnalysis(Protocol):
 
 class DCOperatingPointAnalysis:
     key = DC_OPERATING_POINT
-    def run(self, model: SimulationModel, *, known=None, configuration=None, session=None):
+    def run(self, model, *, known=None, configuration=None, session=None):
         result = _solve(model, known)
         if session is not None:
             session.record_point(result, time=0.0)
@@ -210,14 +210,16 @@ class TransientAnalysis:
 
 
 def _build_transient_execution_points(configuration: TransientConfiguration) -> tuple[float, ...]:
-    """Build the physical simulation timeline, warming from t=0 when output starts later."""
+    """Build the physical timeline, warming from t=0 before the requested output window."""
     output_points = configuration.time_points()
     start = float(configuration.start)
     if start <= 0:
         return output_points
 
     warmup = TransientConfiguration(start=0.0, stop=start, step=float(configuration.step)).time_points()
-    return tuple(warmup)
+    # The warm-up includes the exact output start. Continue with the requested
+    # output grid so the state is evolved all the way through the stop time.
+    return tuple(warmup[:-1]) + output_points
 
 
 def _solve(model, known):
