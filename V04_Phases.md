@@ -118,17 +118,45 @@ The generic result model now provides an analysis-independent backend access lay
 - Preservation of `None` for failed analysis points
 - No coupling to a particular numerical method
 
-Intended presentation flow:
+#### 5.7B — Shared Series Factory ✅
 
-```text
-Dataset
-   ↓
-Series
-   ↓
-Plot
-```
+- Canonical `SimulationSeries` model
+- Factory conversion from generic result datasets
+- Stable series IDs and labels
+- Quantity/unit/source metadata
+- Selection and quantity filtering
+- Regression coverage
 
-#### Remaining
+#### 5.7C — Plot Model and Factory ✅
+
+- Immutable `SimulationPlot`
+- Plot configuration and series styles
+- Canonical result-to-plot conversion
+- Direct plot construction from series
+- Voltage/current presets
+- Regression coverage
+
+#### 5.7D — Frontend Visualization Boundary ✅
+
+- JSON-compatible visualization payload
+- Single-plot and multi-plot serialization
+- Rejection of unsupported values
+- Visualization regression coverage
+
+#### 5.7E — Simulation Service Integration ✅
+
+- Visualization available from `SimulationResponse`
+- Standard voltage/current plot helpers
+- Existing simulation result fields preserved
+
+#### 5.7F — Public API Contract ✅
+
+- Stable simulation response envelope
+- Visualization payload exposed from `/simulate`
+- CORS/preflight handling for the Worlds frontend
+- API contract regression coverage
+
+#### Remaining — Frontend Result Explorer
 
 - Time as X-axis
 - Node-voltage plotting
@@ -137,6 +165,32 @@ Plot
 - Shared response selection
 - Failed-point visualization
 - Frontend tests
+
+The frontend work must extend the existing Worlds UI. Do not create a parallel circuit editor or simulation workspace.
+
+Existing frontend architecture:
+
+```text
+WorldsShellPage
+      ↓
+WorldCanvas / WorldNode / JunctionNode / CircuitEdge
+      ↓
+worldGraphSerializer
+      ↓
+SimulationPanel
+      ↓
+SimulationSetup / ResultExplorer
+      ↓
+POST /simulate
+      ↓
+SimulationService
+      ↓
+SimulationResultModel
+      ↓
+Series → Plot → Visualization payload
+```
+
+DC Operating Point and DC Sweep already exist in the frontend and must remain backward compatible. The next frontend increment is to extend the existing analysis selector/configuration and graph serializer for Transient, then consume the shared visualization contract.
 
 ### Phase 5.8 — Dynamic Validation Circuits ✅
 
@@ -149,7 +203,7 @@ Canonical dynamic circuits have been validated in the backend:
 - Time-step sensitivity
 - Analytical-response comparisons
 
-The next work should expose these validated datasets through the result explorer rather than creating another transient result format.
+The next work should expose these validated datasets through the existing result explorer rather than creating another transient result format.
 
 ---
 
@@ -173,6 +227,10 @@ Dataset
 Series
        ↓
 Plot
+       ↓
+Visualization / API
+       ↓
+Existing Worlds Frontend
 ```
 
 The same component can therefore have different valid representations at different Worlds layers.
@@ -214,4 +272,8 @@ Dataset
 Series
         ↓
 Plot
+        ↓
+Visualization / API
+        ↓
+Worlds UI
 ```
