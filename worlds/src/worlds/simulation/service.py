@@ -10,8 +10,9 @@ from worlds.simulation.builder import build_simulation_component
 from worlds.simulation.model import SimulationModel
 from worlds.simulation.result import SimulationResultModel
 from worlds.simulation.session import SimulationSession, SimulationSessionError
-from worlds.simulation.solver import SimulationResult, SolverError
+from worlds.simulation.solver import SimulationResult
 from worlds.simulation.validation import SimulationValidator
+from worlds.simulation.visualization import plot_to_visualization, plots_to_visualization
 from worlds.vdl import Parser
 
 
@@ -29,6 +30,17 @@ class SimulationResponse:
     components: list[dict]
     result: SimulationResultModel
 
+    def plot(self, *, plot_id: str = "simulation-result", title: str | None = None, series_ids: tuple[str, ...] | None = None) -> dict[str, object]:
+        """Return a frontend-ready representation of the selected result plot."""
+        return plot_to_visualization(self.result.to_plot(plot_id=plot_id, title=title, series_ids=series_ids))
+
+    def plots(self, *, plot_ids: tuple[str, ...] = ("voltage", "current")) -> dict[str, object]:
+        """Return standard voltage/current plots for frontend consumption."""
+        from worlds.simulation.plot_presets import voltage_plot, current_plot
+        builders = {"voltage": voltage_plot, "current": current_plot}
+        plots = tuple(builders[plot_id](self.result, plot_id=plot_id) for plot_id in plot_ids)
+        return plots_to_visualization(plots)
+
 
 class SimulationService:
     """Public application-level interface to the simulation engine."""
@@ -41,7 +53,6 @@ class SimulationService:
             semantic = WorldSemanticAnalyzer(world).analyze()
             model = SimulationModel()
             type_counts = {}
-
             for index, instance in enumerate(instances):
                 component_name = instance["type"]
                 type_counts[component_name] = type_counts.get(component_name, 0) + 1
@@ -52,26 +63,20 @@ class SimulationService:
                 analyzer = ComponentSemanticAnalyzer(component.component, semantic.types, semantic.functions)
                 simulation_component = build_simulation_component(analyzer, name=instance_name, display_name=display_name, component_id=component_id, parameters=instance.get("parameters", {}), ports=instance.get("ports", {}))
                 model.add_component(simulation_component)
-
             SimulationValidator().validate(model)
             circuit_context = self._build_circuit_context(model)
             analysis = get_simulation_analysis(configuration.analysis)
-            total_points = self._expected_point_count(configuration)
-            session = SimulationSession(total_points=total_points)
+            session = SimulationSession(total_points=self._expected_point_count(configuration))
             session.start()
             result = analysis.run(model, known=known, configuration=configuration, session=session)
-
             if isinstance(result, DCSweepResult):
                 session.complete()
                 return self._build_sweep_response(result, configuration, circuit_context)
-
             if isinstance(result, TransientResult):
                 session.complete()
                 return self._build_transient_response(result, configuration, circuit_context)
-
             if not isinstance(result, SimulationResult):
                 raise SimulationServiceError(f"Unsupported simulation result from analysis '{configuration.analysis}'")
-
             response = self._build_response(result)
             session.complete()
             generic_result = SimulationResultModel.from_dc_operating_point(analysis=configuration.analysis, status="completed", settings=configuration.settings, outputs=configuration.outputs, node_voltages=response.node_voltages, branch_currents=response.branch_currents, components=response.components, circuit_context=circuit_context)
