@@ -5,6 +5,7 @@ from worlds.units import (
     CANDELA,
     COULOMB,
     FARAD,
+    HENRY,
     JOULE,
     KELVIN,
     KILOGRAM,
@@ -72,6 +73,7 @@ class UnitEnvironment:
             VOLT,
             OHM,
             FARAD,
+            HENRY,
             COULOMB,
         ]
 
@@ -81,14 +83,12 @@ class UnitEnvironment:
         # Common textual aliases.
         self.define("meter", METER)
         self.define("metre", METER)
-
         self.define("kilogram", KILOGRAM)
         self.define("second", SECOND)
         self.define("ampere", AMPERE)
         self.define("kelvin", KELVIN)
         self.define("mole", MOLE)
         self.define("candela", CANDELA)
-
         self.define("newton", NEWTON)
         self.define("joule", JOULE)
         self.define("watt", WATT)
@@ -96,19 +96,15 @@ class UnitEnvironment:
         self.define("ohm", OHM)
         self.define("Ohm", OHM)
         self.define("farad", FARAD)
+        self.define("henry", HENRY)
         self.define("coulomb", COULOMB)
-
-        # OHM is already registered through its symbol "Ω".
 
         # Common prefixed units.
         self.define("mV", prefixed_unit("m", VOLT))
         self.define("kV", prefixed_unit("k", VOLT))
-
         self.define("mA", prefixed_unit("m", AMPERE))
         self.define("kA", prefixed_unit("k", AMPERE))
-
         self.define("mΩ", prefixed_unit("m", OHM))
         self.define("kΩ", prefixed_unit("k", OHM))
-
         self.define("mOhm", prefixed_unit("m", OHM))
         self.define("kOhm", prefixed_unit("k", OHM))
