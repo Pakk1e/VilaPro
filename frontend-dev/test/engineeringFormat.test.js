@@ -6,6 +6,7 @@ import { formatEngineeringTick, formatEngineeringValue, getEngineeringScale } fr
 test("formats small currents with an appropriate engineering prefix", () => {
   assert.equal(formatEngineeringValue(0.00000042, "A"), "0.42 µA");
   assert.equal(formatEngineeringValue(-0.00000042, "A"), "-0.42 µA");
+  assert.equal(formatEngineeringValue(0.0000000042, "A"), "4.2 nA");
 });
 
 test("keeps ordinary electrical values readable", () => {
@@ -21,6 +22,11 @@ test("uses one scale for a result series and its axis ticks", () => {
   assert.equal(formatEngineeringTick(0.00000042, "A", scale), "0.42");
 });
 
-test("supports pico-unit values without rounding them to zero", () => {
+test("supports pico and femto values without rounding them to zero", () => {
   assert.equal(formatEngineeringValue(0.00000000000042, "A"), "0.42 pA");
+  assert.equal(formatEngineeringValue(0.00000000000000042, "A"), "0.42 fA");
+});
+
+test("does not display tiny negative values as negative zero", () => {
+  assert.equal(formatEngineeringValue(-1e-18, "A"), "0 A");
 });
