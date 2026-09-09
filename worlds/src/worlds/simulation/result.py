@@ -49,22 +49,12 @@ class SimulationResultModel:
         return tuple(values)
 
     def to_series(self):
-        """Return all standard plottable series represented by this result."""
         from .series_factory import SimulationSeriesFactory
         return SimulationSeriesFactory().from_result(self)
 
     def to_plot(self, *, plot_id: str = "result", title: str | None = None, series_ids: tuple[str, ...] | None = None):
-        """Build a backend-independent plot from this result."""
-        from .plot import SimulationPlot
-        series = self.to_series()
-        if series_ids is not None:
-            selected = set(series_ids)
-            series = tuple(item for item in series if item.id in selected)
-        if not series:
-            raise ValueError("Simulation result does not contain selectable plot series")
-        analysis = str(self.analysis_information.get("analysis", "simulation"))
-        x_unit = "s" if analysis == "transient" else ""
-        return SimulationPlot.from_series(id=plot_id, title=title or f"{analysis} result", series=series, x_label="Time" if analysis == "transient" else "Sweep", x_unit=x_unit)
+        from .plot_factory import SimulationPlotFactory
+        return SimulationPlotFactory().from_result(self, plot_id=plot_id, title=title, series_ids=series_ids)
 
     def to_dict(self) -> dict[str, object]:
         return {"metadata": dict(self.metadata), "datasets": [dataset.to_dict() for dataset in self.datasets], "statistics": dict(self.statistics), "analysis_information": dict(self.analysis_information), "circuit_context": dict(self.circuit_context)}
