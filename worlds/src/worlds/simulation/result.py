@@ -26,6 +26,38 @@ class SimulationResultModel:
     analysis_information: Mapping[str, object] = field(default_factory=dict)
     circuit_context: Mapping[str, object] = field(default_factory=dict)
 
+    @property
+    def dataset_names(self) -> tuple[str, ...]:
+        """Return dataset names in their stored order."""
+        return tuple(dataset.name for dataset in self.datasets)
+
+    def dataset(self, name: str) -> SimulationDataset:
+        """Return a named dataset or raise ``KeyError`` if it is absent."""
+        for dataset in self.datasets:
+            if dataset.name == name:
+                return dataset
+        raise KeyError(f"Unknown simulation dataset '{name}'")
+
+    def series(self, dataset_name: str, key: str) -> tuple[object | None, ...]:
+        """Extract one named series from a time/sweep dataset.
+
+        The dataset must contain a sequence of mapping rows. Missing values are
+        represented by ``None`` so failed analysis points remain aligned with
+        the independent-variable dataset.
+        """
+        dataset = self.dataset(dataset_name)
+        if not dataset.values or not isinstance(dataset.values, (list, tuple)):
+            raise ValueError(f"Simulation dataset '{dataset_name}' does not contain row data")
+        values: list[object | None] = []
+        for row in dataset.values:
+            if row is None:
+                values.append(None)
+            elif isinstance(row, Mapping):
+                values.append(row.get(key))
+            else:
+                raise ValueError(f"Simulation dataset '{dataset_name}' contains a non-mapping row")
+        return tuple(values)
+
     def to_dict(self) -> dict[str, object]:
         return {
             "metadata": dict(self.metadata),
