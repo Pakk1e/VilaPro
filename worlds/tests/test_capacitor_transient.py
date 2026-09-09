@@ -1,14 +1,12 @@
 import unittest
 
-from worlds.math import Binary, Equation, FunctionCall, Number, Variable
+from worlds.math import Binary, Equation, FunctionCall, Variable
 from worlds.simulation import (
     SimulationComponent,
     SimulationModel,
     TransientAnalysis,
-    TransientConfiguration,
     TransientStepContext,
     DynamicState,
-    DynamicStateSnapshot,
     CapacitorTransientModel,
 )
 from worlds.simulation.dynamic import DynamicComponentError, CapacitorStateHandler
@@ -95,7 +93,7 @@ class CapacitorTransientTest(unittest.TestCase):
 
     def test_invalid_capacitance_is_rejected(self):
         with self.assertRaises(DynamicComponentError):
-            CapacitorTransientModel().capacitance(
+            CapacitorTransientModel(capacitance=1e-6).capacitance(
                 SimulationComponent(
                     name="C1",
                     display_name="C1",
