@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from .result import SimulationDataset, SimulationResultModel
+from .result import SimulationResultModel
 from .series import SimulationSeries, SimulationSeriesError
 
 
@@ -24,7 +24,7 @@ class SimulationSeriesFactory:
             if metadata is not None:
                 series.extend(self._from_measurement_dataset(result, dataset, metadata, axis_name, axis, analysis))
             elif dataset.name == "components":
-                series.extend(self._from_component_dataset(result, dataset, axis_name, axis, analysis))
+                series.extend(self._from_component_dataset(dataset, axis_name, axis))
         return tuple(series)
 
     def _from_measurement_dataset(self, result, dataset, metadata, axis_name, axis, analysis):
@@ -40,7 +40,7 @@ class SimulationSeriesFactory:
             result_series.append(SimulationSeries.from_values(id=f"{dataset.name}:{key}", label=f"{'V' if quantity == 'voltage' else 'I'}({key})", x=axis, y=tuple(self._numeric_or_none(value) for value in y), quantity=quantity, unit=unit, source=f"{source_kind}:{key}"))
         return tuple(result_series)
 
-    def _from_component_dataset(self, result, dataset, axis_name, axis, analysis):
+    def _from_component_dataset(self, dataset, axis_name, axis):
         rows = dataset.values
         if not isinstance(rows, (list, tuple)):
             return ()
@@ -64,10 +64,13 @@ class SimulationSeriesFactory:
             if row is None:
                 continue
             if not isinstance(row, (list, tuple)):
-                raise SimulationSeriesError("Component dataset contains a non-sequence row")
+                # Component datasets are optional and historically allowed arbitrary
+                # shapes. Ignore unsupported rows rather than turning them into a
+                # hard failure for otherwise valid node/branch result series.
+                continue
             for component in row:
                 if not isinstance(component, Mapping):
-                    raise SimulationSeriesError("Component dataset contains a non-mapping component")
+                    continue
                 key = component.get("id")
                 if key is not None:
                     keys.add(str(key))
@@ -76,7 +79,7 @@ class SimulationSeriesFactory:
     @staticmethod
     def _component_name(rows, key):
         for row in rows:
-            if not row:
+            if not isinstance(row, (list, tuple)):
                 continue
             for component in row:
                 if isinstance(component, Mapping) and str(component.get("id")) == key:
@@ -85,7 +88,7 @@ class SimulationSeriesFactory:
 
     @staticmethod
     def _component_value(row, key, field):
-        if not row:
+        if not isinstance(row, (list, tuple)):
             return None
         for component in row:
             if isinstance(component, Mapping) and str(component.get("id")) == key:
