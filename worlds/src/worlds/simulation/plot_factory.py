@@ -5,6 +5,7 @@ from collections.abc import Sequence
 from .plot import SimulationPlot, SimulationPlotError
 from .result import SimulationResultModel
 from .series_factory import SimulationSeriesFactory
+from .series_selection import select_series
 
 
 class SimulationPlotFactory:
@@ -21,15 +22,7 @@ class SimulationPlotFactory:
         title: str | None = None,
         series_ids: Sequence[str] | None = None,
     ) -> SimulationPlot:
-        series = self._series_factory.from_result(result)
-        if series_ids is not None:
-            requested = tuple(series_ids)
-            available = {item.id: item for item in series}
-            missing = [item for item in requested if item not in available]
-            if missing:
-                raise SimulationPlotError(f"Unknown simulation series: {', '.join(missing)}")
-            series = tuple(available[item] for item in requested)
-
+        series = select_series(self._series_factory.from_result(result), series_ids)
         if not series:
             raise SimulationPlotError("Simulation result contains no plottable series")
 
