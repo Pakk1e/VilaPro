@@ -39,8 +39,8 @@ const PROPERTY_TO_PARAMETER = {
   Resistor: { backendType: "Resistor", parameter: { resistance: "R" } },
   "Voltage Source": { backendType: "VoltageSource", parameter: { voltage: "V" } },
   "Current Source": { backendType: "CurrentSource", parameter: { current: "I" } },
-  Capacitor: { backendType: "Capacitor", parameter: { capacitance: "C", initialVoltage: "initial_voltage" } },
-  Inductor: { backendType: "Inductor", parameter: { inductance: "L", initialCurrent: "initial_current" } },
+  Capacitor: { backendType: "Capacitor", parameter: { capacitance: "C" } },
+  Inductor: { backendType: "Inductor", parameter: { inductance: "L" } },
 };
 
 function endpointKey(nodeId, handleId) { return `${nodeId}::${handleId}`; }
@@ -126,7 +126,7 @@ function buildInstance(node, dsu, netNames) {
   for (const [propertyName, parameterName] of Object.entries(definition.parameter)) {
     const value = properties[propertyName];
     if (typeof value !== "number" || !Number.isFinite(value)) throw new Error(`${node.data?.label ?? node.id}: property "${propertyName}" must be a finite number`);
-    if ((propertyName === "initialVoltage" || propertyName === "initialCurrent") ? false : value <= 0) throw new Error(`${node.data?.label ?? node.id}: property "${propertyName}" must be greater than zero`);
+    if (value <= 0) throw new Error(`${node.data?.label ?? node.id}: property "${propertyName}" must be greater than zero`);
     parameters[parameterName] = value;
   }
   const ports = {};
