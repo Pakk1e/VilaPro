@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Iterable
 
-from .series import SimulationSeries, SimulationSeriesError
+from .series import SimulationSeries
 
 
 class SimulationPlotError(ValueError):
@@ -30,22 +30,12 @@ class SimulationPlot:
             raise SimulationPlotError("plot.series ids must be unique")
 
     @classmethod
-    def from_series(
-        cls,
-        *,
-        id: str,
-        title: str,
-        series: Iterable[SimulationSeries],
-        x_label: str = "",
-        x_unit: str = "",
-    ) -> "SimulationPlot":
+    def from_series(cls, *, id: str, title: str, series: Iterable[SimulationSeries], x_label: str = "", x_unit: str = "") -> "SimulationPlot":
         return cls(id, title, tuple(series), x_label, x_unit)
 
     def to_dict(self) -> dict[str, object]:
-        return {
-            "id": self.id,
-            "title": self.title,
-            "series": [item.to_dict() for item in self.series],
-            "x_label": self.x_label,
-            "x_unit": self.x_unit,
-        }
+        return {"id": self.id, "title": self.title, "series": [item.to_dict() for item in self.series], "x_label": self.x_label, "x_unit": self.x_unit}
+
+    @property
+    def series_ids(self) -> tuple[str, ...]:
+        return tuple(item.id for item in self.series)
