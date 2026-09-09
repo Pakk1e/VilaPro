@@ -65,6 +65,19 @@ from .state import (
     NoOpTransientStateHandler,
 )
 
+from .dynamic import (
+    DynamicComponentError,
+    CapacitorTransientModel,
+    CapacitorStateHandler,
+    TransientDynamicStateHandler,
+)
+
+from .representation import (
+    ComponentRepresentation,
+    ComponentRepresentationError,
+    ElectricalComponentRepresentation,
+)
+
 from .request import (
     SimulationRequest,
     SimulationRequestError,
@@ -139,6 +152,7 @@ __all__ = [
     "SimulationResult",
     "SimulationResultModel",
     "SimulationSolver",
+    "SimulationSolver",
     "SolveResult",
     "SolverError",
     "bind_component_equations",
@@ -157,6 +171,13 @@ __all__ = [
     "TransientStepContext",
     "TransientStateHandler",
     "NoOpTransientStateHandler",
+    "DynamicComponentError",
+    "CapacitorTransientModel",
+    "CapacitorStateHandler",
+    "TransientDynamicStateHandler",
+    "ComponentRepresentation",
+    "ComponentRepresentationError",
+    "ElectricalComponentRepresentation",
     "SimulationValidationError",
     "SimulationValidator",
     "ValidationIssue",
