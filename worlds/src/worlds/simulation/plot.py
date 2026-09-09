@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Iterable
 
 from .series import SimulationSeries
+from .plot_config import SimulationPlotConfig
 
 
 class SimulationPlotError(ValueError):
@@ -13,12 +14,12 @@ class SimulationPlotError(ValueError):
 @dataclass(frozen=True)
 class SimulationPlot:
     """A backend-independent plot definition over simulation series."""
-
     id: str
     title: str
     series: tuple[SimulationSeries, ...]
     x_label: str = ""
     x_unit: str = ""
+    config: SimulationPlotConfig = SimulationPlotConfig()
 
     def __post_init__(self) -> None:
         if not self.id:
@@ -30,11 +31,11 @@ class SimulationPlot:
             raise SimulationPlotError("plot.series ids must be unique")
 
     @classmethod
-    def from_series(cls, *, id: str, title: str, series: Iterable[SimulationSeries], x_label: str = "", x_unit: str = "") -> "SimulationPlot":
-        return cls(id, title, tuple(series), x_label, x_unit)
+    def from_series(cls, *, id: str, title: str, series: Iterable[SimulationSeries], x_label: str = "", x_unit: str = "", config: SimulationPlotConfig | None = None) -> "SimulationPlot":
+        return cls(id, title, tuple(series), x_label, x_unit, config or SimulationPlotConfig())
 
     def to_dict(self) -> dict[str, object]:
-        return {"id": self.id, "title": self.title, "series": [item.to_dict() for item in self.series], "x_label": self.x_label, "x_unit": self.x_unit}
+        return {"id": self.id, "title": self.title, "series": [item.to_dict() for item in self.series], "x_label": self.x_label, "x_unit": self.x_unit, "config": self.config.to_dict()}
 
     @property
     def series_ids(self) -> tuple[str, ...]:
