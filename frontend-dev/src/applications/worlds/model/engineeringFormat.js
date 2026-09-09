@@ -17,15 +17,16 @@ function cleanNumber(value) {
   const number = Number(value);
   if (!Number.isFinite(number)) return null;
 
-  // Avoid rendering a rounded negative zero while retaining genuinely small
-  // non-zero values at a useful precision.
+  // Normalize only values that are already below the display precision floor.
+  // This prevents rounded negative zero without hiding genuinely small values.
   if (Math.abs(number) < 1e-15) return "0";
 
   const absolute = Math.abs(number);
   if (absolute >= 100) return trimTrailingZeros(number.toFixed(1));
   if (absolute >= 10) return number.toFixed(1);
   if (absolute >= 1) return trimTrailingZeros(number.toFixed(2));
-  return trimTrailingZeros(number.toFixed(3));
+  const rounded = trimTrailingZeros(number.toFixed(3));
+  return rounded === "-0" ? "0" : rounded;
 }
 
 export function getEngineeringScale(values, unit = "") {
