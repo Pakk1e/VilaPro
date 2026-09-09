@@ -152,7 +152,6 @@ __all__ = [
     "SimulationResult",
     "SimulationResultModel",
     "SimulationSolver",
-    "SimulationSolver",
     "SolveResult",
     "SolverError",
     "bind_component_equations",
