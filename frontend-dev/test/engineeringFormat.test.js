@@ -21,6 +21,6 @@ test("uses one scale for a result series and its axis ticks", () => {
   assert.equal(formatEngineeringTick(0.00000042, "A", scale), "0.42");
 });
 
-test("falls back to scientific notation only below the supported prefix range", () => {
+test("supports pico-unit values without rounding them to zero", () => {
   assert.equal(formatEngineeringValue(0.00000000000042, "A"), "0.42 pA");
 });
