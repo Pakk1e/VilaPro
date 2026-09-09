@@ -9,6 +9,7 @@ from worlds.simulation import (
     SimulationService,
     SimulationServiceError,
 )
+from worlds.simulation.api_contract import response_to_api_payload
 
 HOST = "0.0.0.0"
 PORT = 8001
@@ -74,29 +75,14 @@ class WorldsAPIHandler(BaseHTTPRequestHandler):
         if self.path != "/simulate":
             self._send_json(404, {"ok": False, "error": "Not found"})
             return
-
         try:
             request = SimulationRequest.from_dict(self._read_json())
-
             response = SimulationService().simulate(
                 request.world_source,
                 instances=list(request.instances),
                 simulation=request.simulation.to_dict(),
             )
-
-            self._send_json(
-                200,
-                {
-                    "ok": True,
-                    "analysis": response.analysis,
-                    "status": response.status,
-                    "node_voltages": response.node_voltages,
-                    "branch_currents": response.branch_currents,
-                    "components": response.components,
-                    "result": response.result.to_dict(),
-                },
-            )
-
+            self._send_json(200, response_to_api_payload(response))
         except (SimulationRequestError, SimulationServiceError, ValueError) as exc:
             self._send_json(400, {"ok": False, "error": str(exc)})
         except Exception as exc:
