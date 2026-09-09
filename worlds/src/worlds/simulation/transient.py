@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from typing import Mapping
 
-from .dynamic import TransientDynamicStateHandler
+from .dynamic import DynamicComponentError, TransientDynamicStateHandler
 from .model import SimulationModel
 from .session import SimulationSession
 from .solver import SimulationResult, SimulationSolver, SolverError
@@ -143,9 +143,11 @@ class TransientAnalysis:
                     values=solved.values,
                     instances={component.name: component for component in step_model.components},
                 )
-                # Dynamic state is committed only after a successful solve.
-                state_handler.accept_step(dynamic_state, result, context)
-            except (SolverError, ValueError) as exc:
+            except DynamicComponentError as exc:
+                # A malformed dynamic component is a configuration/model error,
+                # not a failed numerical point. Do not hide it as a point failure.
+                raise TransientAnalysisError(str(exc)) from exc
+            except SolverError as exc:
                 message = str(exc) or "Transient operating point did not converge"
                 results.append(None)
                 errors.append(message)
@@ -153,6 +155,8 @@ class TransientAnalysis:
                     session.record_point({"status": "failed", "error": message}, time=current_time)
                 continue
 
+            # Commit dynamic state only after the solve has converged.
+            state_handler.accept_step(dynamic_state, result, context)
             results.append(result)
             errors.append(None)
             previous_time = current_time
