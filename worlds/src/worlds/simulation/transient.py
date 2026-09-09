@@ -99,6 +99,25 @@ def build_time_points(start: Decimal, stop: Decimal, step: Decimal) -> list[Deci
     return points
 
 
+def build_execution_points(start: Decimal, stop: Decimal, step: Decimal) -> tuple[list[Decimal], int]:
+    """Build the physical simulation timeline and identify its output start.
+
+    A transient analysis with a positive display start still has its initial
+    condition at t=0. The solver therefore warms the dynamic state from t=0
+    to the requested start, but only returns points from start onward.
+    """
+    output_points = build_time_points(start, stop, step)
+    if start <= 0:
+        return output_points, 0
+
+    warmup_points = build_time_points(Decimal("0"), start, step)
+    if warmup_points[-1] != start:
+        warmup_points.append(start)
+
+    execution_points = warmup_points + output_points[1:]
+    return execution_points, len(warmup_points) - 1
+
+
 class TransientAnalysis:
     key = "transient"
 
@@ -115,6 +134,10 @@ class TransientAnalysis:
 
         start, stop, step = parse_transient_settings(configuration.settings)
         points = build_time_points(start, stop, step)
+        execution_points, output_start_index = build_execution_points(start, stop, step)
+        if len(execution_points) > 20_000:
+            raise TransientAnalysisError("transient warm-up produces more than 20000 simulation steps")
+
         results: list[SimulationResult | None] = []
         errors: list[str | None] = []
         base_known = dict(known or {})
@@ -122,7 +145,7 @@ class TransientAnalysis:
         previous_time: float | None = None
         state_handler = TransientDynamicStateHandler()
 
-        for time in points:
+        for execution_index, time in enumerate(execution_points):
             current_time = float(time)
             if session is not None and session.cancel_requested:
                 session.cancel()
@@ -149,19 +172,22 @@ class TransientAnalysis:
                 raise TransientAnalysisError(str(exc)) from exc
             except SolverError as exc:
                 message = str(exc) or "Transient operating point did not converge"
-                results.append(None)
-                errors.append(message)
+                if execution_index >= output_start_index:
+                    results.append(None)
+                    errors.append(message)
                 if session is not None:
                     session.record_point({"status": "failed", "error": message}, time=current_time)
                 continue
 
-            # Commit dynamic state only after the solve has converged.
+            # Commit dynamic state after every converged physical step, including
+            # warm-up steps that are not exposed in the returned result.
             state_handler.accept_step(dynamic_state, result, context)
-            results.append(result)
-            errors.append(None)
+            if execution_index >= output_start_index:
+                results.append(result)
+                errors.append(None)
+                if session is not None:
+                    session.record_point(result, time=current_time)
             previous_time = current_time
-            if session is not None:
-                session.record_point(result, time=current_time)
 
         return TransientResult(tuple(points), tuple(results), tuple(errors))
 
