@@ -106,7 +106,7 @@ Backward Euler is an analysis/numerical representation, not the definition of th
 - Validation
 - Tests
 
-### Phase 5.7 — Transient Result Explorer 🔄
+### Phase 5.7 — Transient Result Explorer ✅
 
 #### 5.7A — Generic Dataset Accessors ✅
 
@@ -156,17 +156,23 @@ The generic result model now provides an analysis-independent backend access lay
 - CORS/preflight handling for the Worlds frontend
 - API contract regression coverage
 
-#### Remaining — Frontend Result Explorer
+#### 5.7G — Frontend Result Explorer ✅
 
-- Time as X-axis
+The existing Worlds simulation workspace now consumes the shared visualization contract without introducing a parallel result format.
+
+- Time as the transient X-axis
 - Node-voltage plotting
 - Branch-current plotting
 - Component V/I/P plotting
 - Shared response selection
-- Failed-point visualization
-- Frontend tests
+- Failed-point preservation/visualization
+- Result-to-circuit selection bridge
+- DC Operating Point backward compatibility
+- DC Sweep backward compatibility
+- Frontend model regression coverage
+- Simulation execution/result lifecycle handling
 
-The frontend work must extend the existing Worlds UI. Do not create a parallel circuit editor or simulation workspace.
+The frontend work extends the existing Worlds UI. No parallel circuit editor or simulation workspace is created.
 
 Existing frontend architecture:
 
@@ -190,7 +196,7 @@ SimulationResultModel
 Series → Plot → Visualization payload
 ```
 
-DC Operating Point and DC Sweep already exist in the frontend and must remain backward compatible. The next frontend increment is to extend the existing analysis selector/configuration and graph serializer for Transient, then consume the shared visualization contract.
+DC Operating Point and DC Sweep remain backward compatible. Transient is an additional analysis using the same simulation panel and result-explorer architecture.
 
 ### Phase 5.8 — Dynamic Validation Circuits ✅
 
@@ -203,7 +209,7 @@ Canonical dynamic circuits have been validated in the backend:
 - Time-step sensitivity
 - Analytical-response comparisons
 
-The next work should expose these validated datasets through the existing result explorer rather than creating another transient result format.
+The validated datasets are exposed through the existing result explorer rather than through another transient result format.
 
 ---
 
