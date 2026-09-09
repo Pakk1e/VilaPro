@@ -30,7 +30,14 @@ export default function SimulationPanel({ nodes, edges, onSelectComponent, sweep
   const configurationError = getSimulationConfigValidationError(simulationConfig, sweepTargets);
   const status = getSimulationStatus({ result, running, error, simulationIsStale });
 
-  useEffect(() => () => { mountedRef.current = false; abortControllerRef.current?.abort(); abortControllerRef.current = null; }, []);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      abortControllerRef.current?.abort();
+      abortControllerRef.current = null;
+    };
+  }, []);
 
   const updateSimulationConfig = (changes) => setSimulationConfig((current) => ({ ...current, ...changes, settings: { ...current.settings, ...(changes.settings ?? {}) } }));
 
