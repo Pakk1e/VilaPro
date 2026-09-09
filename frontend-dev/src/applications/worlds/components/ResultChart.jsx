@@ -13,6 +13,9 @@ function formatXAxisTick(value) {
 }
 
 function formatMeasurement(value, unit) {
+  // Point readouts intentionally choose their own engineering prefix. This
+  // prevents a tiny tail value from becoming "0.0 mA" just because the full
+  // series is in the ampere/milliampere range.
   return formatEngineeringValue(value, unit);
 }
 
@@ -62,8 +65,11 @@ export default function ResultChart({ plot, series }) {
   const yRange = yMax - yMin || Math.max(Math.abs(yMax), Math.abs(yMin), 1e-12);
   const xRange = xMax - xMin || 1;
   const yPad = yRange * 0.08;
-  const chartYMin = yMin - yPad;
-  const chartYMax = yMax + yPad;
+
+  // Keep an exact zero on the axis when the data touches zero. Otherwise use
+  // proportional padding so tightly clustered non-zero data remains readable.
+  const chartYMin = yMin === 0 && yMax > 0 ? 0 : yMin - yPad;
+  const chartYMax = yMax === 0 && yMin < 0 ? 0 : yMax + yPad;
   const chartYRange = chartYMax - chartYMin || yRange;
   const scaleX = (value) => margin.left + ((value - xMin) / xRange) * plotWidth;
   const scaleY = (value) => margin.top + (1 - (value - chartYMin) / chartYRange) * plotHeight;
