@@ -58,57 +58,26 @@ CANDELA = Unit(
 # Common derived SI units
 
 NEWTON = KILOGRAM * METER / (SECOND ** 2)
-NEWTON = Unit(
-    name="newton",
-    symbol="N",
-    dimension=NEWTON.dimension,
-    scale=NEWTON.scale,
-)
+NEWTON = Unit(name="newton", symbol="N", dimension=NEWTON.dimension, scale=NEWTON.scale)
 
 JOULE = NEWTON * METER
-JOULE = Unit(
-    name="joule",
-    symbol="J",
-    dimension=JOULE.dimension,
-    scale=JOULE.scale,
-)
+JOULE = Unit(name="joule", symbol="J", dimension=JOULE.dimension, scale=JOULE.scale)
 
 WATT = JOULE / SECOND
-WATT = Unit(
-    name="watt",
-    symbol="W",
-    dimension=WATT.dimension,
-    scale=WATT.scale,
-)
+WATT = Unit(name="watt", symbol="W", dimension=WATT.dimension, scale=WATT.scale)
 
 VOLT = WATT / AMPERE
-VOLT = Unit(
-    name="volt",
-    symbol="V",
-    dimension=VOLT.dimension,
-    scale=VOLT.scale,
-)
+VOLT = Unit(name="volt", symbol="V", dimension=VOLT.dimension, scale=VOLT.scale)
 
 OHM = VOLT / AMPERE
-OHM = Unit(
-    name="ohm",
-    symbol="Ω",
-    dimension=OHM.dimension,
-    scale=OHM.scale,
-)
+OHM = Unit(name="ohm", symbol="Ω", dimension=OHM.dimension, scale=OHM.scale)
 
 FARAD_DIMENSION = AMPERE.dimension * SECOND.dimension / VOLT.dimension
-FARAD = Unit(
-    name="farad",
-    symbol="F",
-    dimension=FARAD_DIMENSION,
-    scale=1.0,
-)
+FARAD = Unit(name="farad", symbol="F", dimension=FARAD_DIMENSION, scale=1.0)
 
 COULOMB = AMPERE * SECOND
-COULOMB = Unit(
-    name="coulomb",
-    symbol="C",
-    dimension=COULOMB.dimension,
-    scale=COULOMB.scale,
-)
+COULOMB = Unit(name="coulomb", symbol="C", dimension=COULOMB.dimension, scale=COULOMB.scale)
+
+# Henry: V·s/A. Keep the dimension as a Dimension, not a Unit expression.
+HENRY_DIMENSION = VOLT.dimension * SECOND.dimension / AMPERE.dimension
+HENRY = Unit(name="henry", symbol="H", dimension=HENRY_DIMENSION, scale=1.0)
