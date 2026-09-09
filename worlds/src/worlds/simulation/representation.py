@@ -11,13 +11,13 @@ class ComponentRepresentationError(ValueError):
 class ComponentRepresentation:
     """Layer-specific description of how a component participates in an analysis.
 
-    A representation is deliberately separate from the component entity.  The
+    A representation is deliberately separate from the component entity. The
     same component can therefore expose different representations at different
     Worlds layers without changing its identity or instance parameters.
     """
 
-    layer: str
     component_type: str
+    layer: str = "generic"
 
     def __post_init__(self) -> None:
         if not self.layer:
