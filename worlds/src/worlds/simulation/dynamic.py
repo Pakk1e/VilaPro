@@ -69,6 +69,14 @@ class CapacitorTransientModel(ElectricalComponentRepresentation):
             raise DynamicComponentError(f"Capacitor '{component.name}' initial voltage must be a finite number")
         return voltage
 
+    def companion_terms(self, component: SimulationComponent, previous_voltage: float, dt: float) -> tuple[float, float]:
+        """Return Backward-Euler conductance and history current."""
+        if dt <= 0:
+            raise DynamicComponentError("Capacitor transient dt must be greater than zero")
+        conductance = self.capacitance(component) / dt
+        history_current = -conductance * float(previous_voltage)
+        return conductance, history_current
+
     def prepare_equation(self, component: SimulationComponent, previous_voltage: float, dt: float | None) -> Equation:
         if "p" not in component.ports or "n" not in component.ports:
             raise DynamicComponentError(f"Capacitor '{component.name}' must define p/n ports")
@@ -78,7 +86,7 @@ class CapacitorTransientModel(ElectricalComponentRepresentation):
                 right=Number(previous_voltage),
             )
 
-        conductance = self.capacitance(component) / dt
+        conductance, _history_current = self.companion_terms(component, previous_voltage, dt)
         return Equation(
             left=FunctionCall("current", (Variable("p"), Variable("n"))),
             right=Binary(
