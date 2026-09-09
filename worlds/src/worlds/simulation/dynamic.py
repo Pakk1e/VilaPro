@@ -16,32 +16,34 @@ class DynamicComponentError(ValueError):
 
 @dataclass(frozen=True)
 class CapacitorTransientModel(ElectricalComponentRepresentation):
-    """Backward-Euler transient representation of an electrical capacitor.
+    """Backward-Euler transient representation of an electrical capacitor."""
 
-    The component's physical relationship is i = C * dv/dt. This class only
-    supplies the transient numerical representation; it does not redefine the
-    component's physical identity or its other analysis representations.
-    """
-
+    capacitance: float | None = None
     component_type: str = "Capacitor"
     layer: str = "electrical"
     method: str = "backward_euler"
 
-    @staticmethod
-    def capacitance(component: SimulationComponent) -> float:
-        value = component.parameters.get("C", component.parameters.get("capacitance"))
+    def _validate_capacitance_value(self, value: object, name: str = "Capacitor") -> float:
         if value is None:
-            raise DynamicComponentError(f"Capacitor '{component.name}' must define parameter 'C'")
+            raise DynamicComponentError(f"{name} must define capacitance")
         try:
             capacitance = float(value)
         except (TypeError, ValueError):
-            raise DynamicComponentError(f"Capacitor '{component.name}' capacitance must be a finite number") from None
-        if not capacitance > 0:
-            raise DynamicComponentError(f"Capacitor '{component.name}' capacitance must be greater than zero")
+            raise DynamicComponentError(f"{name} capacitance must be a finite number") from None
+        if not capacitance == capacitance or capacitance in (float("inf"), float("-inf")):
+            raise DynamicComponentError(f"{name} capacitance must be a finite number")
+        if capacitance <= 0:
+            raise DynamicComponentError(f"{name} capacitance must be greater than zero")
         return capacitance
 
-    @staticmethod
-    def initial_voltage(component: SimulationComponent) -> float:
+    def capacitance_for(self, component: SimulationComponent) -> float:
+        value = component.parameters.get("C", component.parameters.get("capacitance", self.capacitance))
+        return self._validate_capacitance_value(value, f"Capacitor '{component.name}'")
+
+    def capacitance_value(self) -> float:
+        return self._validate_capacitance_value(self.capacitance)
+
+    def initial_voltage(self, component: SimulationComponent) -> float:
         value = component.parameters.get("initial_voltage", component.parameters.get("initialVoltage", 0.0))
         try:
             voltage = float(value)
@@ -60,7 +62,7 @@ class CapacitorTransientModel(ElectricalComponentRepresentation):
                 right=Number(previous_voltage),
             )
 
-        conductance = self.capacitance(component) / dt
+        conductance = self.capacitance_for(component) / dt
         return Equation(
             left=FunctionCall("current", (Variable("p"), Variable("n"))),
             right=Binary(
@@ -88,7 +90,7 @@ class CapacitorStateHandler(TransientStateHandler):
                 components.append(component)
                 continue
 
-            self.model.capacitance(component)
+            self.model.capacitance_for(component)
             previous_voltage = previous_state.get(component.component_id, self.model.initial_voltage(component))
             if not isinstance(previous_voltage, (int, float)) or isinstance(previous_voltage, bool):
                 raise DynamicComponentError(f"Capacitor '{component.name}' state voltage must be numeric")
