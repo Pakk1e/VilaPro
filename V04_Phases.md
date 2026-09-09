@@ -436,6 +436,17 @@ iₙ = (C / Δt) · (vₙ - vₙ₋₁)
 
 This is an analysis/numerical representation, not the definition of the capacitor itself.
 
+#### 5.4A — Representation Architecture ✅
+
+Establish the code-level boundary between the component entity and its layer-specific representation.
+
+- Generic `ComponentRepresentation` contract
+- `ElectricalComponentRepresentation` base contract
+- Capacitor transient model identified as an electrical-layer representation
+- Numerical method (`backward_euler`) represented as model metadata rather than component identity
+- Public API exports
+- Regression tests for representation/layer identity
+
 #### Deliverables
 
 - Capacitor component identification in the simulation model
@@ -455,18 +466,36 @@ The implementation must keep the physical component separate from its analysis r
 Conceptually:
 
 ```text
-Capacitor
+Capacitor Entity
    │
    ├─ Electrical representation
    │     ├─ DC
    │     ├─ AC
-   │     └─ Transient
+   │     ├─ Transient
+   │     └─ Laplace
    │
    ├─ Physical representation      (future)
    │
    ├─ Material representation      (future)
    │
    └─ Microscopic representation   (future)
+```
+
+The analysis method is a separate concern:
+
+```text
+Electrical representation
+        ↓
+Analysis
+   ├─ DC
+   ├─ AC
+   ├─ Transient
+   └─ Laplace
+        ↓
+Numerical / analytical method
+   ├─ Backward Euler
+   ├─ Trapezoidal
+   └─ future methods
 ```
 
 Different layers may therefore use different, appropriate formulas while referring to the same underlying component/entity.
@@ -512,6 +541,63 @@ Validate the full dynamic engine with canonical circuits:
 
 ---
 
+# Architecture Decision — Component Entities, Representations, Analyses and Methods
+
+The Worlds architecture treats a component as an underlying **entity**, not as one immutable equation.
+
+```text
+Component Entity
+       ↓
+Layer-specific Representation
+       ↓
+Analysis Model
+       ↓
+Numerical / Analytical Method
+       ↓
+Result Model
+       ↓
+Dataset
+       ↓
+Series
+       ↓
+Plot
+```
+
+### Component Entity
+
+Defines what the component is and preserves its identity, parameters, ports and instance relationships.
+
+### Representation
+
+Defines how that entity is described at a particular Worlds layer. The same component can have multiple valid representations.
+
+### Analysis
+
+Defines what kind of question is being asked of the representation, such as DC, AC, transient or Laplace analysis.
+
+### Numerical / Analytical Method
+
+Defines how the selected analysis is evaluated. For example, Backward Euler is a transient numerical method; it is not the definition of a capacitor.
+
+### Example — Capacitor
+
+At different levels the same underlying capacitor may eventually be represented as:
+
+```text
+Circuit / electrical → i = C · dv/dt
+AC electrical       → Z = 1 / (jωC)
+Laplace              → I(s) = sC V(s) - C v(0⁻)
+Physical             → Q = C V, electric field, stored energy
+Material             → dielectric / polarization behavior
+Microscopic          → charge carriers and interactions
+```
+
+These are different abstractions of the same underlying entity. They are not competing definitions.
+
+The deeper physical/material/microscopic layers are future Worlds work and are deliberately outside the current Phase 5 implementation scope.
+
+---
+
 # Long-Term Vision
 
 The simulation stack should remain layered so that the same component can have multiple valid representations depending on the engineering/physical layer and analysis being explored.
@@ -535,18 +621,5 @@ Series
         ↓
 Plot
 ```
-
-For example, a capacitor may eventually be explored as:
-
-```text
-Circuit layer       → i = C · dv/dt
-AC layer             → Z = 1 / (jωC)
-Laplace layer        → I(s) = sC V(s) - C v(0⁻)
-Physical layer       → Q = C V, electric field, stored energy
-Material layer       → dielectric / polarization behavior
-Microscopic layer    → charge carriers and interactions
-```
-
-These are not competing definitions; they are progressively different representations of the same underlying phenomenon. The deeper physical layers are future work and are not part of Phase 5.
 
 This architecture provides a scalable foundation for advanced circuit simulation and future multi-layer Worlds exploration while keeping the system maintainable and extensible.
