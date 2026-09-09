@@ -14,16 +14,19 @@ function getVisualizationPlots(result) {
   return [];
 }
 
-/**
- * Adapt the backend's canonical plot/series payload to the existing Worlds
- * result-explorer series shape. This keeps the UI independent of the Python
- * plotting implementation while retaining entity metadata when available.
- */
+function getPlotIndependentVariable(plot) {
+  const axis = plot?.independent_variable ?? plot?.independentVariable ?? plot?.x;
+  if (axis && Array.isArray(axis.values)) return axis;
+  const firstSeries = Array.isArray(plot?.series) ? plot.series[0] : null;
+  return { key: "independent", label: plot?.x_label ?? "X", unit: plot?.x_unit ?? "", values: Array.isArray(firstSeries?.x) ? firstSeries.x : [] };
+}
+
+/** Adapt the backend canonical visualization payload to the existing Worlds result-explorer series shape. */
 export function getVisualizationSeries(result) {
   const plots = getVisualizationPlots(result);
   const series = [];
   for (const plot of plots) {
-    const xValues = plot?.series?.[0]?.x ?? [];
+    const axis = getPlotIndependentVariable(plot);
     for (const item of Array.isArray(plot?.series) ? plot.series : []) {
       const quantity = item?.quantity ?? "measurement";
       const source = String(item?.source ?? item?.id ?? "series");
@@ -31,11 +34,7 @@ export function getVisualizationSeries(result) {
       const entityId = sourceParts.join(":") || item?.id || source;
       const entityType = sourceKind === "node" || sourceKind === "branch" || sourceKind === "component" ? sourceKind : "series";
       const yValues = Array.isArray(item?.y) ? item.y : [];
-      const values = yValues.map((value, index) => ({
-        value,
-        failed: value === null || value === undefined,
-        error: value === null || value === undefined ? "No result value was returned." : null,
-      }));
+      const values = yValues.map((value) => ({ value, failed: value === null || value === undefined, error: value === null || value === undefined ? "No result value was returned." : null }));
       series.push({
         key: item?.id ?? `${plot?.id ?? "plot"}:${source}`,
         label: item?.label ?? source,
@@ -43,7 +42,10 @@ export function getVisualizationSeries(result) {
         measurementType: quantity,
         unit: item?.unit ?? "",
         values,
-        xValues: Array.isArray(xValues) ? xValues : [],
+        xValues: Array.isArray(axis?.values) ? axis.values : [],
+        xKey: axis?.key ?? "independent",
+        xLabel: axis?.label ?? "X",
+        xUnit: axis?.unit ?? "",
         plotId: plot?.id ?? null,
         plotTitle: plot?.title ?? "Simulation result",
         entityType,
@@ -68,18 +70,11 @@ export function getOperatingPointResponseSeries(result) {
   }
   for (const [id, voltage] of Object.entries(result?.node_voltages ?? {})) {
     const node = getCircuitNode(result, id);
-    addSeries(series, `node:${id}`, `V(${node?.is_ground ? "Ground" : node?.label ?? id})`, RESULT_MEASUREMENTS.VOLTAGE, "V", voltage, {
-      entityType: "node", entityId: id, contextTitle: node?.is_ground ? "Ground" : node?.label ?? id,
-      contextDescription: node?.is_ground ? "Reference node (0 V)" : `Voltage at ${node?.label ?? id}`,
-    });
+    addSeries(series, `node:${id}`, `V(${node?.is_ground ? "Ground" : node?.label ?? id})`, RESULT_MEASUREMENTS.VOLTAGE, "V", voltage, { entityType: "node", entityId: id, contextTitle: node?.is_ground ? "Ground" : node?.label ?? id, contextDescription: node?.is_ground ? "Reference node (0 V)" : `Voltage at ${node?.label ?? id}` });
   }
   for (const [branchKey, current] of Object.entries(result?.branch_currents ?? {})) {
     const branch = getCircuitBranch(result, branchKey);
-    addSeries(series, `branch:${branchKey}`, `I(${branch?.name ?? branchKey})`, RESULT_MEASUREMENTS.CURRENT, "A", current, {
-      entityType: "branch", entityId: branchKey, contextTitle: branch?.name ?? branchKey,
-      contextDescription: branch?.name ? `Current through ${branch.name}` : "Current through this branch",
-      positiveNode: branch?.positive?.node, negativeNode: branch?.negative?.node, componentId: branch?.id ?? null,
-    });
+    addSeries(series, `branch:${branchKey}`, `I(${branch?.name ?? branchKey})`, RESULT_MEASUREMENTS.CURRENT, "A", current, { entityType: "branch", entityId: branchKey, contextTitle: branch?.name ?? branchKey, contextDescription: branch?.name ? `Current through ${branch.name}` : "Current through this branch", positiveNode: branch?.positive?.node, negativeNode: branch?.negative?.node, componentId: branch?.id ?? null });
   }
   return series;
 }
@@ -92,17 +87,13 @@ export function getResultSeries(result) {
   return result?.analysis === "dc_sweep" ? getSweepResponseSeries(result) : getOperatingPointResponseSeries(result);
 }
 
-function matchesScope(item, scope) {
-  return scope === RESULT_SCOPES.NODES ? item.entityType === "node" : item.entityType === "component";
-}
-
 export function getExplorerMeasurements(scope, series) {
   const measurements = [RESULT_MEASUREMENTS.VOLTAGE, RESULT_MEASUREMENTS.CURRENT, RESULT_MEASUREMENTS.POWER];
-  return measurements.filter((measurement) => series.some((item) => matchesScope(item, scope) && item.measurementType === measurement));
+  return measurements.filter((measurement) => series.some((item) => (scope === RESULT_SCOPES.NODES ? item.entityType === "node" : item.entityType === "component") && item.measurementType === measurement));
 }
 
 export function getExplorerSeries(series, scope, measurement) {
-  return series.filter((item) => matchesScope(item, scope) && item.measurementType === measurement);
+  return series.filter((item) => (scope === RESULT_SCOPES.NODES ? item.entityType === "node" : item.entityType === "component") && item.measurementType === measurement);
 }
 
 export function getCircuitSummaryRows(series) {
@@ -132,9 +123,5 @@ export function getSummaryValue(series) {
 }
 
 export function getMeasurementLabel(measurement) {
-  return ({
-    [RESULT_MEASUREMENTS.VOLTAGE]: "V",
-    [RESULT_MEASUREMENTS.CURRENT]: "I",
-    [RESULT_MEASUREMENTS.POWER]: "P",
-  })[measurement] ?? measurement;
+  return ({ [RESULT_MEASUREMENTS.VOLTAGE]: "V", [RESULT_MEASUREMENTS.CURRENT]: "I", [RESULT_MEASUREMENTS.POWER]: "P" })[measurement] ?? measurement;
 }
