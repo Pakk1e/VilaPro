@@ -91,6 +91,40 @@ class SimulationResultModelTest(unittest.TestCase):
 
         self.assertEqual(result.to_dict()["circuit_context"], context)
 
+    def test_dataset_names_and_lookup(self):
+        result = SimulationResultModel(
+            datasets=(
+                SimulationDataset("time", [0.0, 1.0]),
+                SimulationDataset("node_voltages", [{"out": 0.0}, {"out": 0.5}]),
+            )
+        )
+
+        self.assertEqual(result.dataset_names, ("time", "node_voltages"))
+        self.assertEqual(result.dataset("time").values, [0.0, 1.0])
+        with self.assertRaises(KeyError):
+            result.dataset("missing")
+
+    def test_series_preserves_time_alignment_and_missing_points(self):
+        result = SimulationResultModel(
+            datasets=(
+                SimulationDataset(
+                    "node_voltages",
+                    [{"out": 0.0}, None, {"out": 1.0}],
+                    ("time", "node"),
+                ),
+            )
+        )
+
+        self.assertEqual(result.series("node_voltages", "out"), (0.0, None, 1.0))
+
+    def test_series_rejects_non_row_dataset(self):
+        result = SimulationResultModel(
+            datasets=(SimulationDataset("time", [0.0, 1.0], ("time",)),)
+        )
+
+        with self.assertRaises(ValueError):
+            result.series("time", "out")
+
 
 if __name__ == "__main__":
     unittest.main()
