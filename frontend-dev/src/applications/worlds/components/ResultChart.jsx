@@ -1,10 +1,15 @@
 import { useState } from "react";
 
-import { getNearestPlotRow, getPlotAxisLabel, getPlotRows, getPlotSeriesLabel, getPlotSeriesQuantityLabel } from "../model/resultPlot.js";
+import { getNearestPlotRow, getPlotAxisLabel, getPlotRows, getPlotSeriesLabel } from "../model/resultPlot.js";
 import { formatEngineeringTick, formatEngineeringValue, getEngineeringScale } from "../model/engineeringFormat.js";
 
-function formatTick(value, scale) {
-  return formatEngineeringTick(value, scale?.baseUnit ?? "", scale);
+function formatXAxisTick(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return "—";
+  const absolute = Math.abs(number);
+  if (absolute >= 100) return number.toFixed(0);
+  if (absolute >= 10) return number.toFixed(1);
+  return number.toFixed(2);
 }
 
 function formatMeasurement(value, unit, scale) {
@@ -37,7 +42,6 @@ export default function ResultChart({ plot, series }) {
   const [selectedRow, setSelectedRow] = useState(null);
   const xLabel = getPlotAxisLabel(plot?.x);
   const baseYLabel = getPlotSeriesLabel(series);
-  const quantityLabel = getPlotSeriesQuantityLabel(series);
 
   if (points.length < 2) {
     return <div className="flex h-56 items-center justify-center rounded-lg border border-dashed border-[#d9dde2] bg-[#fafbfc] px-4 text-center text-xs text-[#69717b]">At least two valid result points are required to plot the response.</div>;
@@ -55,12 +59,12 @@ export default function ResultChart({ plot, series }) {
   const yMin = Math.min(...yValues);
   const yMax = Math.max(...yValues);
   const yScale = { ...getEngineeringScale(yValues, series?.unit ?? ""), baseUnit: series?.unit ?? "" };
-  const yRange = yMax - yMin || Math.max(Math.abs(yMax), Math.abs(yMin), 1);
+  const yRange = yMax - yMin || Math.max(Math.abs(yMax), Math.abs(yMin), 1e-12);
   const xRange = xMax - xMin || 1;
-  const yPad = yRange * 0.08 || 1;
+  const yPad = yRange * 0.08;
   const chartYMin = yMin - yPad;
   const chartYMax = yMax + yPad;
-  const chartYRange = chartYMax - chartYMin || 1;
+  const chartYRange = chartYMax - chartYMin || yRange;
   const scaleX = (value) => margin.left + ((value - xMin) / xRange) * plotWidth;
   const scaleY = (value) => margin.top + (1 - (value - chartYMin) / chartYRange) * plotHeight;
   const paths = getPathSegments(rows, scaleX, scaleY);
@@ -94,7 +98,7 @@ export default function ResultChart({ plot, series }) {
       <div className="border-b border-[#e4e7eb] bg-[#fafbfc] px-4 py-2.5">
         {selectedRow ? (
           <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-[#26364d]" aria-live="polite">
-            <span><span className="text-[#69717b]">{xLabel}:</span> <strong className="font-mono">{formatMeasurement(selectedRow.sweepValue, plot?.x?.unit)}</strong></span>
+            <span><span className="text-[#69717b]">{xLabel}:</span> <strong className="font-mono">{formatXAxisTick(selectedRow.sweepValue)}{plot?.x?.unit ? ` ${plot.x.unit}` : ""}</strong></span>
             <span><span className="text-[#69717b]">{yLabel}:</span> <strong className="font-mono">{formatMeasurement(selectedRow.value, series?.unit, yScale)}</strong></span>
             <button type="button" onClick={() => setSelectedRow(null)} className="ml-auto text-[10px] font-medium text-[#58718f] hover:underline">Clear</button>
           </div>
@@ -102,8 +106,8 @@ export default function ResultChart({ plot, series }) {
       </div>
       <div className="overflow-x-auto px-3 py-3">
         <svg viewBox={`0 0 ${width} ${height}`} className="h-auto min-w-[560px] w-full cursor-crosshair" role="img" aria-label={`${yLabel} versus ${xLabel} result plot`} onClick={handleChartClick}>
-          {yTicks.map((tick) => { const y = scaleY(tick); return <g key={`y-${tick}`}><line x1={margin.left} x2={width - margin.right} y1={y} y2={y} stroke="#e4e7eb" strokeWidth="1" /><text x={margin.left - 9} y={y + 4} textAnchor="end" fontSize="10" fill="#69717b">{formatTick(tick, yScale)}</text></g>; })}
-          {xTicks.map((tick) => { const x = scaleX(tick); return <g key={`x-${tick}`}><line x1={x} x2={x} y1={margin.top} y2={height - margin.bottom} stroke="#f0f1f3" strokeWidth="1" /><text x={x} y={height - margin.bottom + 19} textAnchor="middle" fontSize="10" fill="#69717b">{formatEngineeringTick(tick, plot?.x?.unit ?? "")}</text></g>; })}
+          {yTicks.map((tick) => { const y = scaleY(tick); return <g key={`y-${tick}`}><line x1={margin.left} x2={width - margin.right} y1={y} y2={y} stroke="#e4e7eb" strokeWidth="1" /><text x={margin.left - 9} y={y + 4} textAnchor="end" fontSize="10" fill="#69717b">{formatEngineeringTick(tick, yScale.baseUnit, yScale)}</text></g>; })}
+          {xTicks.map((tick) => { const x = scaleX(tick); return <g key={`x-${tick}`}><line x1={x} x2={x} y1={margin.top} y2={height - margin.bottom} stroke="#f0f1f3" strokeWidth="1" /><text x={x} y={height - margin.bottom + 19} textAnchor="middle" fontSize="10" fill="#69717b">{formatXAxisTick(tick)}</text></g>; })}
           <line x1={margin.left} x2={width - margin.right} y1={height - margin.bottom} y2={height - margin.bottom} stroke="#cfd5dc" strokeWidth="1" />
           <line x1={margin.left} x2={margin.left} y1={margin.top} y2={height - margin.bottom} stroke="#cfd5dc" strokeWidth="1" />
           {paths.map((path, index) => <path key={`path-${index}`} d={path} fill="none" stroke="currentColor" strokeWidth="2" className="text-[#26364d]" />)}
