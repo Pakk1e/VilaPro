@@ -69,6 +69,31 @@ class TransientStateExecutionTest(unittest.TestCase):
         self.assertEqual(handler.prepared[2][0].get("C1"), 0.1)
         self.assertEqual([context.dt for _, context in handler.accepted], [None, 0.1, 0.1])
 
+    def test_positive_start_warms_state_before_first_output_point(self):
+        handler = RecordingStateHandler()
+        configuration = SimulationConfiguration.from_dict({
+            "analysis": "transient",
+            "settings": {"start": 0.2, "stop": 0.4, "step": 0.1},
+        })
+        fake_result = SimulationResult(values={}, instances={})
+
+        with patch("worlds.simulation.analysis._solve", return_value=fake_result):
+            result = TransientAnalysis(state_handler=handler).run(
+                SimulationModel(), configuration=configuration
+            )
+
+        # The physical simulation runs 0.0, 0.1, 0.2, 0.3, 0.4, but only
+        # 0.2..0.4 are returned as output. The first output therefore carries
+        # the state reached during the warm-up interval.
+        self.assertEqual(result.points, (0.2, 0.3, 0.4))
+        self.assertEqual([item.get("C1") for item in result.state_snapshots], [0.2, 0.3, 0.4])
+        self.assertEqual(len(handler.prepared), 5)
+        self.assertEqual(handler.prepared[2][1].time, 0.2)
+        self.assertEqual(handler.prepared[2][1].previous_time, 0.1)
+        self.assertEqual(handler.prepared[2][1].dt, 0.1)
+        self.assertEqual(handler.prepared[2][0].get("C1"), 0.1)
+        self.assertEqual([context.time for _, context in handler.accepted], [0.0, 0.1, 0.2, 0.3, 0.4])
+
     def test_failed_step_does_not_commit_new_state(self):
         handler = RecordingStateHandler()
         configuration = SimulationConfiguration.from_dict({
@@ -98,8 +123,8 @@ class TransientStateExecutionTest(unittest.TestCase):
         first = TransientStepContext(time=0.0, previous_time=None, dt=None)
         second = TransientStepContext(time=0.25, previous_time=0.0, dt=0.25)
         self.assertIsNone(first.dt)
-        self.assertEqual(second.dt, 0.25)
         self.assertEqual(second.previous_time, 0.0)
+        self.assertEqual(second.dt, 0.25)
 
 
 class DynamicStateTest(unittest.TestCase):
