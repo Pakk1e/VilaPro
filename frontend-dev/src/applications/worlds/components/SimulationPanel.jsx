@@ -1,22 +1,18 @@
 import { useEffect, useRef, useState } from "react";
 
 import { serializeWorldGraph } from "../model/worldGraphSerializer";
+import { formatEngineeringValue } from "../model/engineeringFormat";
 
 function formatVoltage(value) {
-  const number = Number(value);
-  return Number.isFinite(number) ? `${number.toFixed(2)} V` : "—";
+  return formatEngineeringValue(value, "V");
 }
 
 function formatCurrent(value) {
-  const number = Number(value);
-  if (!Number.isFinite(number)) return "—";
-  return Math.abs(number) >= 1 ? `${number.toFixed(2)} A` : `${(number * 1000).toFixed(1)} mA`;
+  return formatEngineeringValue(value, "A");
 }
 
 function formatPower(value) {
-  const number = Number(value);
-  if (!Number.isFinite(number)) return "—";
-  return Math.abs(number) >= 1 ? `${number.toFixed(2)} W` : `${(number * 1000).toFixed(1)} mW`;
+  return formatEngineeringValue(value, "W");
 }
 
 export default function SimulationPanel({ nodes, edges, onSelectComponent }) {
