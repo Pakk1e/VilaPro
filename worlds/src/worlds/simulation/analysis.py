@@ -4,12 +4,12 @@ from dataclasses import dataclass, field, replace
 from decimal import Decimal, InvalidOperation
 from typing import Mapping, Protocol
 
-from worlds.math import Variable
+from worlds.math import Equation, FunctionCall, Number, Variable
 
 from .ac import ACConfiguration, ACConfigurationError, ACResult, solve_ac
 from .dynamic import TransientDynamicStateHandler
 from .mode import SimulationMode
-from .model import SimulationModel
+from .model import SimulationComponent, SimulationModel
 from .network import build_network_equation_system
 from .session import SimulationSession
 from .solver import SimulationResult, SimulationSolver, SolverError
@@ -124,7 +124,7 @@ class SimulationAnalysis(Protocol):
 class DCOperatingPointAnalysis:
     key = DC_OPERATING_POINT
     def run(self, model, *, known=None, configuration=None, session=None):
-        result = _solve(model, known)
+        result = _solve(model, known, dc_mode=True)
         if session is not None:
             session.record_point(result, time=0.0)
         return result
@@ -143,7 +143,7 @@ class DCSweepAnalysis:
             _check_cancel(session)
             swept_model = _override_component_parameter(model, source_id=source_id, parameter=parameter, value=float(point))
             try:
-                result = _solve(swept_model, base_known)
+                result = _solve(swept_model, base_known, dc_mode=True)
             except SolverError as exc:
                 message = str(exc) or "DC operating point did not converge"
                 results.append(None); errors.append(message)
@@ -212,10 +212,31 @@ def _build_transient_execution_points(configuration: TransientConfiguration) -> 
     return tuple(warmup[:-1]) + output_points
 
 
-def _solve(model, known):
+def _solve(model, known, *, dc_mode: bool = False):
+    if dc_mode:
+        model = _apply_dc_equivalents(model)
     equation_system = build_network_equation_system(model)
     solved = SimulationSolver().solve(equation_system, known=known)
     return SimulationResult(values=solved.values, instances={component.name: component for component in model.components})
+
+
+def _apply_dc_equivalents(model: SimulationModel) -> SimulationModel:
+    """Replace reactive components with their steady-state DC equivalents."""
+    components: list[SimulationComponent] = []
+    for component in model.components:
+        if component.component_type == "Capacitor":
+            components.append(replace(component, equations=[Equation(
+                left=FunctionCall("current", (Variable("p"), Variable("n"))),
+                right=Number(0.0),
+            )]))
+        elif component.component_type == "Inductor":
+            components.append(replace(component, equations=[Equation(
+                left=FunctionCall("voltage", (Variable("p"), Variable("n"))),
+                right=Number(0.0),
+            )]))
+        else:
+            components.append(component)
+    return SimulationModel(components=components, nodes=set(model.nodes))
 
 
 def _check_cancel(session):
