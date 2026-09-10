@@ -2,6 +2,18 @@
 
 This repository is being developed as VilaPro / Vadovsky Tech — Lab OS. The long-term direction is a visual system-modeling workspace in which users can build, inspect, simulate, and progressively explore systems at different abstraction layers.
 
+## 0. Repository paths
+
+These paths are important and should be treated as the canonical development locations for the Lab OS Worlds work:
+
+- **Backend / Worlds:** `VilaPro/worlds`
+- **Frontend / Worlds application:** `VilaPro/frontend-dev/src/applications/worlds`
+- **Frontend project root:** `VilaPro/frontend-dev`
+
+When working from the repository root, these correspond to `worlds/` and `frontend-dev/src/applications/worlds/` respectively.
+
+Do not confuse `frontend-dev/src/applications/worlds` with unrelated frontend applications or with the backend `worlds` package. When a task concerns the Lab OS Worlds UI, start in the Worlds application path and trace its dependencies from there.
+
 ## 1. Work from the actual repository state
 
 - Inspect the current code, tests, git history, and relevant documentation before changing anything.
@@ -55,11 +67,12 @@ Avoid premature implementation of much lower-fidelity layers when the current ab
 - Use a single source of truth for engineering-value/result formatting.
 - Formatting must not change raw simulation values.
 - Avoid duplicating component-to-backend mappings in multiple UI components.
+- For Lab OS Worlds UI work, use `frontend-dev/src/applications/worlds` as the primary application boundary and trace shared components/services from there.
 - Do not modify the live production frontend merely to test `frontend-dev` Worlds work.
 
 ## 6. Backend and deployment rules
 
-- Worlds is the Python simulation/backend layer.
+- Worlds is the Python simulation/backend layer located at `worlds/` in the repository (`VilaPro/worlds` in the full repository path).
 - The Worlds API is separate from the simulation engine and should remain a thin application/transport boundary.
 - The deployed Worlds API is managed by `worlds-api.service` under systemd; do not switch it to PM2 unless there is a specific architectural reason.
 - Never restart production services as part of an ordinary code investigation unless the task explicitly requires deployment.
