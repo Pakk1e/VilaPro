@@ -27,6 +27,26 @@ function dispatchResultSelection(row) {
   window.dispatchEvent(new CustomEvent("worlds:select-result", { detail: { entityType: row.entityType, entityId: row.entityId } }));
 }
 
+function ACResultView({ result }) {
+  const datasets = Object.fromEntries((Array.isArray(result?.result?.datasets) ? result.result.datasets : []).map((dataset) => [dataset.name, dataset.values]));
+  const frequency = Array.isArray(datasets.frequency) ? datasets.frequency[0] : null;
+  const phasors = Array.isArray(datasets.phasors) ? datasets.phasors : [];
+  return <section role="region" aria-label="AC phasor results" className="overflow-hidden rounded-xl border border-[#d9dde2] bg-white">
+    <div className="border-b border-[#e4e7eb] px-4 py-4"><div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#69717b]">AC Phasors</div><div className="mt-1 text-xs text-[#8a929c]">Steady-state complex response at the selected frequency.</div></div>
+    <div className="grid gap-3 p-4 sm:grid-cols-3">
+      <div className="rounded-lg border border-[#e4e7eb] bg-[#fafbfc] px-3 py-3"><div className="text-[10px] text-[#69717b]">Frequency</div><div className="mt-1 text-lg font-semibold tabular-nums text-[#17253a]">{frequency ?? "—"}<span className="ml-1 text-[10px] font-medium text-[#8a929c]">Hz</span></div></div>
+      <div className="rounded-lg border border-[#e4e7eb] bg-[#fafbfc] px-3 py-3"><div className="text-[10px] text-[#69717b]">Excitation magnitude</div><div className="mt-1 text-lg font-semibold tabular-nums text-[#17253a]">{result?.result?.analysis_information?.excitation?.magnitude ?? "—"}</div></div>
+      <div className="rounded-lg border border-[#e4e7eb] bg-[#fafbfc] px-3 py-3"><div className="text-[10px] text-[#69717b]">Excitation phase</div><div className="mt-1 text-lg font-semibold tabular-nums text-[#17253a]">{result?.result?.analysis_information?.excitation?.phase_deg ?? "—"}<span className="ml-1 text-[10px] font-medium text-[#8a929c]">°</span></div></div>
+    </div>
+    <div className="border-t border-[#e4e7eb]">
+      <div className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#69717b]">Phasor values</div>
+      <div className="overflow-x-auto"><table className="w-full border-collapse text-left"><thead className="bg-[#fafbfc]"><tr className="border-y border-[#eef0f2]"><th className="px-4 py-2 text-[9px] font-semibold uppercase tracking-[0.1em] text-[#69717b]">Variable</th><th className="px-3 py-2 text-[9px] font-semibold uppercase tracking-[0.1em] text-[#69717b]">Magnitude</th><th className="px-3 py-2 text-[9px] font-semibold uppercase tracking-[0.1em] text-[#69717b]">Phase</th><th className="px-3 py-2 text-[9px] font-semibold uppercase tracking-[0.1em] text-[#69717b]">Real</th><th className="px-3 py-2 text-[9px] font-semibold uppercase tracking-[0.1em] text-[#69717b]">Imaginary</th></tr></thead>
+        <tbody>{phasors.length === 0 ? <tr><td colSpan="5" className="px-4 py-4 text-xs text-[#69717b]">No AC phasor values are available.</td></tr> : phasors.map((item) => <tr key={item.name} className="border-b border-[#eef0f2] last:border-b-0"><td className="max-w-[24rem] truncate px-4 py-2.5 text-xs font-medium text-[#17253a]" title={item.name}>{item.name}</td><td className="px-3 py-2.5 font-mono text-[11px] text-[#35445a]">{item.magnitude}</td><td className="px-3 py-2.5 font-mono text-[11px] text-[#35445a]">{item.phase_deg}°</td><td className="px-3 py-2.5 font-mono text-[11px] text-[#35445a]">{item.real}</td><td className="px-3 py-2.5 font-mono text-[11px] text-[#35445a]">{item.imag}</td></tr>)}</tbody>
+      </table></div>
+    </div>
+  </section>;
+}
+
 export default function ResultExplorer({ result }) {
   const series = useMemo(() => getResultSeries(result), [result]);
   const rows = useMemo(() => getCircuitSummaryRows(series), [series]);
@@ -41,6 +61,7 @@ export default function ResultExplorer({ result }) {
   const selectedSeries = selectedRow && effectiveMeasurement ? getEntityMeasurementSeries(series, selectedRow.entityType, selectedRow.entityId, effectiveMeasurement) : null;
   const isSweep = result?.analysis === "dc_sweep";
   const isTransient = result?.analysis === "transient";
+  const isAC = result?.analysis === "ac";
 
   useEffect(() => { dispatchResultSelection(selectedRow); }, [selectedRow]);
   useEffect(() => {
@@ -50,6 +71,7 @@ export default function ResultExplorer({ result }) {
   }, [rows]);
 
   if (!result) return null;
+  if (isAC) return <ACResultView result={result} />;
 
   let plot = null;
   if (selectedSeries) {
