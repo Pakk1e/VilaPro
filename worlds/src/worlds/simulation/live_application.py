@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from threading import RLock
+from threading import Event, RLock, Thread
+from time import sleep
 from typing import Mapping
 
 from worlds.semantics import WorldSemanticAnalyzer
@@ -36,6 +37,7 @@ class LiveSimulationApplicationService:
     manager: LiveSimulationManager
     runtime: LiveSimulationRuntime | None = None
     _contexts: dict[str, _LiveContext] = field(default_factory=dict)
+    _workers: dict[str, tuple[Thread, Event]] = field(default_factory=dict)
     _lock: RLock = field(default_factory=RLock, repr=False)
 
     def __post_init__(self) -> None:
@@ -64,6 +66,7 @@ class LiveSimulationApplicationService:
                 model=model,
                 known=dict(known or {}),
             )
+        self._start_worker(snapshot.session_id)
         return snapshot
 
     def get(self, session_id: str) -> LiveSimulationSnapshot:
@@ -101,6 +104,7 @@ class LiveSimulationApplicationService:
             snapshot = self.runtime.cancel(session_id)
         except LiveSimulationRuntimeError as exc:
             raise LiveSimulationApplicationError(str(exc)) from exc
+        self._stop_worker(session_id)
         self._drop_context(session_id)
         return snapshot
 
@@ -109,8 +113,45 @@ class LiveSimulationApplicationService:
             snapshot = self.runtime.complete(session_id)
         except LiveSimulationRuntimeError as exc:
             raise LiveSimulationApplicationError(str(exc)) from exc
+        self._stop_worker(session_id)
         self._drop_context(session_id)
         return snapshot
+
+    def _start_worker(self, session_id: str) -> None:
+        stop_event = Event()
+        worker = Thread(
+            target=self._run_worker,
+            args=(session_id, stop_event),
+            name=f"live-simulation-{session_id[:8]}",
+            daemon=True,
+        )
+        with self._lock:
+            self._workers[session_id] = (worker, stop_event)
+        worker.start()
+
+    def _run_worker(self, session_id: str, stop_event: Event) -> None:
+        while not stop_event.is_set():
+            try:
+                snapshot = self.manager.get(session_id)
+            except LiveSimulationServiceError:
+                return
+            if snapshot.status in {"completed", "cancelled", "failed"}:
+                return
+            if snapshot.status == "paused":
+                stop_event.wait(0.1)
+                continue
+            try:
+                self.step(session_id)
+            except LiveSimulationApplicationError:
+                return
+            stop_event.wait(0.5)
+
+    def _stop_worker(self, session_id: str) -> None:
+        with self._lock:
+            worker_entry = self._workers.pop(session_id, None)
+        if worker_entry is not None:
+            _, stop_event = worker_entry
+            stop_event.set()
 
     def _get_context(self, session_id: str) -> _LiveContext:
         with self._lock:
