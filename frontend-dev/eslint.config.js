@@ -8,6 +8,7 @@ export default defineConfig([
   globalIgnores([
     'dist',
     'src/applications/calendar/**',
+    'src/components/ZoomableSvg.jsx',
   ]),
   {
     files: ['**/*.{js,jsx}'],
