@@ -12,68 +12,29 @@ on:
 jobs:
   deploy:
     name: Deploy Worlds DEV
-    runs-on: ubuntu-latest
+    runs-on:
+      - self-hosted
+      - worlds-dev
     environment: worlds-dev
 
     steps:
-      - name: Validate branch input
-        env:
-          DEPLOY_BRANCH: ${{ inputs.branch }}
-        run: |
-          set -euo pipefail
-          if [[ ! "$DEPLOY_BRANCH" =~ ^[A-Za-z0-9._/-]+$ ]]; then
-            echo "ERROR: invalid branch name: $DEPLOY_BRANCH" >&2
-            exit 1
-          fi
-
-      - name: Checkout deployment scripts
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ inputs.branch }}
-          sparse-checkout: |
-            scripts/deploy-worlds-dev.sh
-            deploy/systemd/worlds-web.service
-
-      - name: Configure SSH
-        env:
-          WORLDS_DEPLOY_HOST: ${{ secrets.WORLDS_DEPLOY_HOST }}
-          WORLDS_DEPLOY_SSH_KEY: ${{ secrets.WORLDS_DEPLOY_SSH_KEY }}
-        run: |
-          set -euo pipefail
-          if [[ -z "$WORLDS_DEPLOY_HOST" ]]; then
-            echo "ERROR: WORLDS_DEPLOY_HOST is empty or unavailable in the worlds-dev environment." >&2
-            exit 1
-          fi
-          if [[ -z "$WORLDS_DEPLOY_SSH_KEY" ]]; then
-            echo "ERROR: WORLDS_DEPLOY_SSH_KEY is empty or unavailable in the worlds-dev environment." >&2
-            exit 1
-          fi
-
-          mkdir -p ~/.ssh
-          chmod 700 ~/.ssh
-          printf '%s\n' "$WORLDS_DEPLOY_SSH_KEY" > ~/.ssh/worlds_deploy_key
-          chmod 600 ~/.ssh/worlds_deploy_key
-
-          echo "Testing TCP connectivity to SSH port 22..."
-          if ! timeout 10 bash -c "cat < /dev/null > /dev/tcp/$WORLDS_DEPLOY_HOST/22"; then
-            echo "ERROR: GitHub runner cannot reach $WORLDS_DEPLOY_HOST:22." >&2
-            echo "Check that TCP/22 is reachable from the public Internet and is not blocked by a firewall/NAT rule." >&2
-            exit 1
-          fi
-          echo "TCP connectivity to SSH port 22 confirmed."
-
-          echo "Collecting SSH host key..."
-          if ! ssh-keyscan -T 10 -v -H "$WORLDS_DEPLOY_HOST" >> ~/.ssh/known_hosts; then
-            echo "ERROR: SSH host-key collection failed for $WORLDS_DEPLOY_HOST:22." >&2
-            exit 1
-          fi
-
       - name: Deploy Worlds DEV
         env:
-          WORLDS_DEPLOY_HOST: ${{ secrets.WORLDS_DEPLOY_HOST }}
-          WORLDS_DEPLOY_USER: ${{ secrets.WORLDS_DEPLOY_USER }}
           WORLDS_DEPLOY_BRANCH: ${{ inputs.branch }}
         run: |
           set -euo pipefail
-          ssh -i ~/.ssh/worlds_deploy_key "$WORLDS_DEPLOY_USER@$WORLDS_DEPLOY_HOST" \
-            "WORLDS_DEPLOY_BRANCH='$WORLDS_DEPLOY_BRANCH' bash scripts/deploy-worlds-dev.sh"
+          if [[ ! "$WORLDS_DEPLOY_BRANCH" =~ ^[A-Za-z0-9._/-]+$ ]]; then
+            echo "ERROR: invalid branch name: $WORLDS_DEPLOY_BRANCH" >&2
+            exit 1
+          fi
+
+          cd /home/park-pro/VilaPro
+          echo "=== Worlds DEV deployment ==="
+          echo "Repository: /home/park-pro/VilaPro"
+          echo "Branch:     $WORLDS_DEPLOY_BRANCH"
+
+          git fetch origin "$WORLDS_DEPLOY_BRANCH"
+          git checkout "$WORLDS_DEPLOY_BRANCH"
+          git pull --ff-only origin "$WORLDS_DEPLOY_BRANCH"
+
+          bash scripts/deploy-worlds-dev.sh
