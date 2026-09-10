@@ -90,6 +90,8 @@ test("authenticated user can start, pause, resume and stop Live DC", async ({ pa
   await expect(liveState).toBeVisible({ timeout: 10000 });
   await expect(page.getByRole("button", { name: "Pause" })).toBeVisible();
   await expect(liveState.getByText("Waiting for the first simulation update.")).toHaveCount(0, { timeout: 10000 });
+  await expect(liveState.getByText("Sample time")).toBeVisible();
+  await expect(liveState.getByText("0.5")).toBeVisible({ timeout: 10000 });
 
   await page.getByRole("button", { name: "Pause" }).click();
   await expect(page.getByRole("button", { name: "Resume" })).toBeVisible();
@@ -115,8 +117,10 @@ test("authenticated user can run Live AC and receive phasor state", async ({ pag
   await page.getByRole("button", { name: "Start Live" }).click();
   const liveState = page.getByRole("region", { name: "Live simulation state" });
   await expect(liveState).toBeVisible({ timeout: 10000 });
-  await expect(liveState.getByText(/\.magnitude$/).first()).toBeVisible({ timeout: 10000 });
-  await expect(liveState.getByText(/\.phase_deg$/).first()).toBeVisible({ timeout: 10000 });
+  await expect(liveState.getByText(/· magnitude$/).first()).toBeVisible({ timeout: 10000 });
+  await expect(liveState.getByText(/· phase$/).first()).toBeVisible({ timeout: 10000 });
+  await expect(liveState.getByText(/· instantaneous$/).first()).toBeVisible({ timeout: 10000 });
+  await expect(liveState.getByText("Sample time")).toBeVisible();
   await page.getByRole("button", { name: "Stop" }).click();
   await expect(page.locator("header").getByText("cancelled", { exact: true })).toBeVisible();
   expect(consoleErrors).toEqual([]);
