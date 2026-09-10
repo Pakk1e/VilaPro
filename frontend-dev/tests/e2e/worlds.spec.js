@@ -134,7 +134,9 @@ test.describe("Worlds DEV authenticated audit", () => {
         await page.getByLabel("Analysis").selectOption("dc_sweep");
 
         await expect(
-            page.getByText("Select a voltage or current source to sweep.", { exact: true })
+            page.locator('[role="alert"]').filter({
+                hasText: /^Select a voltage or current source to sweep\.$/,
+            })
         ).toBeVisible();
         await expect(
             page.getByRole("button", { name: "Simulate" })
