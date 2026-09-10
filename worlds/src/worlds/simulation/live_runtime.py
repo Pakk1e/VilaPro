@@ -3,7 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Mapping
 
-from .analysis import DC_OPERATING_POINT, SimulationConfiguration, get_simulation_analysis
+from .ac import solve_ac
+from .analysis import AC, DC_OPERATING_POINT, SimulationConfiguration, get_simulation_analysis
 from .live import LiveSimulationSnapshot
 from .live_service import LiveSimulationManager, LiveSimulationServiceError
 from .mode import SimulationMode
@@ -17,11 +18,7 @@ class LiveSimulationRuntimeError(RuntimeError):
 
 @dataclass
 class LiveSimulationRuntime:
-    """Execution adapter for the Live runtime boundary.
-
-    One solver update is performed per call. The application service may invoke
-    this repeatedly from a background worker without changing the session API.
-    """
+    """Execution adapter for the Live runtime boundary."""
 
     manager: LiveSimulationManager
 
@@ -43,11 +40,6 @@ class LiveSimulationRuntime:
             raise LiveSimulationRuntimeError("live runtime step requires a simulation configuration")
         if configuration.mode is not SimulationMode.LIVE:
             raise LiveSimulationRuntimeError("live runtime requires simulation.mode='live'")
-        if configuration.analysis != DC_OPERATING_POINT:
-            raise LiveSimulationRuntimeError(
-                f"live runtime currently supports '{DC_OPERATING_POINT}' only"
-            )
-
         try:
             current = self.manager.get(session_id)
         except LiveSimulationServiceError as exc:
@@ -55,9 +47,23 @@ class LiveSimulationRuntime:
         if current.status != "running":
             return current
 
-        analysis = get_simulation_analysis(configuration.analysis)
         try:
-            result = analysis.run(model, known=dict(known or {}), configuration=configuration)
+            if configuration.analysis == AC:
+                result = solve_ac(model, __import__("worlds.simulation.ac", fromlist=["ACConfiguration"]).ACConfiguration.from_dict(configuration.settings))
+                signals = {}
+                for key, value in result.values.items():
+                    signals[f"{key}.magnitude"] = abs(value)
+                    signals[f"{key}.phase_deg"] = __import__("math").degrees(__import__("cmath").phase(value))
+            elif configuration.analysis == DC_OPERATING_POINT:
+                analysis = get_simulation_analysis(configuration.analysis)
+                result = analysis.run(model, known=dict(known or {}), configuration=configuration)
+                if not isinstance(result, SimulationResult):
+                    raise LiveSimulationRuntimeError("live DC runtime expected a single simulation result")
+                signals = {str(key): float(value) for key, value in result.values.items()}
+            else:
+                raise LiveSimulationRuntimeError(
+                    f"live runtime currently supports '{DC_OPERATING_POINT}' and '{AC}' only"
+                )
         except Exception as exc:
             try:
                 self.manager.fail(session_id, str(exc) or "live simulation step failed")
@@ -65,19 +71,9 @@ class LiveSimulationRuntime:
                 pass
             raise LiveSimulationRuntimeError(str(exc)) from exc
 
-        if not isinstance(result, SimulationResult):
-            raise LiveSimulationRuntimeError("live DC runtime expected a single simulation result")
-
-        signals = {str(key): float(value) for key, value in result.values.items()}
         try:
-            return self.manager.update(
-                session_id,
-                independent_value=None,
-                signals=signals,
-            )
+            return self.manager.update(session_id, independent_value=None, signals=signals)
         except LiveSimulationServiceError as exc:
-            # A stop/pause may legitimately win the race while the solver was
-            # running. Return the authoritative lifecycle state in that case.
             if "must be running to update state" in str(exc):
                 return self.manager.get(session_id)
             raise LiveSimulationRuntimeError(str(exc)) from exc
