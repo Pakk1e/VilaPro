@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+from cmath import phase
 from dataclasses import dataclass
+from math import degrees
 from typing import Mapping
 
-from .ac import solve_ac
-from .analysis import AC, DC_OPERATING_POINT, SimulationConfiguration, get_simulation_analysis
+from .ac import AC, ACConfiguration, solve_ac
+from .analysis import DC_OPERATING_POINT, SimulationConfiguration, get_simulation_analysis
 from .live import LiveSimulationSnapshot
 from .live_service import LiveSimulationManager, LiveSimulationServiceError
 from .mode import SimulationMode
@@ -28,14 +30,7 @@ class LiveSimulationRuntime:
         session = self.manager.create(configuration)
         return self.manager.start(session.session_id)
 
-    def step(
-        self,
-        session_id: str,
-        model: SimulationModel,
-        *,
-        known: Mapping[object, float] | None = None,
-        configuration: SimulationConfiguration | None = None,
-    ) -> LiveSimulationSnapshot:
+    def step(self, session_id: str, model: SimulationModel, *, known: Mapping[object, float] | None = None, configuration: SimulationConfiguration | None = None) -> LiveSimulationSnapshot:
         if configuration is None:
             raise LiveSimulationRuntimeError("live runtime step requires a simulation configuration")
         if configuration.mode is not SimulationMode.LIVE:
@@ -49,21 +44,18 @@ class LiveSimulationRuntime:
 
         try:
             if configuration.analysis == AC:
-                result = solve_ac(model, __import__("worlds.simulation.ac", fromlist=["ACConfiguration"]).ACConfiguration.from_dict(configuration.settings))
+                result = solve_ac(model, ACConfiguration.from_dict(configuration.settings))
                 signals = {}
                 for key, value in result.values.items():
                     signals[f"{key}.magnitude"] = abs(value)
-                    signals[f"{key}.phase_deg"] = __import__("math").degrees(__import__("cmath").phase(value))
+                    signals[f"{key}.phase_deg"] = degrees(phase(value))
             elif configuration.analysis == DC_OPERATING_POINT:
-                analysis = get_simulation_analysis(configuration.analysis)
-                result = analysis.run(model, known=dict(known or {}), configuration=configuration)
+                result = get_simulation_analysis(configuration.analysis).run(model, known=dict(known or {}), configuration=configuration)
                 if not isinstance(result, SimulationResult):
                     raise LiveSimulationRuntimeError("live DC runtime expected a single simulation result")
                 signals = {str(key): float(value) for key, value in result.values.items()}
             else:
-                raise LiveSimulationRuntimeError(
-                    f"live runtime currently supports '{DC_OPERATING_POINT}' and '{AC}' only"
-                )
+                raise LiveSimulationRuntimeError(f"live runtime currently supports '{DC_OPERATING_POINT}' and '{AC}' only")
         except Exception as exc:
             try:
                 self.manager.fail(session_id, str(exc) or "live simulation step failed")
