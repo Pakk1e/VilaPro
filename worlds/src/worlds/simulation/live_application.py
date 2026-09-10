@@ -13,6 +13,7 @@ from .builder import build_simulation_component
 from .live import LiveSimulationSnapshot
 from .live_runtime import LiveSimulationRuntime, LiveSimulationRuntimeError
 from .live_service import LiveSimulationManager, LiveSimulationServiceError
+from .mode import SimulationMode
 from .model import SimulationModel
 from .validation import SimulationValidator
 
@@ -50,6 +51,8 @@ class LiveSimulationApplicationService:
         simulation: dict | None = None,
     ) -> LiveSimulationSnapshot:
         configuration = SimulationConfiguration.from_dict(simulation)
+        if configuration.mode is not SimulationMode.LIVE:
+            raise LiveSimulationApplicationError("live application service requires simulation.mode='live'")
         model = self._build_model(world_source, instances)
         try:
             snapshot = self.runtime.start(configuration)
