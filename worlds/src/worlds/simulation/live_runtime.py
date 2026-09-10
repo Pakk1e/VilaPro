@@ -59,10 +59,10 @@ class LiveSimulationRuntime:
         if not isinstance(result, SimulationResult):
             raise LiveSimulationRuntimeError("live DC runtime expected a single simulation result")
 
-        signals = dict(result.values)
+        signals = {str(key): float(value) for key, value in result.values.items()}
         return self.manager.update(
             session_id,
-            independent_value=0.0,
+            independent_value=None,
             signals=signals,
         )
 
