@@ -1,6 +1,9 @@
 name: Deploy Worlds DEV
 
 on:
+  push:
+    branches:
+      - v0.4/workspace-architecture
   workflow_dispatch:
     inputs:
       branch:
@@ -20,7 +23,7 @@ jobs:
     steps:
       - name: Deploy Worlds DEV
         env:
-          WORLDS_DEPLOY_BRANCH: ${{ inputs.branch }}
+          WORLDS_DEPLOY_BRANCH: ${{ github.event_name == 'workflow_dispatch' && inputs.branch || github.ref_name }}
         run: |
           set -euo pipefail
           if [[ ! "$WORLDS_DEPLOY_BRANCH" =~ ^[A-Za-z0-9._/-]+$ ]]; then
