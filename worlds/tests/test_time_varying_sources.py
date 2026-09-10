@@ -1,5 +1,8 @@
 import unittest
 
+from worlds.math import Equation, FunctionCall, Number, Variable
+
+from worlds.simulation.analysis import SimulationConfiguration, TransientAnalysis
 from worlds.simulation.dynamic import DynamicComponentError, TransientDynamicStateHandler
 from worlds.simulation.model import SimulationComponent, SimulationModel
 from worlds.simulation.state import DynamicStateSnapshot, TransientStepContext
@@ -52,6 +55,56 @@ class TimeVaryingSourceTest(unittest.TestCase):
         )
         self.assertAlmostEqual(prepared.components[0].parameters["V"], 11.0)
         self.assertIsInstance(prepared.components[0].parameters["V"], float)
+
+    def test_transient_analysis_solves_with_time_varying_voltage_source(self):
+        source = SimulationComponent(
+            name="VoltageSource_1",
+            display_name="V1",
+            component_id="v1",
+            component_type="VoltageSource",
+            parameters={
+                "V": {
+                    "waveform": "sine",
+                    "amplitude": 10.0,
+                    "offset": 1.0,
+                    "frequency": 1.0,
+                }
+            },
+            ports={"p": "out", "n": "ground"},
+            equations=[
+                Equation(
+                    left=FunctionCall("voltage", (Variable("p"), Variable("n"))),
+                    right=Variable("V"),
+                )
+            ],
+        )
+        resistor = SimulationComponent(
+            name="Resistor_1",
+            display_name="R1",
+            component_id="r1",
+            component_type="Resistor",
+            parameters={"R": 100.0},
+            ports={"p": "out", "n": "ground"},
+            equations=[
+                Equation(
+                    left=FunctionCall("voltage", (Variable("p"), Variable("n"))),
+                    right=FunctionCall("current", (Variable("p"), Variable("n"))),
+                )
+            ],
+        )
+        model = SimulationModel(
+            components=[source, resistor], nodes={"out", "ground"}
+        )
+        configuration = SimulationConfiguration(
+            analysis="transient",
+            settings={"start": 0.0, "stop": 0.25, "step": 0.25},
+        )
+        result = TransientAnalysis().run(model, configuration=configuration)
+        self.assertEqual(result.points, (0.0, 0.25))
+        self.assertIsNotNone(result.results[1])
+        self.assertAlmostEqual(
+            result.results[1].instance("VoltageSource_1").voltage(), 11.0
+        )
 
     def test_invalid_source_fails_as_dynamic_configuration_error(self):
         source = SimulationComponent(
