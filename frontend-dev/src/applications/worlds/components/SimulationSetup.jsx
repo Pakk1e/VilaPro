@@ -46,11 +46,11 @@ export default function SimulationSetup({ config, onChange, sweepTargets = [], v
         </select>
       </label>
 
-      {config.analysis === SIMULATION_ANALYSES.DC_OPERATING_POINT && <div className="mt-3 rounded-md border border-[#e4e7eb] bg-[#fafbfc] px-3 py-2.5 text-[10px] leading-4 text-[#69717b]">Calculates the steady-state node voltages and branch currents for the current circuit.</div>}
+      {config.analysis === SIMULATION_ANALYSES.DC_OPERATING_POINT && <div className="mt-3 rounded-md border border-[#e4e7eb] bg-[#fafbfc] px-3 py-2.5 text-[10px] leading-4 text-[#69717b]">Calculates the steady-state node voltages and branch currents for the current circuit. Capacitors are open circuits and inductors are shorts at DC.</div>}
 
       {config.analysis === SIMULATION_ANALYSES.AC && (
         <div className="mt-4 space-y-3">
-          <div className="rounded-md border border-[#e4e7eb] bg-[#fafbfc] px-3 py-2.5 text-[10px] leading-4 text-[#69717b]">Live AC uses a sinusoidal excitation and reports phasor magnitude and phase for the current linear electrical model.</div>
+          <div className="rounded-md border border-[#e4e7eb] bg-[#fafbfc] px-3 py-2.5 text-[10px] leading-4 text-[#69717b]">AC uses sinusoidal excitation and reports complex phasor magnitude and phase for the current linear electrical model. Static AC is a single-frequency operating point; frequency-sweep/Bode analysis can build on the same AC representation.</div>
           <div className="grid grid-cols-3 gap-2">
             {[["frequency", "Frequency", "Hz"], ["amplitude", "Amplitude", "V/A"], ["phase", "Phase", "°"]].map(([name, label, unit]) => (
               <label key={name} className="block">
