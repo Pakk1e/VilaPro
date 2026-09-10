@@ -4,10 +4,12 @@ import assert from "node:assert/strict";
 import {
   DEFAULT_DC_SWEEP_SETTINGS,
   SIMULATION_ANALYSES,
+  SIMULATION_MODES,
   createSimulationConfig,
   getDcSweepValidationError,
   getSimulationConfigValidationError,
   getSimulationAnalysisLabel,
+  getSimulationModeLabel,
 } from "./simulationConfig.js";
 
 const targets = [
@@ -24,6 +26,32 @@ const targets = [
     parameters: [{ parameter: "I", label: "Current", unit: "A" }],
   },
 ];
+
+test("simulation defaults to static execution", () => {
+  const config = createSimulationConfig();
+  assert.equal(config.mode, SIMULATION_MODES.STATIC);
+  assert.equal(getSimulationModeLabel(config.mode), "Static");
+  assert.equal(getSimulationConfigValidationError(config, []), null);
+});
+
+test("live mode supports DC operating point", () => {
+  const config = createSimulationConfig({
+    mode: SIMULATION_MODES.LIVE,
+    analysis: SIMULATION_ANALYSES.DC_OPERATING_POINT,
+  });
+  assert.equal(getSimulationConfigValidationError(config, []), null);
+});
+
+test("live mode currently rejects unsupported analyses", () => {
+  const config = createSimulationConfig({
+    mode: SIMULATION_MODES.LIVE,
+    analysis: SIMULATION_ANALYSES.TRANSIENT,
+  });
+  assert.equal(
+    getSimulationConfigValidationError(config, []),
+    "Live mode currently supports DC Operating Point only."
+  );
+});
 
 test("dc sweep is a supported analysis", () => {
   const config = createSimulationConfig({
