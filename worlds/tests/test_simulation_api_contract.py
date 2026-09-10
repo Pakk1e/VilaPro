@@ -16,12 +16,38 @@ class SimulationAPIContractTest(unittest.TestCase):
         )
         return SimulationResponse("transient", "completed", {"out": 5.0}, {}, [], result)
 
+    def _operating_point_response(self):
+        result = SimulationResultModel(
+            datasets=(
+                SimulationDataset("node_voltages", {"out": 5.0}),
+                SimulationDataset("branch_currents", {"in": 0.12}),
+                SimulationDataset("components", [{"id": "resistor-1", "name": "Resistor 1", "voltage": 5.0, "current": 0.12, "power": 0.6}]),
+            ),
+            analysis_information={"analysis": "dc_operating_point"},
+        )
+        return SimulationResponse(
+            "dc_operating_point",
+            "completed",
+            {"out": 5.0},
+            {"in": 0.12},
+            [{"id": "resistor-1", "name": "Resistor 1", "voltage": 5.0, "current": 0.12, "power": 0.6}],
+            result,
+        )
+
     def test_contract_contains_visualization(self):
         payload = response_to_api_payload(self._response())
         self.assertTrue(payload["ok"])
         self.assertEqual(payload["analysis"], "transient")
         self.assertIn("visualization", payload)
         self.assertEqual(payload["visualization"]["x_label"], "Time")
+
+    def test_operating_point_contract_does_not_require_an_independent_variable(self):
+        payload = response_to_api_payload(self._operating_point_response())
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["analysis"], "dc_operating_point")
+        self.assertIsNone(payload["visualization"])
+        self.assertEqual(payload["node_voltages"], {"out": 5.0})
+        self.assertEqual(payload["branch_currents"], {"in": 0.12})
 
     def test_contract_keeps_legacy_fields(self):
         payload = response_to_api_payload(self._response())
