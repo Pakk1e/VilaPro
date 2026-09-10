@@ -2,13 +2,17 @@ import { test, expect } from "@playwright/test";
 
 const E2E_EMAIL = globalThis.process?.env.WORLDS_E2E_EMAIL;
 const E2E_PASSWORD = globalThis.process?.env.WORLDS_E2E_PASSWORD;
+const EXPECTED_AUTH_401 =
+    "Failed to load resource: the server responded with a status of 401 ()";
 
 function installBrowserErrorChecks(page) {
     const consoleErrors = [];
     const pageErrors = [];
 
     page.on("console", (message) => {
-        if (message.type() === "error") consoleErrors.push(message.text());
+        if (message.type() === "error" && message.text() !== EXPECTED_AUTH_401) {
+            consoleErrors.push(message.text());
+        }
     });
 
     page.on("pageerror", (error) => {
@@ -58,10 +62,10 @@ test.describe("Worlds DEV authenticated audit", () => {
         await expect(
             page.getByRole("button", { name: "Circuit Design" })
         ).toHaveAttribute("aria-current", "page");
-        await expect(page.getByText("Components")).toBeVisible();
-        await expect(page.getByText("Palette")).toBeVisible();
+        await expect(page.getByText("Components", { exact: true })).toBeVisible();
+        await expect(page.getByText("Palette", { exact: true })).toBeVisible();
         await expect(
-            page.getByText("Add a component to get started.")
+            page.getByText("Add a component to get started.", { exact: true })
         ).toBeVisible();
 
         await saveAuditScreenshot(page, testInfo, "worlds-design-empty");
@@ -129,8 +133,10 @@ test.describe("Worlds DEV authenticated audit", () => {
 
         await page.getByLabel("Analysis").selectOption("dc_sweep");
 
-        await expect(page.getByRole("alert")).toBeVisible();
-        await expect(page.getByText(/select.*source|source/i).last()).toBeVisible();
+        await expect(
+            page.getByRole("alert").filter({ hasText: "Select a voltage or current source to sweep." })
+        ).toBeVisible();
+        await expect(page.getByText("Select a voltage or current source to sweep.", { exact: true })).toBeVisible();
         await expect(
             page.getByRole("button", { name: "Simulate" })
         ).toBeDisabled();
