@@ -12,7 +12,7 @@ class SimulationDataset:
     dimensions: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, object]:
-        return {"name": self.name, "values": self.values, "dimensions": list(self.dimensions)}
+        return {"name": self.name, "values": _json_safe(self.values), "dimensions": list(self.dimensions)}
 
 
 @dataclass(frozen=True)
@@ -57,11 +57,30 @@ class SimulationResultModel:
         return SimulationPlotFactory().from_result(self, plot_id=plot_id, title=title, series_ids=series_ids)
 
     def to_dict(self) -> dict[str, object]:
-        return {"metadata": dict(self.metadata), "datasets": [dataset.to_dict() for dataset in self.datasets], "statistics": dict(self.statistics), "analysis_information": dict(self.analysis_information), "circuit_context": dict(self.circuit_context)}
+        return {"metadata": dict(self.metadata), "datasets": [dataset.to_dict() for dataset in self.datasets], "statistics": _json_safe(dict(self.statistics)), "analysis_information": _json_safe(dict(self.analysis_information)), "circuit_context": _json_safe(dict(self.circuit_context))}
 
     @classmethod
     def from_dc_operating_point(cls, *, analysis: str, status: str, settings: Mapping[str, object], outputs: tuple[str, ...], node_voltages: Mapping[str, float], branch_currents: Mapping[str, float], components: list[dict], circuit_context: Mapping[str, object] | None = None) -> "SimulationResultModel":
         return cls(metadata={"status": status}, datasets=(SimulationDataset("node_voltages", dict(node_voltages)), SimulationDataset("branch_currents", dict(branch_currents)), SimulationDataset("components", list(components))), analysis_information={"analysis": analysis, "settings": dict(settings), "outputs": list(outputs)}, circuit_context=dict(circuit_context or {}))
+
+    @classmethod
+    def from_ac(cls, *, status: str, settings: Mapping[str, object], outputs: tuple[str, ...], frequency: float, excitation: complex, phasors: Mapping[str, complex], circuit_context: Mapping[str, object] | None = None) -> "SimulationResultModel":
+        rows = [
+            {
+                "name": str(key),
+                "real": float(value.real),
+                "imag": float(value.imag),
+                "magnitude": abs(value),
+                "phase_deg": __import__("math").degrees(__import__("cmath").phase(value)),
+            }
+            for key, value in phasors.items()
+        ]
+        return cls(
+            metadata={"status": status},
+            datasets=(SimulationDataset("frequency", (float(frequency),), ("frequency",)), SimulationDataset("phasors", rows, ("frequency", "phasor"))),
+            analysis_information={"analysis": "ac", "settings": dict(settings), "outputs": list(outputs), "excitation": {"real": float(excitation.real), "imag": float(excitation.imag), "magnitude": abs(excitation), "phase_deg": __import__("math").degrees(__import__("cmath").phase(excitation))}},
+            circuit_context=dict(circuit_context or {}),
+        )
 
     @classmethod
     def from_dc_sweep(cls, *, status: str, settings: Mapping[str, object], outputs: tuple[str, ...], sweep_source: str, sweep_parameter: str, points: list[float], point_statuses: list[dict[str, object]], node_voltages: list[dict[str, float] | None], branch_currents: list[dict[str, float] | None], components: list[list[dict] | None], circuit_context: Mapping[str, object] | None = None) -> "SimulationResultModel":
@@ -72,3 +91,13 @@ class SimulationResultModel:
     def from_transient(cls, *, status: str, settings: Mapping[str, object], outputs: tuple[str, ...], points: list[float], point_statuses: list[dict[str, object]], node_voltages: list[dict[str, float] | None], branch_currents: list[dict[str, float] | None], components: list[list[dict] | None], circuit_context: Mapping[str, object] | None = None) -> "SimulationResultModel":
         failed_count = sum(1 for item in point_statuses if item.get("status") == "failed")
         return cls(metadata={"status": status}, datasets=(SimulationDataset("time", points, ("time",)), SimulationDataset("time_status", point_statuses, ("time",)), SimulationDataset("node_voltages", node_voltages, ("time", "node")), SimulationDataset("branch_currents", branch_currents, ("time", "branch")), SimulationDataset("components", components, ("time", "component"))), statistics={"point_count": len(points), "completed_point_count": len(point_statuses)-failed_count, "failed_point_count": failed_count}, analysis_information={"analysis": "transient", "settings": dict(settings), "outputs": list(outputs)}, circuit_context=dict(circuit_context or {}))
+
+
+def _json_safe(value: object) -> object:
+    if isinstance(value, complex):
+        return {"real": float(value.real), "imag": float(value.imag)}
+    if isinstance(value, Mapping):
+        return {str(key): _json_safe(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(item) for item in value]
+    return value
