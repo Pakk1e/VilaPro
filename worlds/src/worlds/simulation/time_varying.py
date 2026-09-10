@@ -82,7 +82,8 @@ class TimeVaryingSource:
         angle = 2.0 * pi * self.frequency * (time - self.delay) + self.phase
         if self.waveform == "sine":
             return self.offset + self.amplitude * sin(angle)
-        return self.offset + self.amplitude * (1.0 if sin(angle) >= 0.0 else -1.0)
+        cycle = (self.frequency * (time - self.delay)) + self.phase / (2.0 * pi)
+        return self.offset + self.amplitude * (1.0 if cycle % 1.0 < 0.5 else -1.0)
 
 
 def evaluate_time_varying_source(value: object, time: float) -> float | None:
