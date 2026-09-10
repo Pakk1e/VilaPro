@@ -18,10 +18,12 @@ class _FakeRuntime:
     def __init__(self, manager):
         self.manager = manager
         self.steps = 0
+        self.sample_times = []
 
-    def step(self, session_id, model, *, known=None, configuration=None):
+    def step(self, session_id, model, *, known=None, configuration=None, sample_time=0.0):
         self.steps += 1
-        return self.manager.update(session_id, signals={"V(out)": float(self.steps)})
+        self.sample_times.append(sample_time)
+        return self.manager.update(session_id, independent_value=sample_time, signals={"V(out)": float(self.steps)})
 
     def cancel(self, session_id):
         return self.manager.cancel(session_id)
@@ -85,6 +87,7 @@ class LiveSimulationApplicationTest(unittest.TestCase):
         self.assertGreater(runtime.steps, 0)
         self.assertEqual(manager.get(created.session_id).status, "running")
         self.assertIn("V(out)", manager.get(created.session_id).signals)
+        self.assertEqual(runtime.sample_times[0], 0.0)
 
         manager.cancel(created.session_id)
         service._stop_worker(created.session_id)
