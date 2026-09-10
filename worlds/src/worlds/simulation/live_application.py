@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from threading import Event, RLock, Thread
-from time import sleep
 from typing import Mapping
 
 from worlds.semantics import WorldSemanticAnalyzer
@@ -38,6 +37,7 @@ class LiveSimulationApplicationService:
     runtime: LiveSimulationRuntime | None = None
     _contexts: dict[str, _LiveContext] = field(default_factory=dict)
     _workers: dict[str, tuple[Thread, Event]] = field(default_factory=dict)
+    _sample_times: dict[str, float] = field(default_factory=dict)
     _lock: RLock = field(default_factory=RLock, repr=False)
 
     def __post_init__(self) -> None:
@@ -66,6 +66,7 @@ class LiveSimulationApplicationService:
                 model=model,
                 known=dict(known or {}),
             )
+            self._sample_times[snapshot.session_id] = 0.0
         self._start_worker(snapshot.session_id)
         return snapshot
 
@@ -77,15 +78,20 @@ class LiveSimulationApplicationService:
 
     def step(self, session_id: str) -> LiveSimulationSnapshot:
         context = self._get_context(session_id)
+        sample_time = self._get_sample_time(session_id)
         try:
-            return self.runtime.step(
+            snapshot = self.runtime.step(
                 session_id,
                 context.model,
                 known=context.known,
                 configuration=context.configuration,
+                sample_time=sample_time,
             )
         except LiveSimulationRuntimeError as exc:
             raise LiveSimulationApplicationError(str(exc)) from exc
+        if snapshot.status == "running" and snapshot.independent_value == sample_time:
+            self._set_sample_time(session_id, sample_time + 0.5)
+        return snapshot
 
     def pause(self, session_id: str) -> LiveSimulationSnapshot:
         try:
@@ -160,9 +166,21 @@ class LiveSimulationApplicationService:
             raise LiveSimulationApplicationError(f"Unknown live simulation session: {session_id}")
         return context
 
+    def _get_sample_time(self, session_id: str) -> float:
+        with self._lock:
+            if session_id not in self._sample_times:
+                raise LiveSimulationApplicationError(f"Unknown live simulation session: {session_id}")
+            return self._sample_times[session_id]
+
+    def _set_sample_time(self, session_id: str, value: float) -> None:
+        with self._lock:
+            if session_id in self._sample_times:
+                self._sample_times[session_id] = value
+
     def _drop_context(self, session_id: str) -> None:
         with self._lock:
             self._contexts.pop(session_id, None)
+            self._sample_times.pop(session_id, None)
 
     @staticmethod
     def _build_model(world_source: str, instances: list[dict]) -> SimulationModel:
