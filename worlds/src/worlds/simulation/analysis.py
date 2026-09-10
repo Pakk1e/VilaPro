@@ -6,6 +6,7 @@ from typing import Mapping, Protocol
 
 from worlds.math import Variable
 
+from .ac import ACConfiguration, ACConfigurationError, ACResult, solve_ac
 from .dynamic import TransientDynamicStateHandler
 from .mode import SimulationMode
 from .model import SimulationModel
@@ -18,7 +19,8 @@ from .transient import TransientConfiguration, TransientConfigurationError
 DC_OPERATING_POINT = "dc_operating_point"
 DC_SWEEP = "dc_sweep"
 TRANSIENT = "transient"
-SUPPORTED_ANALYSES = (DC_OPERATING_POINT, DC_SWEEP, TRANSIENT)
+AC = "ac"
+SUPPORTED_ANALYSES = (DC_OPERATING_POINT, DC_SWEEP, TRANSIENT, AC)
 MAX_SWEEP_POINTS = 10_000
 
 
@@ -39,37 +41,34 @@ class SimulationConfiguration:
             return cls()
         if not isinstance(value, Mapping):
             raise SimulationAnalysisError("simulation must be an object")
-
         raw_mode = value.get("mode", SimulationMode.STATIC.value)
         try:
             mode = SimulationMode(raw_mode)
         except (TypeError, ValueError):
             supported = ", ".join(item.value for item in SimulationMode)
             raise SimulationAnalysisError(f"Unsupported simulation mode '{raw_mode}'. Supported modes: {supported}") from None
-
         analysis = value.get("analysis", DC_OPERATING_POINT)
         if not isinstance(analysis, str) or not analysis:
             raise SimulationAnalysisError("simulation.analysis must be a non-empty string")
         if analysis not in SUPPORTED_ANALYSES:
             raise SimulationAnalysisError(f"Unsupported simulation analysis '{analysis}'. Supported analyses: {', '.join(SUPPORTED_ANALYSES)}")
-        if "settings" not in value or value.get("settings") is None:
-            settings: Mapping[str, object] = {}
-        else:
-            settings = value.get("settings")
-            if not isinstance(settings, Mapping):
-                raise SimulationAnalysisError("simulation.settings must be an object")
-        if "outputs" not in value or value.get("outputs") is None:
-            outputs = []
-        else:
-            outputs = value.get("outputs")
-            if not isinstance(outputs, list) or not all(isinstance(item, str) for item in outputs):
-                raise SimulationAnalysisError("simulation.outputs must be a list of strings")
+        settings = value.get("settings", {})
+        if not isinstance(settings, Mapping):
+            raise SimulationAnalysisError("simulation.settings must be an object")
+        outputs = value.get("outputs", [])
+        if not isinstance(outputs, list) or not all(isinstance(item, str) for item in outputs):
+            raise SimulationAnalysisError("simulation.outputs must be a list of strings")
         if analysis == DC_SWEEP:
             cls._validate_dc_sweep_settings(settings)
         elif analysis == TRANSIENT:
             try:
                 TransientConfiguration.from_dict(settings)
             except TransientConfigurationError as exc:
+                raise SimulationAnalysisError(str(exc)) from exc
+        elif analysis == AC:
+            try:
+                ACConfiguration.from_dict(settings)
+            except ACConfigurationError as exc:
                 raise SimulationAnalysisError(str(exc)) from exc
         return cls(mode=mode, analysis=analysis, settings=dict(settings), outputs=tuple(outputs))
 
@@ -170,62 +169,45 @@ class DCSweepAnalysis:
 
 class TransientAnalysis:
     key = TRANSIENT
-
     def __init__(self, state_handler: TransientStateHandler | None = None):
         self.state_handler = state_handler or TransientDynamicStateHandler()
-
     def run(self, model, *, known=None, configuration=None, session=None):
-        if configuration is None:
-            raise SimulationAnalysisError("transient requires a simulation configuration")
+        if configuration is None: raise SimulationAnalysisError("transient requires a simulation configuration")
         transient = TransientConfiguration.from_dict(configuration.settings)
-        output_points = transient.time_points()
-        execution_points = _build_transient_execution_points(transient)
-        output_start = float(transient.start)
-        results, errors = [], []
-        states: list[DynamicStateSnapshot] = []
-        contexts: list[TransientStepContext] = []
-        base_known = dict(known or {})
-        state = DynamicState()
-        previous_time = None
-
+        output_points = transient.time_points(); execution_points = _build_transient_execution_points(transient); output_start = float(transient.start)
+        results, errors, states, contexts = [], [], [], []
+        base_known = dict(known or {}); state = DynamicState(); previous_time = None
         for time in execution_points:
-            _check_cancel(session)
-            dt = None if previous_time is None else time - previous_time
-            context = TransientStepContext(time=time, previous_time=previous_time, dt=dt)
-            previous_state = state.snapshot()
+            _check_cancel(session); dt = None if previous_time is None else time - previous_time
+            context = TransientStepContext(time=time, previous_time=previous_time, dt=dt); previous_state = state.snapshot()
             step_model = self.state_handler.prepare_step(model, previous_state, context)
-            if step_model is None:
-                raise SimulationAnalysisError("transient state handler returned no model")
-            try:
-                result = _solve(step_model, base_known)
+            if step_model is None: raise SimulationAnalysisError("transient state handler returned no model")
+            try: result = _solve(step_model, base_known)
             except SolverError as exc:
                 message = str(exc) or "Transient operating point did not converge"
                 if time >= output_start:
-                    results.append(None); errors.append(message)
-                    states.append(previous_state)
-                    contexts.append(context)
+                    results.append(None); errors.append(message); states.append(previous_state); contexts.append(context)
                     if session is not None: session.record_point({"status": "failed", "error": message}, time=time)
-                previous_time = time
-                continue
-
+                previous_time = time; continue
             self.state_handler.accept_step(state, result, context)
             if time >= output_start:
-                results.append(result); errors.append(None)
-                states.append(state.snapshot())
-                contexts.append(context)
+                results.append(result); errors.append(None); states.append(state.snapshot()); contexts.append(context)
                 if session is not None: session.record_point(result, time=time)
             previous_time = time
-
         return TransientResult(tuple(output_points), tuple(results), tuple(errors), tuple(states), tuple(contexts))
 
 
-def _build_transient_execution_points(configuration: TransientConfiguration) -> tuple[float, ...]:
-    """Build the physical timeline, warming from t=0 before the requested output window."""
-    output_points = configuration.time_points()
-    start = float(configuration.start)
-    if start <= 0:
-        return output_points
+class ACAnalysis:
+    key = AC
+    def run(self, model, *, known=None, configuration=None, session=None):
+        if configuration is None: raise SimulationAnalysisError("ac requires a simulation configuration")
+        ac_configuration = ACConfiguration.from_dict(configuration.settings)
+        return solve_ac(model, ac_configuration)
 
+
+def _build_transient_execution_points(configuration: TransientConfiguration) -> tuple[float, ...]:
+    output_points = configuration.time_points(); start = float(configuration.start)
+    if start <= 0: return output_points
     warmup = TransientConfiguration(start=0.0, stop=start, step=float(configuration.step)).time_points()
     return tuple(warmup[:-1]) + output_points
 
@@ -238,8 +220,7 @@ def _solve(model, known):
 
 def _check_cancel(session):
     if session is not None and session.cancel_requested:
-        session.cancel()
-        raise SimulationAnalysisError("simulation was cancelled")
+        session.cancel(); raise SimulationAnalysisError("simulation was cancelled")
 
 
 def _parse_finite_decimal(value, name):
@@ -272,7 +253,8 @@ def _override_component_parameter(model, *, source_id, parameter, value):
     if not found: raise SimulationAnalysisError(f"dc_sweep source '{source_id}' does not exist in the circuit")
     return SimulationModel(components=components, nodes=set(model.nodes))
 
-_ANALYSES = {DC_OPERATING_POINT: DCOperatingPointAnalysis(), DC_SWEEP: DCSweepAnalysis(), TRANSIENT: TransientAnalysis()}
+_ANALYSES = {DC_OPERATING_POINT: DCOperatingPointAnalysis(), DC_SWEEP: DCSweepAnalysis(), TRANSIENT: TransientAnalysis(), AC: ACAnalysis()}
+
 
 def get_simulation_analysis(key):
     try: return _ANALYSES[key]
