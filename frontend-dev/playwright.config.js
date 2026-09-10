@@ -8,14 +8,14 @@ export default defineConfig({
         timeout: 5_000,
     },
     fullyParallel: false,
-    workers: process.env.CI ? 1 : undefined,
-    retries: process.env.CI ? 1 : 0,
-    reporter: process.env.CI
+    workers: globalThis.process?.env.CI ? 1 : undefined,
+    retries: globalThis.process?.env.CI ? 1 : 0,
+    reporter: globalThis.process?.env.CI
         ? [["html", { outputFolder: "../playwright-report", open: "never" }], ["list"]]
         : "list",
     use: {
         baseURL:
-            process.env.PLAYWRIGHT_TEST_BASE_URL ||
+            globalThis.process?.env.PLAYWRIGHT_TEST_BASE_URL ||
             "https://worlds-dev.vadovsky-tech.com",
         browserName: "chromium",
         viewport: { width: 1440, height: 900 },
