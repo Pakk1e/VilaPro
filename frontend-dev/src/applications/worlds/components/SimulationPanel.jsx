@@ -26,7 +26,7 @@ export default function SimulationPanel({ nodes, edges, sweepTargets = [] }) {
   const [simulationConfig, setSimulationConfig] = useState(() => createSimulationConfig());
   const [lastSimulationSignature, setLastSimulationSignature] = useState(null);
   const abortControllerRef = useRef(null);
-  const liveTimerRef = useRef(null);
+  const liveStreamRef = useRef(null);
   const mountedRef = useRef(true);
   const simulationSignature = useMemo(() => getSimulationSignature(nodes, edges, simulationConfig), [nodes, edges, simulationConfig]);
   const simulationIsStale = result !== null && lastSimulationSignature !== null && lastSimulationSignature !== simulationSignature;
@@ -39,14 +39,18 @@ export default function SimulationPanel({ nodes, edges, sweepTargets = [] }) {
       mountedRef.current = false;
       abortControllerRef.current?.abort();
       abortControllerRef.current = null;
-      if (liveTimerRef.current) window.clearTimeout(liveTimerRef.current);
-      liveTimerRef.current = null;
+      liveStreamRef.current?.close();
+      liveStreamRef.current = null;
     };
   }, []);
 
   const updateSimulationConfig = (changes) => {
     setSimulationConfig((current) => ({ ...current, ...changes, settings: { ...current.settings, ...(changes.settings ?? {}) } }));
-    if (changes.mode && changes.mode !== SIMULATION_MODES.LIVE) setLiveSnapshot(null);
+    if (changes.mode && changes.mode !== SIMULATION_MODES.LIVE) {
+      liveStreamRef.current?.close();
+      liveStreamRef.current = null;
+      setLiveSnapshot(null);
+    }
   };
 
   const liveRequest = async (path, method = "POST") => {
@@ -56,29 +60,33 @@ export default function SimulationPanel({ nodes, edges, sweepTargets = [] }) {
     return normalizeLiveSnapshot(data);
   };
 
-  const scheduleLivePoll = (sessionId) => {
+  const openLiveStream = (sessionId) => {
     if (!mountedRef.current || !sessionId) return;
-    liveTimerRef.current = window.setTimeout(async () => {
+    liveStreamRef.current?.close();
+    const stream = new EventSource(`/simulate/live/${sessionId}/stream`);
+    liveStreamRef.current = stream;
+    stream.onmessage = (event) => {
       try {
-        const snapshot = await liveRequest(`/simulate/live/${sessionId}`, "GET");
+        const snapshot = normalizeLiveSnapshot(JSON.parse(event.data));
         if (!mountedRef.current) return;
         setLiveSnapshot(snapshot);
-        if (snapshot.status === "running") scheduleLivePoll(sessionId);
-        else setRunning(false);
-      } catch (liveError) {
-        if (!mountedRef.current) return;
-        setRunning(false);
-        setError(liveError?.message ?? "Live simulation state update failed");
+        setRunning(snapshot.status === "running");
+        if (["completed", "cancelled", "failed"].includes(snapshot.status)) stream.close();
+      } catch (streamError) {
+        if (mountedRef.current) setError(streamError?.message ?? "Invalid live simulation update");
       }
-    }, 500);
+    };
+    stream.onerror = () => {
+      if (!mountedRef.current || stream.readyState !== EventSource.CLOSED) return;
+      setRunning(false);
+      setError("Live simulation update stream closed unexpectedly");
+    };
   };
 
   const startLive = async () => {
     if (configurationError) { setError(configurationError); return; }
-    setError(null);
-    setResult(null);
-    setLastSimulationSignature(null);
-    if (liveTimerRef.current) window.clearTimeout(liveTimerRef.current);
+    setError(null); setResult(null); setLastSimulationSignature(null);
+    liveStreamRef.current?.close(); liveStreamRef.current = null;
     try {
       const payload = buildLiveSimulationRequest(nodes, edges, simulationConfig, serializeWorldGraph);
       const response = await fetch("/simulate/live", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
@@ -86,26 +94,19 @@ export default function SimulationPanel({ nodes, edges, sweepTargets = [] }) {
       if (!response.ok || !data.ok) throw new Error(data.error ?? `Live simulation failed (${response.status})`);
       if (!mountedRef.current) return;
       const snapshot = normalizeLiveSnapshot(data);
-      setLiveSnapshot(snapshot);
-      setRunning(snapshot.status === "running");
-      if (snapshot.status === "running") scheduleLivePoll(snapshot.session_id);
+      setLiveSnapshot(snapshot); setRunning(snapshot.status === "running");
+      if (snapshot.status === "running") openLiveStream(snapshot.session_id);
     } catch (liveError) {
       if (!mountedRef.current) return;
-      setRunning(false);
-      setLiveSnapshot(null);
-      setError(liveError?.message ?? "Live simulation failed");
+      setRunning(false); setLiveSnapshot(null); setError(liveError?.message ?? "Live simulation failed");
     }
   };
 
   const simulate = async () => {
-    if (simulationConfig.mode === SIMULATION_MODES.LIVE) {
-      await startLive();
-      return;
-    }
+    if (simulationConfig.mode === SIMULATION_MODES.LIVE) { await startLive(); return; }
     if (configurationError) { setError(configurationError); return; }
     abortControllerRef.current?.abort();
-    const controller = new AbortController();
-    abortControllerRef.current = controller;
+    const controller = new AbortController(); abortControllerRef.current = controller;
     setRunning(true); setError(null); setLiveSnapshot(null);
     try {
       const payload = buildSimulationRequest(nodes, edges, simulationConfig, serializeWorldGraph);
@@ -113,8 +114,7 @@ export default function SimulationPanel({ nodes, edges, sweepTargets = [] }) {
       const data = await response.json();
       if (!response.ok || !data.ok) throw new Error(data.error ?? `Simulation failed (${response.status})`);
       if (!mountedRef.current || abortControllerRef.current !== controller) return;
-      setResult(normalizeSimulationResponse(data));
-      setLastSimulationSignature(simulationSignature);
+      setResult(normalizeSimulationResponse(data)); setLastSimulationSignature(simulationSignature);
     } catch (simulationError) {
       if (simulationError?.name === "AbortError") return;
       if (!mountedRef.current) return;
@@ -126,29 +126,20 @@ export default function SimulationPanel({ nodes, edges, sweepTargets = [] }) {
 
   const pauseLive = async () => {
     if (!liveSnapshot?.session_id) return;
-    if (liveTimerRef.current) window.clearTimeout(liveTimerRef.current);
-    try {
-      const snapshot = await liveRequest(`/simulate/live/${liveSnapshot.session_id}/pause`);
-      setLiveSnapshot(snapshot); setRunning(false);
-    } catch (liveError) { setError(liveError?.message ?? "Unable to pause live simulation"); }
+    try { setLiveSnapshot(await liveRequest(`/simulate/live/${liveSnapshot.session_id}/pause`)); setRunning(false); }
+    catch (liveError) { setError(liveError?.message ?? "Unable to pause live simulation"); }
   };
 
   const resumeLive = async () => {
     if (!liveSnapshot?.session_id) return;
-    try {
-      const snapshot = await liveRequest(`/simulate/live/${liveSnapshot.session_id}/resume`);
-      setLiveSnapshot(snapshot); setRunning(snapshot.status === "running");
-      if (snapshot.status === "running") scheduleLivePoll(snapshot.session_id);
-    } catch (liveError) { setError(liveError?.message ?? "Unable to resume live simulation"); }
+    try { const snapshot = await liveRequest(`/simulate/live/${liveSnapshot.session_id}/resume`); setLiveSnapshot(snapshot); setRunning(snapshot.status === "running"); }
+    catch (liveError) { setError(liveError?.message ?? "Unable to resume live simulation"); }
   };
 
   const stopLive = async () => {
     if (!liveSnapshot?.session_id) return;
-    if (liveTimerRef.current) window.clearTimeout(liveTimerRef.current);
-    try {
-      const snapshot = await liveRequest(`/simulate/live/${liveSnapshot.session_id}/cancel`);
-      setLiveSnapshot(snapshot); setRunning(false);
-    } catch (liveError) { setError(liveError?.message ?? "Unable to stop live simulation"); }
+    try { const snapshot = await liveRequest(`/simulate/live/${liveSnapshot.session_id}/cancel`); setLiveSnapshot(snapshot); setRunning(false); liveStreamRef.current?.close(); liveStreamRef.current = null; }
+    catch (liveError) { setError(liveError?.message ?? "Unable to stop live simulation"); }
   };
 
   return (
