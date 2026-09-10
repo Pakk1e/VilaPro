@@ -150,6 +150,10 @@ class WorldsAPIHandler(BaseHTTPRequestHandler):
         try:
             if action == "step":
                 snapshot = service.step(session_id)
+            elif action == "pause":
+                snapshot = service.pause(session_id)
+            elif action == "resume":
+                snapshot = service.resume(session_id)
             elif action == "cancel":
                 snapshot = service.cancel(session_id)
             elif action == "complete":
