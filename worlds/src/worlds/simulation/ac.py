@@ -4,10 +4,9 @@ from dataclasses import dataclass
 from math import cos, pi, sin
 from typing import Mapping
 
-from dataclasses import replace
+from worlds.math import Binary, Equation, FunctionCall, Number, Variable
 
 from .model import SimulationModel
-from .solver import SimulationResult
 from .network import build_network_equation_system
 from .solver import SimulationSolver
 
@@ -30,7 +29,7 @@ class ACConfiguration:
             phase = float(settings.get("phase", cls.phase))
         except (TypeError, ValueError) as exc:
             raise ACConfigurationError("ac.settings.frequency, amplitude and phase must be numbers") from exc
-        if not all(map(lambda value: value == value and abs(value) != float("inf"), (frequency, amplitude, phase))):
+        if not all(value == value and abs(value) != float("inf") for value in (frequency, amplitude, phase)):
             raise ACConfigurationError("ac.settings.frequency, amplitude and phase must be finite")
         if frequency <= 0:
             raise ACConfigurationError("ac.settings.frequency must be greater than zero")
@@ -57,37 +56,39 @@ class ACResult:
 
 
 def solve_ac(model: SimulationModel, configuration: ACConfiguration) -> ACResult:
-    """Solve the currently supported linear electrical network as phasors.
-
-    The first AC increment intentionally reuses the existing real linear network
-    solver to obtain the unit-excitation transfer response. Reactive component
-    impedance models are added separately when AC-capable component
-    representations are introduced.
-    """
     source = next((component for component in model.components if component.component_type in {"VoltageSource", "CurrentSource"}), None)
     if source is None:
         raise ACConfigurationError("AC analysis requires an independent voltage or current source")
-    parameter = "V" if source.component_type == "VoltageSource" else "I"
-    if parameter not in source.parameters:
-        raise ACConfigurationError(f"AC source '{source.component_id}' does not expose parameter '{parameter}'")
+    source_parameter = "V" if source.component_type == "VoltageSource" else "I"
+    if source_parameter not in source.parameters:
+        raise ACConfigurationError(f"AC source '{source.component_id}' does not expose parameter '{source_parameter}'")
 
-    unit_components = [
-        replace(component, parameters={**component.parameters, parameter: 1.0})
-        if component.component_id == source.component_id else component
-        for component in model.components
-    ]
-    unit_model = SimulationModel(components=unit_components, nodes=set(model.nodes))
-    solved = SimulationSolver().solve(build_network_equation_system(unit_model), known={})
-    unit_result = SimulationResult(
-        values=solved.values,
-        instances={component.name: component for component in unit_model.components},
-    )
+    omega = 2.0 * pi * configuration.frequency
     excitation = configuration.excitation
-    values = {str(key): complex(value) * excitation for key, value in unit_result.values.items()}
-    return ACResult(
-        frequency=configuration.frequency,
-        excitation=excitation,
-        values=values,
-        source_id=source.component_id,
-        source_parameter=parameter,
-    )
+    components = []
+    for component in model.components:
+        if component.component_id == source.component_id:
+            if source.component_type == "VoltageSource":
+                equations = [Equation(FunctionCall("voltage", (Variable("p"), Variable("n"))), Number(excitation))]
+            else:
+                equations = [Equation(FunctionCall("current", (Variable("p"), Variable("n"))), Number(excitation))]
+        elif component.component_type == "Capacitor":
+            capacitance = float(component.parameters.get("C", 0.0))
+            if capacitance <= 0:
+                raise ACConfigurationError(f"Capacitor '{component.component_id}' must have C > 0")
+            admittance = complex(0.0, omega * capacitance)
+            equations = [Equation(FunctionCall("current", (Variable("p"), Variable("n"))), Binary(FunctionCall("voltage", (Variable("p"), Variable("n"))), "*", Number(admittance)))]
+        elif component.component_type == "Inductor":
+            inductance = float(component.parameters.get("L", 0.0))
+            if inductance <= 0:
+                raise ACConfigurationError(f"Inductor '{component.component_id}' must have L > 0")
+            impedance = complex(0.0, omega * inductance)
+            equations = [Equation(FunctionCall("voltage", (Variable("p"), Variable("n"))), Binary(FunctionCall("current", (Variable("p"), Variable("n"))), "*", Number(impedance)))]
+        else:
+            equations = list(component.equations)
+        components.append(component.__class__(name=component.name, display_name=component.display_name, component_id=component.component_id, component_type=component.component_type, parameters=component.parameters, ports=component.ports, equations=equations))
+
+    ac_model = SimulationModel(components=components, nodes=set(model.nodes))
+    solved = SimulationSolver().solve(build_network_equation_system(ac_model), known={})
+    values = {str(key): complex(value) for key, value in solved.values.items()}
+    return ACResult(frequency=configuration.frequency, excitation=excitation, values=values, source_id=source.component_id, source_parameter=source_parameter)
