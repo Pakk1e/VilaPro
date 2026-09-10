@@ -89,13 +89,13 @@ test("authenticated user can start, pause, resume and stop Live DC", async ({ pa
 
   await page.getByRole("button", { name: "Pause" }).click();
   await expect(page.getByRole("button", { name: "Resume" })).toBeVisible();
-  await expect(page.getByText("paused", { exact: true })).toBeVisible();
+  await expect(page.locator("header").getByText("paused", { exact: true })).toBeVisible();
 
   await page.getByRole("button", { name: "Resume" }).click();
   await expect(page.getByRole("button", { name: "Pause" })).toBeVisible();
 
   await page.getByRole("button", { name: "Stop" }).click();
-  await expect(page.getByText("cancelled", { exact: true })).toBeVisible();
+  await expect(page.locator("header").getByText("cancelled", { exact: true })).toBeVisible();
   expect(consoleErrors).toEqual([]);
   expect(pageErrors).toEqual([]);
 });
