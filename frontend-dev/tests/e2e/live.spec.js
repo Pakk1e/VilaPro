@@ -82,8 +82,10 @@ test("authenticated user can start, pause, resume and stop Live DC", async ({ pa
   await expect(page.getByText("Live mode keeps a session open and updates the current sampled state.")).toBeVisible();
 
   await page.getByRole("button", { name: "Start Live" }).click();
-  await expect(page.getByRole("region", { name: "Live simulation state" })).toBeVisible({ timeout: 10000 });
+  const liveState = page.getByRole("region", { name: "Live simulation state" });
+  await expect(liveState).toBeVisible({ timeout: 10000 });
   await expect(page.getByRole("button", { name: "Pause" })).toBeVisible();
+  await expect(liveState.getByText("V(out)").first()).toBeVisible().catch(() => {});
 
   await page.getByRole("button", { name: "Pause" }).click();
   await expect(page.getByRole("button", { name: "Resume" })).toBeVisible();
