@@ -78,9 +78,11 @@ async function createSeriesCircuit(page) {
     const resistor = await addComponent(page, "Resistor", "Resistor 1");
     const ground = await addComponent(page, "Ground", "Ground 1");
 
-    await moveNode(page, voltage, canvasBox.x + canvasBox.width * 0.28, canvasBox.y + canvasBox.height * 0.45);
+    // World nodes are 280px wide. Keep their centers at least 320px apart so
+    // one component cannot intercept pointer events for another component's handle.
+    await moveNode(page, voltage, canvasBox.x + canvasBox.width * 0.10, canvasBox.y + canvasBox.height * 0.45);
     await moveNode(page, resistor, canvasBox.x + canvasBox.width * 0.50, canvasBox.y + canvasBox.height * 0.45);
-    await moveNode(page, ground, canvasBox.x + canvasBox.width * 0.72, canvasBox.y + canvasBox.height * 0.70);
+    await moveNode(page, ground, canvasBox.x + canvasBox.width * 0.90, canvasBox.y + canvasBox.height * 0.70);
 
     await nodeHandle(voltage, "p").dragTo(nodeHandle(resistor, "p"));
     await nodeHandle(resistor, "n").dragTo(nodeHandle(ground, "g"));
