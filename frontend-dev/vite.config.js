@@ -36,4 +36,8 @@ export default defineConfig({
       },
     },
   },
+
+  preview: {
+    allowedHosts: ["worlds-dev.vadovsky-tech.com"],
+  },
 });
