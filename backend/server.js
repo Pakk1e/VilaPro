@@ -48,6 +48,7 @@ app.use('/api', (req, res, next) => {
 
     if (
         origin === 'https://www.vadovsky-tech.com' ||
+        origin === 'https://worlds-dev.vadovsky-tech.com' ||
         origin === 'http://localhost:5173' ||
         origin === 'http://localhost:5174' ||
         origin === 'http://localhost:3001'
