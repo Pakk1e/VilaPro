@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import { getNearestPlotRow, getPlotAxisLabel, getPlotRows, getPlotSeriesLabel, getPlotSeriesQuantityLabel } from "../model/resultPlot.js";
+import { getNearestPlotRow, getPlotAxisLabel, getPlotRows, getPlotSeriesLabel } from "../model/resultPlot.js";
 import { formatEngineeringValue, formatEngineeringTick, getEngineeringScale } from "../model/engineeringFormat.js";
 
 
@@ -32,7 +32,6 @@ export default function ResultChart({ plot, series }) {
   const [selectedRow, setSelectedRow] = useState(null);
   const xLabel = getPlotAxisLabel(plot?.x);
   const baseYLabel = getPlotSeriesLabel(series);
-  const quantityLabel = getPlotSeriesQuantityLabel(series);
 
   if (points.length < 2) {
     return <div className="flex h-56 items-center justify-center rounded-lg border border-dashed border-[#d9dde2] bg-[#fafbfc] px-4 text-center text-xs text-[#69717b]">At least two valid result points are required to plot the response.</div>;
