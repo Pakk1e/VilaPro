@@ -1,3 +1,8 @@
+export const SIMULATION_MODES = {
+  STATIC: "static",
+  LIVE: "live",
+};
+
 export const SIMULATION_ANALYSES = {
   DC_OPERATING_POINT: "dc_operating_point",
   DC_SWEEP: "dc_sweep",
@@ -5,6 +10,7 @@ export const SIMULATION_ANALYSES = {
 };
 
 export const DEFAULT_SIMULATION_CONFIG = {
+  mode: SIMULATION_MODES.STATIC,
   analysis: SIMULATION_ANALYSES.DC_OPERATING_POINT,
   settings: {},
   outputs: [],
@@ -34,6 +40,14 @@ export function createSimulationConfig(overrides = {}) {
     },
     outputs: [...(overrides.outputs ?? DEFAULT_SIMULATION_CONFIG.outputs)],
   };
+}
+
+export function getSimulationModeLabel(mode) {
+  switch (mode) {
+    case SIMULATION_MODES.STATIC: return "Static";
+    case SIMULATION_MODES.LIVE: return "Live";
+    default: return "Unknown mode";
+  }
 }
 
 export function getSimulationAnalysisLabel(analysis) {
@@ -79,7 +93,9 @@ export function getTransientValidationError(settings) {
 }
 
 export function getSimulationConfigValidationError(config, sweepTargets = []) {
-  if (!config || !Object.values(SIMULATION_ANALYSES).includes(config.analysis)) return "Select a supported simulation analysis.";
+  if (!config || !Object.values(SIMULATION_MODES).includes(config.mode)) return "Select a supported simulation mode.";
+  if (!Object.values(SIMULATION_ANALYSES).includes(config.analysis)) return "Select a supported simulation analysis.";
+  if (config.mode === SIMULATION_MODES.LIVE && config.analysis !== SIMULATION_ANALYSES.DC_OPERATING_POINT) return "Live mode currently supports DC Operating Point only.";
   if (config.analysis === SIMULATION_ANALYSES.DC_SWEEP) return getDcSweepValidationError(config.settings, sweepTargets);
   if (config.analysis === SIMULATION_ANALYSES.TRANSIENT) return getTransientValidationError(config.settings);
   return null;
