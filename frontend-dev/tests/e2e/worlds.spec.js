@@ -84,17 +84,9 @@ async function createSeriesCircuit(page) {
     const canvasBox = await canvas.boundingBox();
     if (!canvasBox) throw new Error("Unable to locate Worlds canvas.");
 
-    // Add one component first because the production canvas automatically fits
-    // the viewport when the first component is inserted.
     const initialComponent = await addComponent(page, "Resistor", "Resistor 1");
-
-    // Move to the minimum supported zoom after that automatic fit. This must be
-    // done before creating the actual test circuit so later component placement
-    // cannot be affected by the first-component viewport adjustment.
     await zoomOutCompletely(page);
 
-    // Delete the temporary component. The real circuit below is then created
-    // from a known empty canvas at the minimum zoom level.
     await initialComponent.click();
     await page.keyboard.press("Delete");
     await expect(initialComponent).toHaveCount(0);
@@ -103,9 +95,6 @@ async function createSeriesCircuit(page) {
     const resistor = await addComponent(page, "Resistor", "Resistor 1");
     const ground = await addComponent(page, "Ground", "Ground 1");
 
-    // The palette occupies the right side of the canvas. Calculate the usable
-    // design area from its actual DOM position instead of placing nodes at fixed
-    // percentages of the full ReactFlow viewport.
     const palette = page.locator("aside").filter({ hasText: "Palette" }).first();
     await expect(palette).toBeVisible();
     const paletteBox = await palette.boundingBox();
@@ -117,9 +106,6 @@ async function createSeriesCircuit(page) {
         throw new Error("Worlds canvas does not have enough unobstructed space for the E2E circuit.");
     }
 
-    // Keep the voltage source and resistor on the same row with their opposing
-    // ports facing each other. Ground is below them, with enough clearance that
-    // its top handle cannot fall under either component or the palette.
     const usableWidth = usableRight - usableLeft;
     const leftX = usableLeft + usableWidth * 0.30;
     const rightX = usableLeft + usableWidth * 0.70;
@@ -143,8 +129,6 @@ async function expectSimulationResults(page) {
     const results = page.getByRole("region", { name: "Simulation results" });
     const simulationError = page.locator('[role="alert"]').filter({ hasText: "Simulation error" }).first();
 
-    // Simulation is an asynchronous backend operation. Poll for the result or
-    // an explicit error instead of checking immediately after clicking Simulate.
     const outcome = await expect
         .poll(
             async () => {
@@ -170,150 +154,119 @@ async function expectSimulationResults(page) {
 test.describe("Worlds DEV authenticated audit", () => {
     test("authenticated user can enter Worlds and inspect the design workspace", async ({ page }, testInfo) => {
         const errors = installBrowserErrorChecks(page);
-
         await signIn(page);
         await page.goto("/worlds", { waitUntil: "networkidle" });
-
         await expect(page.getByText("VilaPro World")).toBeVisible();
         await expect(page.getByRole("button", { name: "Circuit Design" })).toHaveAttribute("aria-current", "page");
         await expect(page.getByText("Components", { exact: true })).toBeVisible();
         await expect(page.getByText("Palette", { exact: true })).toBeVisible();
         await expect(page.getByText("Add a component to get started.", { exact: true })).toBeVisible();
-
         await saveAuditScreenshot(page, testInfo, "worlds-design-empty");
         await assertNoBrowserErrors(errors);
     });
 
     test("component placement, selection and properties work", async ({ page }, testInfo) => {
         const errors = installBrowserErrorChecks(page);
-
         await signIn(page);
         await page.goto("/worlds", { waitUntil: "networkidle" });
-
         await page.getByRole("button", { name: /Resistor.*Add to canvas/i }).click();
-
         await expect(page.getByText("Resistor 1").first()).toBeVisible();
         await expect(page.getByText("Selected component")).toBeVisible();
         await expect(page.getByText("Resistance", { exact: true }).last()).toBeVisible();
         await expect(page.getByText("100 Ω", { exact: true }).first()).toBeVisible();
-
         const resistanceInput = page.locator('input[type="number"]').first();
         await expect(resistanceInput).toHaveValue("100");
         await resistanceInput.fill("220");
         await expect(resistanceInput).toHaveValue("220");
         await expect(page.getByText("220 Ω", { exact: true }).first()).toBeVisible();
-
         await saveAuditScreenshot(page, testInfo, "worlds-resistor-inspector");
         await assertNoBrowserErrors(errors);
     });
 
     test("simulation workspace exposes analysis setup and result area", async ({ page }, testInfo) => {
         const errors = installBrowserErrorChecks(page);
-
         await signIn(page);
         await page.goto("/worlds", { waitUntil: "networkidle" });
         await page.getByRole("button", { name: "Voltage Source" }).click();
         await page.getByRole("button", { name: "Resistor" }).click();
         await page.getByRole("button", { name: "Ground" }).click();
-
         await page.getByRole("button", { name: "Simulation" }).click();
-
         await expect(page.getByRole("button", { name: "Simulation" })).toHaveAttribute("aria-current", "page");
         await expect(page.getByText("Simulation Setup")).toBeVisible();
         await expect(page.getByLabel("Analysis")).toHaveValue("dc_operating_point");
         await expect(page.getByText("No simulation results yet")).toBeVisible();
-
         await saveAuditScreenshot(page, testInfo, "worlds-simulation-setup");
         await assertNoBrowserErrors(errors);
     });
 
     test("simulation setup validation is visible for an invalid DC sweep", async ({ page }, testInfo) => {
         const errors = installBrowserErrorChecks(page);
-
         await signIn(page);
         await page.goto("/worlds", { waitUntil: "networkidle" });
         await page.getByRole("button", { name: "Voltage Source" }).click();
         await page.getByRole("button", { name: "Simulation" }).click();
-
         await page.getByLabel("Analysis").selectOption("dc_sweep");
-
         await expect(page.locator('[role="alert"]').filter({ hasText: /^Select a voltage or current source to sweep\.$/ })).toBeVisible();
         await expect(page.getByRole("button", { name: "Simulate" })).toBeDisabled();
-
         await saveAuditScreenshot(page, testInfo, "worlds-simulation-invalid-sweep");
         await assertNoBrowserErrors(errors);
     });
 
     test("real circuit can be drawn, connected and rendered as a schematic", async ({ page }, testInfo) => {
         const errors = installBrowserErrorChecks(page);
-
         await signIn(page);
         await page.goto("/worlds", { waitUntil: "networkidle" });
         await createSeriesCircuit(page);
-
         await expect(page.locator(".react-flow__edge")).toHaveCount(3);
         await page.getByRole("button", { name: "Simulation" }).click();
-
         await expect(page.getByRole("img", { name: "Circuit schematic preview" })).toBeVisible();
         await expect(page.getByText("2 components", { exact: true })).toBeVisible();
         await expect(page.getByText("Voltage Source 1", { exact: true }).last()).toBeVisible();
         await expect(page.getByText("Resistor 1", { exact: true }).last()).toBeVisible();
-
         await saveAuditScreenshot(page, testInfo, "worlds-real-circuit-schematic");
         await assertNoBrowserErrors(errors);
     });
 
     test("real circuit runs DC operating point and exposes numerical results", async ({ page }, testInfo) => {
         const errors = installBrowserErrorChecks(page);
-
         await signIn(page);
         await page.goto("/worlds", { waitUntil: "networkidle" });
         await createSeriesCircuit(page);
         await page.getByRole("button", { name: "Simulation" }).click();
-
         const simulate = page.getByRole("button", { name: "Simulate" });
         await expect(simulate).toBeEnabled();
         await simulate.click();
-
         await expectSimulationResults(page);
         await expect(simulate).toHaveText("Simulate");
         await expect(page.getByText("Circuit Summary", { exact: true })).toBeVisible();
         await expect(page.getByText("Voltage Source 1", { exact: true }).last()).toBeVisible();
         await expect(page.getByText("Resistor 1", { exact: true }).last()).toBeVisible();
         await expect(page.getByText(/120\.?0? mA/).first()).toBeVisible();
-
         await saveAuditScreenshot(page, testInfo, "worlds-dc-operating-point-results");
         await assertNoBrowserErrors(errors);
     });
 
     test("real circuit runs a DC sweep and produces multiple sweep points", async ({ page }, testInfo) => {
         const errors = installBrowserErrorChecks(page);
-
         await signIn(page);
         await page.goto("/worlds", { waitUntil: "networkidle" });
         await createSeriesCircuit(page);
         await page.getByRole("button", { name: "Simulation" }).click();
-
         await page.getByLabel("Analysis").selectOption("dc_sweep");
         await page.getByLabel("Sweep source").selectOption({ label: "Voltage Source 1 (Voltage Source)" });
-
         const sweepInputs = page.locator('input[type="number"]');
         await sweepInputs.nth(0).fill("0");
         await sweepInputs.nth(1).fill("12");
         await sweepInputs.nth(2).fill("3");
-
         await expect(page.locator('[role="alert"]').filter({ hasText: /^Select a voltage or current source to sweep\.$/ })).toHaveCount(0);
-
         const simulate = page.getByRole("button", { name: "Simulate" });
         await expect(simulate).toBeEnabled();
         await simulate.click();
-
         await expectSimulationResults(page);
         await expect(simulate).toHaveText("Simulate");
         await expect(page.getByText("Circuit Summary", { exact: true })).toBeVisible();
-        await expect(page.getByText(/Values shown at the last valid sweep point\./)).toBeVisible();
+        await expect(page.getByText(/Values shown at the last valid sweep point\./).first()).toBeVisible();
         await expect(page.getByRole("img", { name: /result plot/i })).toBeVisible();
-
         await saveAuditScreenshot(page, testInfo, "worlds-dc-sweep-results");
         await assertNoBrowserErrors(errors);
     });
