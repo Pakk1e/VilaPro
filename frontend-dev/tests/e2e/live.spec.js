@@ -65,14 +65,18 @@ async function createSeriesCircuit(page) {
   await expect(page.locator(".react-flow__edge")).toHaveCount(3);
 }
 
-test("authenticated user can start, pause, resume and stop Live DC", async ({ page }) => {
+function installBrowserErrorChecks(page) {
   const consoleErrors = [];
   const pageErrors = [];
   page.on("console", (message) => {
     if (message.type() === "error" && message.text() !== EXPECTED_AUTH_401) consoleErrors.push(message.text());
   });
   page.on("pageerror", (error) => pageErrors.push(error.message));
+  return { consoleErrors, pageErrors };
+}
 
+test("authenticated user can start, pause, resume and stop Live DC", async ({ page }) => {
+  const { consoleErrors, pageErrors } = installBrowserErrorChecks(page);
   await signIn(page);
   await page.goto("/worlds", { waitUntil: "networkidle" });
   await createSeriesCircuit(page);
@@ -90,10 +94,29 @@ test("authenticated user can start, pause, resume and stop Live DC", async ({ pa
   await page.getByRole("button", { name: "Pause" }).click();
   await expect(page.getByRole("button", { name: "Resume" })).toBeVisible();
   await expect(page.locator("header").getByText("paused", { exact: true })).toBeVisible();
-
   await page.getByRole("button", { name: "Resume" }).click();
   await expect(page.getByRole("button", { name: "Pause" })).toBeVisible();
+  await page.getByRole("button", { name: "Stop" }).click();
+  await expect(page.locator("header").getByText("cancelled", { exact: true })).toBeVisible();
+  expect(consoleErrors).toEqual([]);
+  expect(pageErrors).toEqual([]);
+});
 
+test("authenticated user can run Live AC and receive phasor state", async ({ page }) => {
+  const { consoleErrors, pageErrors } = installBrowserErrorChecks(page);
+  await signIn(page);
+  await page.goto("/worlds", { waitUntil: "networkidle" });
+  await createSeriesCircuit(page);
+  await page.getByRole("button", { name: "Simulation" }).click();
+  await page.getByRole("button", { name: "Live" }).click();
+  await page.getByLabel("Analysis").selectOption({ label: "AC Analysis" });
+  await expect(page.getByRole("button", { name: "Start Live" })).toBeEnabled();
+
+  await page.getByRole("button", { name: "Start Live" }).click();
+  const liveState = page.getByRole("region", { name: "Live simulation state" });
+  await expect(liveState).toBeVisible({ timeout: 10000 });
+  await expect(liveState.getByText(/\.magnitude$/).first()).toBeVisible({ timeout: 10000 });
+  await expect(liveState.getByText(/\.phase_deg$/).first()).toBeVisible({ timeout: 10000 });
   await page.getByRole("button", { name: "Stop" }).click();
   await expect(page.locator("header").getByText("cancelled", { exact: true })).toBeVisible();
   expect(consoleErrors).toEqual([]);
