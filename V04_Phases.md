@@ -1,8 +1,8 @@
 # Circuit Simulation Platform Roadmap
 
-## Phase 5 — Dynamic Simulation
+## Phase 5 — Simulation Runtime & Static/Live Architecture
 
-### Phase 5.1 — Simulation Session / Execution State ✅
+### 5.1 — Simulation Session / Execution State ✅
 
 - Simulation session identity
 - Lifecycle: created → running → completed / failed / cancelled
@@ -12,7 +12,7 @@
 - Immutable execution snapshots
 - Integration with existing DC operating point and DC sweep execution
 
-### Phase 5.2 — Transient Analysis Foundation ✅
+### 5.2 — Transient Analysis Foundation ✅
 
 The transient execution and result contract is implemented and extended through the dynamic-device work that followed.
 
@@ -43,7 +43,7 @@ Transient Result
     └─ components
 ```
 
-### Phase 5.3 — Dynamic State Infrastructure ✅
+### 5.3 — Dynamic State Infrastructure ✅
 
 - Per-component dynamic state
 - State initialization
@@ -71,7 +71,7 @@ Success ─────────→ Accept next state
    └─ Failure ───→ Preserve previous state
 ```
 
-### Phase 5.4 — Capacitor ✅
+### 5.4 — Capacitor ✅
 
 The capacitor is implemented as the first concrete dynamic component while preserving the separation between physical component identity, layer-specific representation, and numerical analysis method.
 
@@ -88,7 +88,7 @@ The capacitor is implemented as the first concrete dynamic component while prese
 
 Backward Euler is an analysis/numerical representation, not the definition of the capacitor.
 
-### Phase 5.5 — Inductor ✅
+### 5.5 — Inductor ✅
 
 - Inductor component definition
 - Inductance parameter
@@ -98,7 +98,7 @@ Backward Euler is an analysis/numerical representation, not the definition of th
 - Result quantities V/I/P
 - Regression tests
 
-### Phase 5.6 — Time-Varying Sources
+### 5.6 — Time-Varying Sources
 
 - Time-dependent source value representation
 - Source evaluation at simulation time
@@ -106,7 +106,7 @@ Backward Euler is an analysis/numerical representation, not the definition of th
 - Validation
 - Tests
 
-### Phase 5.7 — Transient Result Explorer ✅
+### 5.7 — Transient Result Explorer ✅
 
 #### 5.7A — Generic Dataset Accessors ✅
 
@@ -198,7 +198,7 @@ Series → Plot → Visualization payload
 
 DC Operating Point and DC Sweep remain backward compatible. Transient is an additional analysis using the same simulation panel and result-explorer architecture.
 
-### Phase 5.8 — Dynamic Validation Circuits ✅
+### 5.8 — Dynamic Validation Circuits ✅
 
 Canonical dynamic circuits have been validated in the backend:
 
@@ -210,6 +210,105 @@ Canonical dynamic circuits have been validated in the backend:
 - Analytical-response comparisons
 
 The validated datasets are exposed through the existing result explorer rather than through another transient result format.
+
+### 5.9 — Static vs Live Simulation Architecture 🔄
+
+Static and Live are execution modes, independent of the electrical analysis type or future Worlds layer.
+
+```text
+Simulation
+├── Analysis
+│   ├── DC
+│   ├── Transient
+│   ├── AC
+│   └── future analyses
+│
+└── Execution Mode
+    ├── Static
+    └── Live
+```
+
+The intended model is that the same analysis may eventually support either mode where meaningful:
+
+```text
+                 Static       Live
+DC                  ✓           ✓
+Transient           ✓           ✓
+AC                  ✓           ✓
+Future layers       ✓           ✓
+```
+
+Static remains the current request/response-oriented engineering analysis workflow:
+
+```text
+Frontend → simulation request → Backend → complete result
+                                      ↓
+                              Dataset / Series / Plot
+                                      ↓
+                              Tables / measurements
+```
+
+Live is a long-running execution workflow:
+
+```text
+Frontend → create/start session → Backend
+Frontend ⇐════ live updates ═════ Backend
+                                  ↓
+                              Simulation Runtime
+```
+
+The Live architecture must support:
+
+- Independent simulation session lifecycle
+- Start / stop / pause control
+- Streaming or subscription-based result/state updates
+- Sampling/aggregation between solver rate and UI update rate
+- Current simulation state in addition to accumulated history
+- Clean cancellation and failure propagation
+- Future runtime parameter/control updates
+
+The Live runtime is analysis-independent and layer-independent. Electrical DC/AC are initial consumers, but the architecture must be able to support future Thermal, Mechanical, Control, Fluid, and multi-layer Worlds simulations without creating a separate Live architecture for each layer.
+
+The UI direction is to expose Static and Live as distinct top-level simulation modes. Static uses the existing Result Explorer, plots, tables, measurements, and export workflow. Live will use a dedicated live workspace focused on running state, meters, waveforms, component state, controls, and streaming data.
+
+### 5.10 — Live Simulation Runtime 🔄
+
+Implement the backend/frontend execution boundary for Live without changing the existing Static result contract.
+
+Planned increments:
+
+- Analysis-independent live session model
+- Live execution state separate from static result datasets
+- Backend long-running simulation execution
+- Frontend session creation/start/stop/pause lifecycle
+- Live update transport
+- Result/state sampling policy
+- Frontend live-state store
+- Regression and lifecycle tests
+
+### 5.11 — Live DC 🔜
+
+Use DC as the first complete Live implementation because it validates the runtime and transport architecture without introducing AC-specific numerical complexity.
+
+- Live DC execution
+- Live voltage/current state
+- Live meters
+- Live update stream
+- Stop/pause behavior
+- Frontend Live DC visualization
+
+### 5.12 — Live AC 🔜
+
+After the Live runtime is proven with DC, implement AC as a Live-capable electrical analysis.
+
+- AC excitation model
+- Frequency, amplitude, and phase
+- Complex/phasor electrical quantities where appropriate
+- Live waveform/state representation
+- Voltage/current magnitude and phase
+- Frontend live AC visualization
+
+Static AC frequency sweep/Bode analysis is a separate capability that can reuse the AC electrical representations and shared result infrastructure after the Live AC foundation exists.
 
 ---
 
@@ -224,20 +323,28 @@ Layer-specific Representation
        ↓
 Analysis Model
        ↓
-Numerical / Analytical Method
-       ↓
-Result Model
-       ↓
-Dataset
-       ↓
-Series
-       ↓
-Plot
-       ↓
-Visualization / API
-       ↓
-Existing Worlds Frontend
+Execution Mode
+   ┌───┴────┐
+ Static    Live
+   │         │
+   ↓         ↓
+Numerical  Simulation
+Method     Runtime / State
+   │         │
+   └────┬────┘
+        ↓
+ Result / Live State Model
+        ↓
+ Dataset / Stream
+        ↓
+ Series / Live Views
+        ↓
+ Plot / Live Visualization
+        ↓
+ Existing Worlds Frontend
 ```
+
+Static results continue to use the generic Dataset → Series → Plot architecture. Live execution introduces a separate current-state/stream boundary rather than forcing a running simulation into a static result table.
 
 The same component can therefore have different valid representations at different Worlds layers.
 
@@ -260,6 +367,8 @@ The deeper physical/material/microscopic layers remain future Worlds work.
 
 The same underlying component/entity should remain explorable through progressively deeper layers without coupling the visual model to a particular simulation implementation.
 
+Static and Live are execution modes available across those layers rather than properties of one particular analysis:
+
 ```text
 World / Visual Layer
         ↓
@@ -269,15 +378,14 @@ Layer-specific Representation
         ↓
 Analysis Model
         ↓
-Numerical / Analytical Method
-        ↓
-Result Model
-        ↓
-Dataset
-        ↓
-Series
-        ↓
-Plot
+Execution Mode
+   ┌────┴────┐
+ Static     Live
+   │          │
+   ↓          ↓
+Results    Runtime State
+   │          │
+   └────┬─────┘
         ↓
 Visualization / API
         ↓
