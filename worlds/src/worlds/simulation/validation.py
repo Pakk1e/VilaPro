@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+from typing import Mapping
 
 from .model import SimulationModel
+from .time_varying import TimeVaryingSourceError, TimeVaryingSource
 
 
 class SimulationValidationError(Exception):
@@ -44,6 +46,22 @@ class SimulationValidator:
                     )
 
             for parameter, value in component.parameters.items():
+                if (
+                    component.component_type in {"VoltageSource", "CurrentSource"}
+                    and parameter in {"V", "I"}
+                    and isinstance(value, Mapping)
+                ):
+                    try:
+                        TimeVaryingSource.from_dict(value)
+                    except TimeVaryingSourceError as exc:
+                        issues.append(
+                            ValidationIssue(
+                                "INVALID_WAVEFORM",
+                                f"Component '{prefix}' parameter '{parameter}' has an invalid waveform: {exc}",
+                            )
+                        )
+                    continue
+
                 if not isinstance(value, (int, float)) or isinstance(value, bool) or not math.isfinite(value):
                     issues.append(
                         ValidationIssue(
