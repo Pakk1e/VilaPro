@@ -1,0 +1,41 @@
+name: Deploy Worlds DEV
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy Worlds DEV
+    runs-on: ubuntu-latest
+    environment: worlds-dev
+
+    steps:
+      - name: Checkout deployment scripts
+        uses: actions/checkout@v4
+        with:
+          ref: v0.4/workspace-architecture
+          sparse-checkout: |
+            scripts/deploy-worlds-dev.sh
+            deploy/systemd/worlds-web.service
+
+      - name: Configure SSH
+        env:
+          WORLDS_DEPLOY_HOST: ${{ secrets.WORLDS_DEPLOY_HOST }}
+          WORLDS_DEPLOY_USER: ${{ secrets.WORLDS_DEPLOY_USER }}
+          WORLDS_DEPLOY_SSH_KEY: ${{ secrets.WORLDS_DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$WORLDS_DEPLOY_SSH_KEY" > ~/.ssh/worlds_deploy_key
+          chmod 600 ~/.ssh/worlds_deploy_key
+          ssh-keyscan -H "$WORLDS_DEPLOY_HOST" >> ~/.ssh/known_hosts
+
+      - name: Deploy Worlds DEV
+        env:
+          WORLDS_DEPLOY_HOST: ${{ secrets.WORLDS_DEPLOY_HOST }}
+          WORLDS_DEPLOY_USER: ${{ secrets.WORLDS_DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/worlds_deploy_key "$WORLDS_DEPLOY_USER@$WORLDS_DEPLOY_HOST" \
+            'cd /home/park-pro/VilaPro && bash scripts/deploy-worlds-dev.sh'
