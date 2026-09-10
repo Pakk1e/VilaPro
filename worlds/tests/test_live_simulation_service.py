@@ -36,6 +36,19 @@ class LiveSimulationManagerTest(unittest.TestCase):
         completed = self.manager.complete(created.session_id)
         self.assertEqual(completed.status, "completed")
 
+    def test_partial_signal_update_preserves_existing_signals(self):
+        created = self.manager.create(self.configuration)
+        self.manager.start(created.session_id)
+        self.manager.update(
+            created.session_id,
+            signals={"V(out)": 2.5, "I(R1)": 0.025},
+        )
+        updated = self.manager.update(
+            created.session_id,
+            signals={"V(out)": 3.0},
+        )
+        self.assertEqual(updated.signals, {"V(out)": 3.0, "I(R1)": 0.025})
+
     def test_pause_resume_preserves_live_state(self):
         created = self.manager.create(self.configuration)
         self.manager.start(created.session_id)
