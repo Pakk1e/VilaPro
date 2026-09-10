@@ -221,9 +221,9 @@ test.describe("Worlds DEV authenticated audit", () => {
         const simulate = page.getByRole("button", { name: "Simulate" });
         await expect(simulate).toBeEnabled();
         await simulate.click();
-        await expect(simulate).toHaveText("Simulate", { timeout: 15000 });
 
-        await expect(page.getByRole("region", { name: "Simulation results" })).toBeVisible();
+        await expect(page.getByRole("region", { name: "Simulation results" })).toBeVisible({ timeout: 15000 });
+        await expect(simulate).toHaveText("Simulate");
         await expect(page.getByText("Circuit Summary", { exact: true })).toBeVisible();
         await expect(page.getByText("Voltage Source 1", { exact: true }).last()).toBeVisible();
         await expect(page.getByText("Resistor 1", { exact: true }).last()).toBeVisible();
@@ -258,13 +258,12 @@ test.describe("Worlds DEV authenticated audit", () => {
         const simulate = page.getByRole("button", { name: "Simulate" });
         await expect(simulate).toBeEnabled();
         await simulate.click();
-        await expect(simulate).toHaveText("Simulate", { timeout: 15000 });
 
-        await expect(page.getByRole("region", { name: "Simulation results" })).toBeVisible();
+        await expect(page.getByRole("region", { name: "Simulation results" })).toBeVisible({ timeout: 15000 });
+        await expect(simulate).toHaveText("Simulate");
         await expect(page.getByText("Circuit Summary", { exact: true })).toBeVisible();
         await expect(page.getByText(/Values shown at the last valid sweep point\./)).toBeVisible();
-        await expect(page.getByRole("button", { name: "Current", exact: true })).toBeEnabled();
-        await expect(page.getByRole("img", { name: /simulation result/i })).toBeVisible().catch(() => {});
+        await expect(page.getByRole("img", { name: /result plot/i })).toBeVisible();
 
         await saveAuditScreenshot(page, testInfo, "worlds-dc-sweep-results");
         await assertNoBrowserErrors(errors);
