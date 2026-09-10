@@ -1,0 +1,57 @@
+name: Deploy Worlds DEV
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: Worlds branch to deploy
+        required: true
+        default: v0.4/workspace-architecture
+        type: string
+
+jobs:
+  deploy:
+    name: Deploy Worlds DEV
+    runs-on: ubuntu-latest
+    environment: worlds-dev
+
+    steps:
+      - name: Validate branch input
+        env:
+          DEPLOY_BRANCH: ${{ inputs.branch }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$DEPLOY_BRANCH" =~ ^[A-Za-z0-9._/-]+$ ]]; then
+            echo "ERROR: invalid branch name: $DEPLOY_BRANCH" >&2
+            exit 1
+          fi
+
+      - name: Checkout deployment scripts
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch }}
+          sparse-checkout: |
+            scripts/deploy-worlds-dev.sh
+            deploy/systemd/worlds-web.service
+
+      - name: Configure SSH
+        env:
+          WORLDS_DEPLOY_HOST: ${{ secrets.WORLDS_DEPLOY_HOST }}
+          WORLDS_DEPLOY_SSH_KEY: ${{ secrets.WORLDS_DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$WORLDS_DEPLOY_SSH_KEY" > ~/.ssh/worlds_deploy_key
+          chmod 600 ~/.ssh/worlds_deploy_key
+          ssh-keyscan -T 10 -H "$WORLDS_DEPLOY_HOST" >> ~/.ssh/known_hosts
+
+      - name: Deploy Worlds DEV
+        env:
+          WORLDS_DEPLOY_HOST: ${{ secrets.WORLDS_DEPLOY_HOST }}
+          WORLDS_DEPLOY_USER: ${{ secrets.WORLDS_DEPLOY_USER }}
+          WORLDS_DEPLOY_BRANCH: ${{ inputs.branch }}
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/worlds_deploy_key "$WORLDS_DEPLOY_USER@$WORLDS_DEPLOY_HOST" \
+            "WORLDS_DEPLOY_BRANCH='$WORLDS_DEPLOY_BRANCH' bash scripts/deploy-worlds-dev.sh"
