@@ -12,6 +12,10 @@ on:
         default: v0.4/workspace-architecture
         type: string
 
+concurrency:
+  group: worlds-dev-deployment
+  cancel-in-progress: true
+
 jobs:
   deploy:
     name: Deploy Worlds DEV
@@ -50,7 +54,7 @@ jobs:
         working-directory: /home/park-pro/VilaPro/frontend-dev
         run: npx playwright install chromium
 
-      - name: Run Worlds browser smoke tests
+      - name: Run Worlds browser smoke and authenticated audit
         working-directory: /home/park-pro/VilaPro/frontend-dev
         env:
           CI: true
