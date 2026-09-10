@@ -1,6 +1,6 @@
 import unittest
 
-from worlds.math import Equation, FunctionCall, Number, Variable
+from worlds.math import Binary, Equation, FunctionCall, Number, Variable
 
 from worlds.simulation.analysis import SimulationConfiguration, TransientAnalysis
 from worlds.simulation.dynamic import DynamicComponentError, TransientDynamicStateHandler
@@ -88,7 +88,11 @@ class TimeVaryingSourceTest(unittest.TestCase):
             equations=[
                 Equation(
                     left=FunctionCall("voltage", (Variable("p"), Variable("n"))),
-                    right=FunctionCall("current", (Variable("p"), Variable("n"))),
+                    right=Binary(
+                        left=Number(100.0),
+                        operator="*",
+                        right=FunctionCall("current", (Variable("p"), Variable("n"))),
+                    ),
                 )
             ],
         )
