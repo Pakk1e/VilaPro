@@ -74,17 +74,17 @@ async function createSeriesCircuit(page) {
     const canvasBox = await canvas.boundingBox();
     if (!canvasBox) throw new Error("Unable to locate Worlds canvas.");
 
-    // Give the circuit more usable canvas area. The production canvas already
-    // exposes ReactFlow controls, so use the real zoom control rather than
-    // changing application behavior just for the E2E test.
+    const voltage = await addComponent(page, "Voltage Source", "Voltage Source 1");
+    const resistor = await addComponent(page, "Resistor", "Resistor 1");
+    const ground = await addComponent(page, "Ground", "Ground 1");
+
+    // The first component can trigger the production canvas to fit/zoom the
+    // viewport. Zoom only after all components are present so that automatic
+    // viewport adjustment cannot immediately undo the test's zoom-out.
     const zoomOut = page.locator(".react-flow__controls-zoomout");
     await expect(zoomOut).toBeVisible();
     await zoomOut.click();
     await zoomOut.click();
-
-    const voltage = await addComponent(page, "Voltage Source", "Voltage Source 1");
-    const resistor = await addComponent(page, "Resistor", "Resistor 1");
-    const ground = await addComponent(page, "Ground", "Ground 1");
 
     // Keep all three nodes comfortably inside the canvas and separated in both
     // axes. This prevents a node body from intercepting a handle click.
