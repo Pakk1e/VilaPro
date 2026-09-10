@@ -12,6 +12,10 @@ on:
         default: v0.4/workspace-architecture
         type: string
 
+concurrency:
+  group: worlds-dev-deployment
+  cancel-in-progress: true
+
 jobs:
   deploy:
     name: Deploy Worlds DEV
