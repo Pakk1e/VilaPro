@@ -44,6 +44,16 @@ class LiveSimulationState:
             raise LiveSimulationError("live simulation can only start from created state")
         self.status = "running"
 
+    def pause(self) -> None:
+        if self.status != "running":
+            raise LiveSimulationError("live simulation can only pause from running state")
+        self.status = "paused"
+
+    def resume(self) -> None:
+        if self.status != "paused":
+            raise LiveSimulationError("live simulation can only resume from paused state")
+        self.status = "running"
+
     def update(self, *, independent_value: float | None = None, signals: dict[str, Any] | None = None) -> None:
         if self.status != "running":
             raise LiveSimulationError("live simulation must be running to update state")
@@ -66,7 +76,7 @@ class LiveSimulationState:
         self.status = "failed"
 
     def cancel(self) -> None:
-        if self.status not in {"created", "running"}:
+        if self.status not in {"created", "running", "paused"}:
             return
         self.status = "cancelled"
 
