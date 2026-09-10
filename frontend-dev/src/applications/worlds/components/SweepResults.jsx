@@ -86,7 +86,7 @@ export default function SweepResults({ result }) {
 
   const availableMeasurements = getAvailableMeasurements(scope, series);
   const effectiveMeasurement = availableMeasurements.includes(measurement) ? measurement : availableMeasurements[0] ?? null;
-  const scopedSeries = useMemo(() => getResultSeriesForScope(series, scope, effectiveMeasurement), [series, scope, effectiveMeasurement]);
+  const scopedSeries = getResultSeriesForScope(series, scope, effectiveMeasurement);
   const selectedSeries = scopedSeries.find((item) => item.key === selectedSeriesKey) ?? scopedSeries[0] ?? null;
   const parameterUnit = information?.parameter === "I" ? "A" : "V";
   const sourceComponent = getCircuitComponent(result, information?.source);
@@ -112,8 +112,7 @@ export default function SweepResults({ result }) {
     setSelectedPointIndex(null);
   };
 
-  const scopeSeries = getResultSeriesForScope(series, scope, effectiveMeasurement);
-  const selectedSeriesIndex = Math.max(0, scopeSeries.findIndex((item) => item.key === selectedSeries?.key));
+  const selectedSeriesIndex = Math.max(0, scopedSeries.findIndex((item) => item.key === selectedSeries?.key));
 
   return (
     <section aria-label="DC sweep results" className="space-y-4">
@@ -140,7 +139,7 @@ export default function SweepResults({ result }) {
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#e4e7eb] bg-[#fafbfc] px-4 py-3">
-          <div className="text-xs font-medium text-[#17253a]">{scope === RESULT_SCOPES.COMPONENTS ? `${scopeSeries.length} component results` : `${scopeSeries.length} node results`}</div>
+          <div className="text-xs font-medium text-[#17253a]">{scope === RESULT_SCOPES.COMPONENTS ? `${scopedSeries.length} component results` : `${scopedSeries.length} node results`}</div>
           <div className="flex items-center gap-1 rounded-md border border-[#d9dde2] bg-white p-0.5" role="group" aria-label="Result measurement">
             {[RESULT_MEASUREMENTS.VOLTAGE, RESULT_MEASUREMENTS.CURRENT, RESULT_MEASUREMENTS.POWER].map((item) => {
               const enabled = availableMeasurements.includes(item);
@@ -149,11 +148,11 @@ export default function SweepResults({ result }) {
           </div>
         </div>
 
-        {scopeSeries.length > 0 ? (
+        {scopedSeries.length > 0 ? (
           <div className="border-b border-[#e4e7eb] px-4 py-3">
             <label className="block text-[9px] font-semibold uppercase tracking-[0.12em] text-[#69717b]" htmlFor="sweep-result-target">Result</label>
             <select id="sweep-result-target" aria-label="Sweep result target" value={selectedSeries?.key ?? ""} onChange={(event) => { setSelectedSeriesKey(event.target.value); setSelectedPointIndex(null); }} className="mt-1.5 w-full rounded-md border border-[#d9dde2] bg-white px-2.5 py-2 text-xs text-[#26364d] outline-none focus:border-[#58718f]">
-              {scopeSeries.map((item) => <option key={item.key} value={item.key}>{item.contextTitle}</option>)}
+              {scopedSeries.map((item) => <option key={item.key} value={item.key}>{item.contextTitle}</option>)}
             </select>
           </div>
         ) : (
@@ -176,8 +175,8 @@ export default function SweepResults({ result }) {
         </div>
       </div>
 
-      {scopeSeries.length > 1 && (
-        <div className="rounded-xl border border-[#d9dde2] bg-white px-4 py-3 text-[10px] text-[#8a929c]">Showing {scopeSeries[selectedSeriesIndex]?.contextTitle ?? selectedSeries?.contextTitle} · {measurementLabel(effectiveMeasurement)} ({measurementUnit(effectiveMeasurement)})</div>
+      {scopedSeries.length > 1 && (
+        <div className="rounded-xl border border-[#d9dde2] bg-white px-4 py-3 text-[10px] text-[#8a929c]">Showing {scopedSeries[selectedSeriesIndex]?.contextTitle ?? selectedSeries?.contextTitle} · {measurementLabel(effectiveMeasurement)} ({measurementUnit(effectiveMeasurement)})</div>
       )}
     </section>
   );
