@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 from worlds.semantics.component import ComponentSemanticAnalyzer
 from worlds.semantics import WorldSemanticAnalyzer
+from worlds.simulation.ac import ACResult
 from worlds.simulation.analysis import DCSweepResult, SimulationConfiguration, get_simulation_analysis
 from worlds.simulation.analysis import TransientResult
 from worlds.simulation.builder import build_simulation_component
@@ -75,6 +76,9 @@ class SimulationService:
             if isinstance(result, TransientResult):
                 session.complete()
                 return self._build_transient_response(result, configuration, circuit_context)
+            if isinstance(result, ACResult):
+                session.complete()
+                return self._build_ac_response(result, configuration, circuit_context)
             if not isinstance(result, SimulationResult):
                 raise SimulationServiceError(f"Unsupported simulation result from analysis '{configuration.analysis}'")
             response = self._build_response(result)
@@ -123,6 +127,18 @@ class SimulationService:
         status = "completed_with_failures" if any(item["status"] == "failed" for item in statuses) else "completed"
         generic_result = SimulationResultModel.from_transient(status=status, settings=configuration.settings, outputs=configuration.outputs, points=[float(point) for point in transient.points], point_statuses=statuses, node_voltages=[item.node_voltages if item is not None else None for item in point_responses], branch_currents=[item.branch_currents if item is not None else None for item in point_responses], components=[item.components if item is not None else None for item in point_responses], circuit_context=circuit_context)
         return SimulationResponse(configuration.analysis, status, last.node_voltages, last.branch_currents, last.components, generic_result)
+
+    def _build_ac_response(self, ac_result: ACResult, configuration, circuit_context):
+        generic_result = SimulationResultModel.from_ac(
+            status="completed",
+            settings=configuration.settings,
+            outputs=configuration.outputs,
+            frequency=ac_result.frequency,
+            excitation=ac_result.excitation,
+            phasors=ac_result.values,
+            circuit_context=circuit_context,
+        )
+        return SimulationResponse(configuration.analysis, "completed", {}, {}, [], generic_result)
 
     @staticmethod
     def _build_circuit_context(model):
