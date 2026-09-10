@@ -7,6 +7,7 @@ from typing import Mapping, Protocol
 from worlds.math import Variable
 
 from .dynamic import TransientDynamicStateHandler
+from .mode import SimulationMode
 from .model import SimulationModel
 from .network import build_network_equation_system
 from .session import SimulationSession
@@ -27,6 +28,7 @@ class SimulationAnalysisError(ValueError):
 
 @dataclass(frozen=True)
 class SimulationConfiguration:
+    mode: SimulationMode = SimulationMode.STATIC
     analysis: str = DC_OPERATING_POINT
     settings: Mapping[str, object] = field(default_factory=dict)
     outputs: tuple[str, ...] = ()
@@ -37,6 +39,14 @@ class SimulationConfiguration:
             return cls()
         if not isinstance(value, Mapping):
             raise SimulationAnalysisError("simulation must be an object")
+
+        raw_mode = value.get("mode", SimulationMode.STATIC.value)
+        try:
+            mode = SimulationMode(raw_mode)
+        except (TypeError, ValueError):
+            supported = ", ".join(item.value for item in SimulationMode)
+            raise SimulationAnalysisError(f"Unsupported simulation mode '{raw_mode}'. Supported modes: {supported}") from None
+
         analysis = value.get("analysis", DC_OPERATING_POINT)
         if not isinstance(analysis, str) or not analysis:
             raise SimulationAnalysisError("simulation.analysis must be a non-empty string")
@@ -61,7 +71,7 @@ class SimulationConfiguration:
                 TransientConfiguration.from_dict(settings)
             except TransientConfigurationError as exc:
                 raise SimulationAnalysisError(str(exc)) from exc
-        return cls(analysis=analysis, settings=dict(settings), outputs=tuple(outputs))
+        return cls(mode=mode, analysis=analysis, settings=dict(settings), outputs=tuple(outputs))
 
     @staticmethod
     def _validate_dc_sweep_settings(settings: Mapping[str, object]) -> None:
@@ -86,7 +96,7 @@ class SimulationConfiguration:
             raise SimulationAnalysisError(f"dc_sweep produces more than {MAX_SWEEP_POINTS} points")
 
     def to_dict(self) -> dict[str, object]:
-        return {"analysis": self.analysis, "settings": dict(self.settings), "outputs": list(self.outputs)}
+        return {"mode": self.mode.value, "analysis": self.analysis, "settings": dict(self.settings), "outputs": list(self.outputs)}
 
 
 @dataclass(frozen=True)
@@ -217,8 +227,6 @@ def _build_transient_execution_points(configuration: TransientConfiguration) -> 
         return output_points
 
     warmup = TransientConfiguration(start=0.0, stop=start, step=float(configuration.step)).time_points()
-    # The warm-up includes the exact output start. Continue with the requested
-    # output grid so the state is evolved all the way through the stop time.
     return tuple(warmup[:-1]) + output_points
 
 
