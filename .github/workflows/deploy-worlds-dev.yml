@@ -1,41 +1,71 @@
 name: Deploy Worlds DEV
 
 on:
+  push:
+    branches:
+      - v0.4/workspace-architecture
   workflow_dispatch:
+    inputs:
+      branch:
+        description: Worlds branch to deploy
+        required: true
+        default: v0.4/workspace-architecture
+        type: string
 
 jobs:
   deploy:
     name: Deploy Worlds DEV
-    runs-on: ubuntu-latest
+    runs-on:
+      - self-hosted
+      - worlds-dev
     environment: worlds-dev
 
     steps:
-      - name: Checkout deployment scripts
-        uses: actions/checkout@v4
-        with:
-          ref: v0.4/workspace-architecture
-          sparse-checkout: |
-            scripts/deploy-worlds-dev.sh
-            deploy/systemd/worlds-web.service
-
-      - name: Configure SSH
-        env:
-          WORLDS_DEPLOY_HOST: ${{ secrets.WORLDS_DEPLOY_HOST }}
-          WORLDS_DEPLOY_USER: ${{ secrets.WORLDS_DEPLOY_USER }}
-          WORLDS_DEPLOY_SSH_KEY: ${{ secrets.WORLDS_DEPLOY_SSH_KEY }}
-        run: |
-          set -euo pipefail
-          mkdir -p ~/.ssh
-          chmod 700 ~/.ssh
-          printf '%s\n' "$WORLDS_DEPLOY_SSH_KEY" > ~/.ssh/worlds_deploy_key
-          chmod 600 ~/.ssh/worlds_deploy_key
-          ssh-keyscan -H "$WORLDS_DEPLOY_HOST" >> ~/.ssh/known_hosts
-
       - name: Deploy Worlds DEV
         env:
-          WORLDS_DEPLOY_HOST: ${{ secrets.WORLDS_DEPLOY_HOST }}
-          WORLDS_DEPLOY_USER: ${{ secrets.WORLDS_DEPLOY_USER }}
+          WORLDS_DEPLOY_BRANCH: ${{ github.event_name == 'workflow_dispatch' && inputs.branch || github.ref_name }}
         run: |
           set -euo pipefail
-          ssh -i ~/.ssh/worlds_deploy_key "$WORLDS_DEPLOY_USER@$WORLDS_DEPLOY_HOST" \
-            'cd /home/park-pro/VilaPro && bash scripts/deploy-worlds-dev.sh'
+          if [[ ! "$WORLDS_DEPLOY_BRANCH" =~ ^[A-Za-z0-9._/-]+$ ]]; then
+            echo "ERROR: invalid branch name: $WORLDS_DEPLOY_BRANCH" >&2
+            exit 1
+          fi
+
+          cd /home/park-pro/VilaPro
+          echo "=== Worlds DEV deployment ==="
+          echo "Repository: /home/park-pro/VilaPro"
+          echo "Branch:     $WORLDS_DEPLOY_BRANCH"
+
+          git fetch origin "$WORLDS_DEPLOY_BRANCH"
+          git checkout "$WORLDS_DEPLOY_BRANCH"
+          git pull --ff-only origin "$WORLDS_DEPLOY_BRANCH"
+
+          bash scripts/deploy-worlds-dev.sh
+
+      - name: Install Playwright test runner
+        working-directory: /home/park-pro/VilaPro/frontend-dev
+        run: npm install --no-save --package-lock=false @playwright/test@1.63.0
+
+      - name: Install Chromium for browser tests
+        working-directory: /home/park-pro/VilaPro/frontend-dev
+        run: npx playwright install chromium
+
+      - name: Run Worlds browser smoke tests
+        working-directory: /home/park-pro/VilaPro/frontend-dev
+        env:
+          CI: true
+          PLAYWRIGHT_TEST_BASE_URL: https://worlds-dev.vadovsky-tech.com
+          WORLDS_E2E_EMAIL: ${{ secrets.WORLDS_E2E_EMAIL }}
+          WORLDS_E2E_PASSWORD: ${{ secrets.WORLDS_E2E_PASSWORD }}
+        run: npx playwright test
+
+      - name: Upload browser test artifacts
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: worlds-dev-browser-test-artifacts
+          path: |
+            /home/park-pro/VilaPro/testscreenshots/
+            /home/park-pro/VilaPro/playwright-report/
+          if-no-files-found: warn
+          retention-days: 14
