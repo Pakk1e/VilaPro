@@ -1,11 +1,12 @@
-name: Worlds Tests
+name: VilaPro CI
 
 on:
   push:
   pull_request:
 
 jobs:
-  tests:
+  worlds:
+    name: Worlds backend
     runs-on: ubuntu-latest
 
     steps:
@@ -22,6 +23,55 @@ jobs:
       - name: Install Worlds
         run: python -m pip install -e ./worlds
 
-      - name: Run Worlds tests
+      - name: Validate Python syntax
+        run: python -m compileall -q worlds/src worlds/tests
+
+      - name: Install coverage
+        run: python -m pip install coverage
+
+      - name: Run Worlds tests with coverage
         working-directory: worlds
-        run: python -m unittest discover tests
+        run: python -m coverage run --source=src -m unittest discover tests
+
+      - name: Generate coverage report
+        working-directory: worlds
+        run: |
+          python -m coverage report
+          python -m coverage xml -o coverage.xml
+
+      - name: Upload Worlds coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: worlds-coverage
+          path: worlds/coverage.xml
+
+  frontend:
+    name: Worlds frontend
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: frontend-dev
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend-dev/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npm run lint
+
+      - name: Run frontend tests
+        run: npm test
+
+      - name: Build frontend
+        run: npm run build
