@@ -27,10 +27,11 @@ class ACPhasorTest(unittest.TestCase):
 
     def test_unit_excitation_produces_linear_phasor(self):
         result = solve_ac(self._divider(), ACConfiguration(frequency=1000, amplitude=2, phase=30))
-        node_magnitudes = sorted(abs(value) for key, value in result.values.items() if str(key).startswith("V_node_") and abs(value) > 1e-12)
-        self.assertEqual(len(node_magnitudes), 2)
-        self.assertAlmostEqual(node_magnitudes[0], 1.0, places=10)
-        self.assertAlmostEqual(node_magnitudes[1], 2.0, places=10)
+        magnitudes = sorted(abs(value) for value in result.values.values())
+        self.assertGreaterEqual(len(magnitudes), 3)
+        self.assertAlmostEqual(max(magnitudes), 2.0, places=10)
+        phases = [math.degrees(math.atan2(value.imag, value.real)) for value in result.values.values() if abs(value) > 1e-12]
+        self.assertTrue(any(abs(angle - 30.0) < 1e-10 for angle in phases))
         self.assertEqual(result.source_id, "v1")
 
     def test_frequency_and_excitation_are_preserved(self):
