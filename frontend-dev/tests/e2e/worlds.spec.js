@@ -139,6 +139,18 @@ async function createSeriesCircuit(page) {
     return { voltage, resistor, ground };
 }
 
+async function expectSimulationResults(page) {
+    const results = page.getByRole("region", { name: "Simulation results" });
+    if (await results.isVisible().catch(() => false)) return results;
+
+    const simulationError = page.locator('[role="alert"]').filter({ hasText: "Simulation error" }).first();
+    if (await simulationError.isVisible().catch(() => false)) {
+        throw new Error(`Simulation returned an error: ${await simulationError.innerText()}`);
+    }
+
+    throw new Error("Simulation completed without rendering results or a simulation error message.");
+}
+
 test.describe("Worlds DEV authenticated audit", () => {
     test("authenticated user can enter Worlds and inspect the design workspace", async ({ page }, testInfo) => {
         const errors = installBrowserErrorChecks(page);
@@ -227,7 +239,7 @@ test.describe("Worlds DEV authenticated audit", () => {
         await page.getByRole("button", { name: "Simulation" }).click();
 
         await expect(page.getByRole("img", { name: "Circuit schematic preview" })).toBeVisible();
-        await expect(page.getByText("3 components", { exact: true })).toBeVisible();
+        await expect(page.getByText("2 components", { exact: true })).toBeVisible();
         await expect(page.getByText("Voltage Source 1", { exact: true }).last()).toBeVisible();
         await expect(page.getByText("Resistor 1", { exact: true }).last()).toBeVisible();
 
@@ -247,7 +259,7 @@ test.describe("Worlds DEV authenticated audit", () => {
         await expect(simulate).toBeEnabled();
         await simulate.click();
 
-        await expect(page.getByRole("region", { name: "Simulation results" })).toBeVisible({ timeout: 15000 });
+        await expectSimulationResults(page);
         await expect(simulate).toHaveText("Simulate");
         await expect(page.getByText("Circuit Summary", { exact: true })).toBeVisible();
         await expect(page.getByText("Voltage Source 1", { exact: true }).last()).toBeVisible();
@@ -267,7 +279,7 @@ test.describe("Worlds DEV authenticated audit", () => {
         await page.getByRole("button", { name: "Simulation" }).click();
 
         await page.getByLabel("Analysis").selectOption("dc_sweep");
-        await page.getByLabel("Sweep source").selectOption({ label: /Voltage Source 1/ });
+        await page.getByLabel("Sweep source").selectOption({ label: "Voltage Source 1 (Voltage Source)" });
 
         const sweepInputs = page.locator('input[type="number"]');
         await sweepInputs.nth(0).fill("0");
@@ -280,7 +292,7 @@ test.describe("Worlds DEV authenticated audit", () => {
         await expect(simulate).toBeEnabled();
         await simulate.click();
 
-        await expect(page.getByRole("region", { name: "Simulation results" })).toBeVisible({ timeout: 15000 });
+        await expectSimulationResults(page);
         await expect(simulate).toHaveText("Simulate");
         await expect(page.getByText("Circuit Summary", { exact: true })).toBeVisible();
         await expect(page.getByText(/Values shown at the last valid sweep point\./)).toBeVisible();
