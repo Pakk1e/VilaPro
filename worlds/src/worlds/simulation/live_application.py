@@ -84,6 +84,18 @@ class LiveSimulationApplicationService:
         except LiveSimulationRuntimeError as exc:
             raise LiveSimulationApplicationError(str(exc)) from exc
 
+    def pause(self, session_id: str) -> LiveSimulationSnapshot:
+        try:
+            return self.manager.pause(session_id)
+        except LiveSimulationServiceError as exc:
+            raise LiveSimulationApplicationError(str(exc)) from exc
+
+    def resume(self, session_id: str) -> LiveSimulationSnapshot:
+        try:
+            return self.manager.resume(session_id)
+        except LiveSimulationServiceError as exc:
+            raise LiveSimulationApplicationError(str(exc)) from exc
+
     def cancel(self, session_id: str) -> LiveSimulationSnapshot:
         try:
             snapshot = self.runtime.cancel(session_id)
