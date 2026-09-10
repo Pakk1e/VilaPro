@@ -49,6 +49,47 @@ async function signIn(page) {
     await expect(page).toHaveURL(/\/hub$/);
 }
 
+async function addComponent(page, name, label) {
+    await page.getByRole("button", { name, exact: true }).click();
+    const node = page.locator(".react-flow__node").filter({ hasText: label });
+    await expect(node).toBeVisible();
+    return node;
+}
+
+async function moveNode(page, node, x, y) {
+    const box = await node.boundingBox();
+    if (!box) throw new Error("Unable to locate ReactFlow node for movement.");
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(x, y, { steps: 10 });
+    await page.mouse.up();
+}
+
+function nodeHandle(node, handleId) {
+    return node.locator(`.react-flow__handle[data-handleid="${handleId}"]`);
+}
+
+async function createSeriesCircuit(page) {
+    const canvas = page.locator(".react-flow");
+    const canvasBox = await canvas.boundingBox();
+    if (!canvasBox) throw new Error("Unable to locate Worlds canvas.");
+
+    const voltage = await addComponent(page, "Voltage Source", "Voltage Source 1");
+    const resistor = await addComponent(page, "Resistor", "Resistor 1");
+    const ground = await addComponent(page, "Ground", "Ground 1");
+
+    await moveNode(page, voltage, canvasBox.x + canvasBox.width * 0.28, canvasBox.y + canvasBox.height * 0.45);
+    await moveNode(page, resistor, canvasBox.x + canvasBox.width * 0.50, canvasBox.y + canvasBox.height * 0.45);
+    await moveNode(page, ground, canvasBox.x + canvasBox.width * 0.72, canvasBox.y + canvasBox.height * 0.70);
+
+    await nodeHandle(voltage, "p").dragTo(nodeHandle(resistor, "p"));
+    await nodeHandle(resistor, "n").dragTo(nodeHandle(ground, "g"));
+    await nodeHandle(voltage, "n").dragTo(nodeHandle(ground, "g"));
+
+    await expect(page.locator(".react-flow__edge")).toHaveCount(3);
+    return { voltage, resistor, ground };
+}
+
 test.describe("Worlds DEV authenticated audit", () => {
     test("authenticated user can enter Worlds and inspect the design workspace", async ({
         page,
@@ -143,6 +184,89 @@ test.describe("Worlds DEV authenticated audit", () => {
         ).toBeDisabled();
 
         await saveAuditScreenshot(page, testInfo, "worlds-simulation-invalid-sweep");
+        await assertNoBrowserErrors(errors);
+    });
+
+    test("real circuit can be drawn, connected and rendered as a schematic", async ({
+        page,
+    }, testInfo) => {
+        const errors = installBrowserErrorChecks(page);
+
+        await signIn(page);
+        await page.goto("/worlds", { waitUntil: "networkidle" });
+        await createSeriesCircuit(page);
+
+        await expect(page.locator(".react-flow__edge")).toHaveCount(3);
+        await page.getByRole("button", { name: "Simulation" }).click();
+
+        await expect(page.getByRole("img", { name: "Circuit schematic preview" })).toBeVisible();
+        await expect(page.getByText("3 components", { exact: true })).toBeVisible();
+        await expect(page.getByText("Voltage Source 1", { exact: true }).last()).toBeVisible();
+        await expect(page.getByText("Resistor 1", { exact: true }).last()).toBeVisible();
+
+        await saveAuditScreenshot(page, testInfo, "worlds-real-circuit-schematic");
+        await assertNoBrowserErrors(errors);
+    });
+
+    test("real circuit runs DC operating point and exposes numerical results", async ({
+        page,
+    }, testInfo) => {
+        const errors = installBrowserErrorChecks(page);
+
+        await signIn(page);
+        await page.goto("/worlds", { waitUntil: "networkidle" });
+        await createSeriesCircuit(page);
+        await page.getByRole("button", { name: "Simulation" }).click();
+
+        const simulate = page.getByRole("button", { name: "Simulate" });
+        await expect(simulate).toBeEnabled();
+        await simulate.click();
+        await expect(simulate).toHaveText("Simulate", { timeout: 15000 });
+
+        await expect(page.getByRole("region", { name: "Simulation results" })).toBeVisible();
+        await expect(page.getByText("Circuit Summary", { exact: true })).toBeVisible();
+        await expect(page.getByText("Voltage Source 1", { exact: true }).last()).toBeVisible();
+        await expect(page.getByText("Resistor 1", { exact: true }).last()).toBeVisible();
+        await expect(page.getByText(/120\.?0? mA/).first()).toBeVisible();
+
+        await saveAuditScreenshot(page, testInfo, "worlds-dc-operating-point-results");
+        await assertNoBrowserErrors(errors);
+    });
+
+    test("real circuit runs a DC sweep and produces multiple sweep points", async ({
+        page,
+    }, testInfo) => {
+        const errors = installBrowserErrorChecks(page);
+
+        await signIn(page);
+        await page.goto("/worlds", { waitUntil: "networkidle" });
+        await createSeriesCircuit(page);
+        await page.getByRole("button", { name: "Simulation" }).click();
+
+        await page.getByLabel("Analysis").selectOption("dc_sweep");
+        await page.getByLabel("Sweep source").selectOption({ label: /Voltage Source 1/ });
+
+        const sweepInputs = page.locator('input[type="number"]');
+        await sweepInputs.nth(0).fill("0");
+        await sweepInputs.nth(1).fill("12");
+        await sweepInputs.nth(2).fill("3");
+
+        await expect(
+            page.locator('[role="alert"]').filter({ hasText: /^Select a voltage or current source to sweep\.$/ })
+        ).toHaveCount(0);
+
+        const simulate = page.getByRole("button", { name: "Simulate" });
+        await expect(simulate).toBeEnabled();
+        await simulate.click();
+        await expect(simulate).toHaveText("Simulate", { timeout: 15000 });
+
+        await expect(page.getByRole("region", { name: "Simulation results" })).toBeVisible();
+        await expect(page.getByText("Circuit Summary", { exact: true })).toBeVisible();
+        await expect(page.getByText(/Values shown at the last valid sweep point\./)).toBeVisible();
+        await expect(page.getByRole("button", { name: "Current", exact: true })).toBeEnabled();
+        await expect(page.getByRole("img", { name: /simulation result/i })).toBeVisible().catch(() => {});
+
+        await saveAuditScreenshot(page, testInfo, "worlds-dc-sweep-results");
         await assertNoBrowserErrors(errors);
     });
 });
