@@ -8,6 +8,7 @@ from worlds.math import Binary, Equation, FunctionCall, Number, Variable
 from .model import SimulationComponent, SimulationModel
 from .representation import ElectricalComponentRepresentation
 from .state import DynamicState, DynamicStateSnapshot, TransientStepContext, TransientStateHandler
+from .time_varying import TimeVaryingSourceError, evaluate_time_varying_source
 
 
 class DynamicComponentError(ValueError):
@@ -88,11 +89,7 @@ class CapacitorTransientModel(ElectricalComponentRepresentation):
 
 @dataclass(frozen=True, init=False)
 class InductorTransientModel(ElectricalComponentRepresentation):
-    """Backward-Euler transient representation of an electrical inductor.
-
-    The dynamic state is the previous branch current. For a positive voltage
-    from p to n, backward Euler gives I[k] = I[k-1] + dt/L * V[k].
-    """
+    """Backward-Euler transient representation of an electrical inductor."""
 
     component_type: str = "Inductor"
     layer: str = "electrical"
@@ -155,14 +152,14 @@ class InductorTransientModel(ElectricalComponentRepresentation):
         return Equation(
             left=FunctionCall("current", (Variable("p"), Variable("n"))),
             right=Binary(
-                left=Number(conductance), operator="*",
-                right=FunctionCall("voltage", (Variable("p"), Variable("n"))),
-            ),
-        ) if history_current == 0 else Equation(
-            left=FunctionCall("current", (Variable("p"), Variable("n"))),
-            right=Binary(
                 left=Binary(left=Number(conductance), operator="*", right=FunctionCall("voltage", (Variable("p"), Variable("n")))),
                 operator="+", right=Number(history_current),
+            ),
+        ) if history_current != 0 else Equation(
+            left=FunctionCall("current", (Variable("p"), Variable("n"))),
+            right=Binary(
+                left=Number(conductance), operator="*",
+                right=FunctionCall("voltage", (Variable("p"), Variable("n"))),
             ),
         )
 
@@ -229,14 +226,38 @@ class InductorStateHandler(TransientStateHandler):
             state.set(component.component_id, float(current))
 
 
+def _apply_time_varying_sources(model: SimulationModel, time: float) -> SimulationModel:
+    """Evaluate waveform mappings on independent source parameters for one step."""
+    components: list[SimulationComponent] = []
+    for component in model.components:
+        if component.component_type not in {"VoltageSource", "CurrentSource"}:
+            components.append(component)
+            continue
+        parameters = dict(component.parameters)
+        for parameter in ("V", "I"):
+            if parameter not in parameters:
+                continue
+            try:
+                value = evaluate_time_varying_source(parameters[parameter], time)
+            except TimeVaryingSourceError as exc:
+                raise DynamicComponentError(
+                    f"{component.component_type} '{component.name}' {parameter} waveform is invalid: {exc}"
+                ) from exc
+            if value is not None:
+                parameters[parameter] = value
+        components.append(replace(component, parameters=parameters))
+    return SimulationModel(components=components, nodes=set(model.nodes))
+
+
 class TransientDynamicStateHandler(TransientStateHandler):
-    """Default transient handler combining all supported dynamic devices."""
+    """Default transient handler combining dynamic devices and time-varying sources."""
 
     def __init__(self) -> None:
         self.capacitor_handler = CapacitorStateHandler()
         self.inductor_handler = InductorStateHandler()
 
     def prepare_step(self, model: SimulationModel, previous_state: DynamicStateSnapshot, context: TransientStepContext) -> SimulationModel:
+        model = _apply_time_varying_sources(model, context.time)
         model = self.capacitor_handler.prepare_step(model, previous_state, context)
         return self.inductor_handler.prepare_step(model, previous_state, context)
 
