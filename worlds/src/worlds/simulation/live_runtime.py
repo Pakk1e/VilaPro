@@ -17,11 +17,10 @@ class LiveSimulationRuntimeError(RuntimeError):
 
 @dataclass
 class LiveSimulationRuntime:
-    """Synchronous first execution adapter for the Live runtime boundary.
+    """Execution adapter for the Live runtime boundary.
 
-    This intentionally executes one solver update at a time. A later background
-    worker can call the same step method repeatedly without changing the session
-    contract or frontend payload.
+    One solver update is performed per call. The application service may invoke
+    this repeatedly from a background worker without changing the session API.
     """
 
     manager: LiveSimulationManager
@@ -49,22 +48,39 @@ class LiveSimulationRuntime:
                 f"live runtime currently supports '{DC_OPERATING_POINT}' only"
             )
 
+        try:
+            current = self.manager.get(session_id)
+        except LiveSimulationServiceError as exc:
+            raise LiveSimulationRuntimeError(str(exc)) from exc
+        if current.status != "running":
+            return current
+
         analysis = get_simulation_analysis(configuration.analysis)
         try:
             result = analysis.run(model, known=dict(known or {}), configuration=configuration)
         except Exception as exc:
-            self.manager.fail(session_id, str(exc) or "live simulation step failed")
+            try:
+                self.manager.fail(session_id, str(exc) or "live simulation step failed")
+            except LiveSimulationServiceError:
+                pass
             raise LiveSimulationRuntimeError(str(exc)) from exc
 
         if not isinstance(result, SimulationResult):
             raise LiveSimulationRuntimeError("live DC runtime expected a single simulation result")
 
         signals = {str(key): float(value) for key, value in result.values.items()}
-        return self.manager.update(
-            session_id,
-            independent_value=None,
-            signals=signals,
-        )
+        try:
+            return self.manager.update(
+                session_id,
+                independent_value=None,
+                signals=signals,
+            )
+        except LiveSimulationServiceError as exc:
+            # A stop/pause may legitimately win the race while the solver was
+            # running. Return the authoritative lifecycle state in that case.
+            if "must be running to update state" in str(exc):
+                return self.manager.get(session_id)
+            raise LiveSimulationRuntimeError(str(exc)) from exc
 
     def complete(self, session_id: str) -> LiveSimulationSnapshot:
         try:
