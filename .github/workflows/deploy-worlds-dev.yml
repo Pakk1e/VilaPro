@@ -38,3 +38,29 @@ jobs:
           git pull --ff-only origin "$WORLDS_DEPLOY_BRANCH"
 
           bash scripts/deploy-worlds-dev.sh
+
+      - name: Install Playwright test runner
+        working-directory: /home/park-pro/VilaPro/frontend-dev
+        run: npm install --no-save --package-lock=false @playwright/test@1.63.0
+
+      - name: Install Chromium for browser tests
+        working-directory: /home/park-pro/VilaPro/frontend-dev
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Worlds browser smoke tests
+        working-directory: /home/park-pro/VilaPro/frontend-dev
+        env:
+          CI: true
+          PLAYWRIGHT_TEST_BASE_URL: https://worlds-dev.vadovsky-tech.com
+        run: npx playwright test
+
+      - name: Upload browser test artifacts
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: worlds-dev-browser-test-artifacts
+          path: |
+            /home/park-pro/VilaPro/testscreenshots/
+            /home/park-pro/VilaPro/playwright-report/
+          if-no-files-found: warn
+          retention-days: 14
