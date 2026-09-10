@@ -5,6 +5,20 @@ function formatSignal(value) {
   return new Intl.NumberFormat("en-US", { maximumSignificantDigits: 8 }).format(value);
 }
 
+function signalLabel(name) {
+  if (name === "__live.time_s") return "Sample time";
+  if (name === "__live.frequency_hz") return "Frequency";
+  return name.replace(/\.instantaneous$/, " · instantaneous").replace(/\.magnitude$/, " · magnitude").replace(/\.phase_deg$/, " · phase");
+}
+
+function signalUnit(name) {
+  if (name === "__live.time_s") return "s";
+  if (name === "__live.frequency_hz") return "Hz";
+  if (name.endsWith(".magnitude")) return "|·|";
+  if (name.endsWith(".phase_deg")) return "°";
+  return "";
+}
+
 export default function LiveSimulationView({ snapshot }) {
   const signals = useMemo(() => Object.entries(snapshot?.signals ?? {}), [snapshot]);
 
@@ -18,8 +32,8 @@ export default function LiveSimulationView({ snapshot }) {
         {signals.length === 0 && <div className="text-xs text-[#69717b]">Waiting for the first simulation update.</div>}
         {signals.map(([name, value]) => (
           <div key={name} className="rounded-lg border border-[#e4e7eb] bg-[#fafbfc] px-3 py-3">
-            <div className="truncate text-[10px] font-medium text-[#69717b]" title={name}>{name}</div>
-            <div className="mt-1 text-lg font-semibold tabular-nums text-[#17253a]">{formatSignal(value)}</div>
+            <div className="truncate text-[10px] font-medium text-[#69717b]" title={name}>{signalLabel(name)}</div>
+            <div className="mt-1 text-lg font-semibold tabular-nums text-[#17253a]">{formatSignal(value)}{signalUnit(name) && <span className="ml-1 text-[10px] font-medium text-[#8a929c]">{signalUnit(name)}</span>}</div>
           </div>
         ))}
       </div>
