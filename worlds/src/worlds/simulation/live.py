@@ -60,7 +60,7 @@ class LiveSimulationState:
         if independent_value is not None:
             self.independent_value = float(independent_value)
         if signals is not None:
-            self.signals = dict(signals)
+            self.signals.update(dict(signals))
 
     def complete(self) -> None:
         if self.status != "running":
