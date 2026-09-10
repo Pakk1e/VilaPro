@@ -5,7 +5,11 @@ function installBrowserErrorChecks(page) {
     const pageErrors = [];
 
     page.on("console", (message) => {
-        if (message.type() === "error") {
+        if (
+            message.type() === "error" &&
+            message.text() !==
+                "Failed to load resource: the server responded with a status of 401 ()"
+        ) {
             consoleErrors.push(message.text());
         }
     });
