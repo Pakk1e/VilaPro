@@ -1,0 +1,17 @@
+[Unit]
+Description=VilaPro Worlds DEV frontend
+After=network-online.target worlds-api.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=park-pro
+Group=park-pro
+WorkingDirectory=/home/park-pro/VilaPro/frontend-dev
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/npm run preview -- --host 127.0.0.1 --port 3001
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
