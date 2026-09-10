@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from time import sleep
 
 from worlds.simulation import (
     SimulationRequest,
@@ -23,6 +24,7 @@ PORT = 8001
 
 
 class WorldsAPIHandler(BaseHTTPRequestHandler):
+    protocol_version = "HTTP/1.1"
     ALLOWED_ORIGINS = {
         "http://localhost:5173",
         "http://127.0.0.1:5173",
@@ -71,8 +73,17 @@ class WorldsAPIHandler(BaseHTTPRequestHandler):
             return None
         return remainder
 
+    @staticmethod
+    def _live_stream_session_id(path: str) -> str | None:
+        prefix = "/simulate/live/"
+        suffix = "/stream"
+        if not path.startswith(prefix) or not path.endswith(suffix):
+            return None
+        session_id = path[len(prefix):-len(suffix)]
+        return session_id or None
+
     def do_OPTIONS(self):
-        if self.path not in {"/simulate", "/simulate/live"} and self._live_session_id(self.path) is None:
+        if self.path not in {"/simulate", "/simulate/live"} and self._live_session_id(self.path) is None and self._live_stream_session_id(self.path) is None:
             self.send_response(404)
             self._send_cors_headers()
             self.end_headers()
@@ -88,6 +99,11 @@ class WorldsAPIHandler(BaseHTTPRequestHandler):
             self._send_json(200, {"ok": True, "service": "worlds"})
             return
 
+        stream_session_id = self._live_stream_session_id(self.path)
+        if stream_session_id is not None:
+            self._stream_live_session(stream_session_id)
+            return
+
         session_id = self._live_session_id(self.path)
         if session_id is not None:
             try:
@@ -98,6 +114,34 @@ class WorldsAPIHandler(BaseHTTPRequestHandler):
             return
 
         self._send_json(404, {"ok": False, "error": "Not found"})
+
+    def _stream_live_session(self, session_id: str):
+        service = get_live_simulation_application_service()
+        try:
+            service.get(session_id)
+        except LiveSimulationApplicationError as exc:
+            self._send_json(404, {"ok": False, "error": str(exc)})
+            return
+
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+        self.send_header("Cache-Control", "no-cache")
+        self.send_header("Connection", "keep-alive")
+        self._send_cors_headers()
+        self.end_headers()
+        try:
+            while True:
+                snapshot = service.get(session_id)
+                payload = json.dumps(live_snapshot_to_api_payload(snapshot), separators=(",", ":"))
+                self.wfile.write(f"data: {payload}\n\n".encode("utf-8"))
+                self.wfile.flush()
+                if snapshot.status in {"completed", "cancelled", "failed"}:
+                    return
+                sleep(0.5)
+        except (BrokenPipeError, ConnectionResetError):
+            return
+        except LiveSimulationApplicationError:
+            return
 
     def do_POST(self):
         if self.path == "/simulate":
