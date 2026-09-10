@@ -17,7 +17,7 @@ function getSimulationSignature(nodes, edges, config) {
   });
 }
 
-export default function SimulationPanel({ nodes, edges, onSelectComponent, sweepTargets = [] }) {
+export default function SimulationPanel({ nodes, edges, sweepTargets = [] }) {
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [running, setRunning] = useState(false);
