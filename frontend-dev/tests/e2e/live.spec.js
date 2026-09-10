@@ -85,7 +85,7 @@ test("authenticated user can start, pause, resume and stop Live DC", async ({ pa
   const liveState = page.getByRole("region", { name: "Live simulation state" });
   await expect(liveState).toBeVisible({ timeout: 10000 });
   await expect(page.getByRole("button", { name: "Pause" })).toBeVisible();
-  await expect(liveState.getByText("V(out)").first()).toBeVisible().catch(() => {});
+  await expect(liveState.getByText("Waiting for the first simulation update.")).toHaveCount(0, { timeout: 10000 });
 
   await page.getByRole("button", { name: "Pause" }).click();
   await expect(page.getByRole("button", { name: "Resume" })).toBeVisible();
