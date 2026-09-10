@@ -3,9 +3,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Mapping
 
-from .analysis import DC_OPERATING_POINT, SimulationConfiguration, SimulationAnalysisError, get_simulation_analysis
+from .analysis import DC_OPERATING_POINT, SimulationConfiguration, get_simulation_analysis
 from .live import LiveSimulationSnapshot
 from .live_service import LiveSimulationManager, LiveSimulationServiceError
+from .mode import SimulationMode
 from .model import SimulationModel
 from .solver import SimulationResult
 
@@ -26,9 +27,10 @@ class LiveSimulationRuntime:
     manager: LiveSimulationManager
 
     def start(self, configuration: SimulationConfiguration) -> LiveSimulationSnapshot:
-        if configuration.mode.value != "live":
+        if configuration.mode is not SimulationMode.LIVE:
             raise LiveSimulationRuntimeError("live runtime requires simulation.mode='live'")
-        return self.manager.start(self.manager.create(configuration).session_id)
+        session = self.manager.create(configuration)
+        return self.manager.start(session.session_id)
 
     def step(
         self,
@@ -40,7 +42,7 @@ class LiveSimulationRuntime:
     ) -> LiveSimulationSnapshot:
         if configuration is None:
             raise LiveSimulationRuntimeError("live runtime step requires a simulation configuration")
-        if configuration.mode.value != "live":
+        if configuration.mode is not SimulationMode.LIVE:
             raise LiveSimulationRuntimeError("live runtime requires simulation.mode='live'")
         if configuration.analysis != DC_OPERATING_POINT:
             raise LiveSimulationRuntimeError(
