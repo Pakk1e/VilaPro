@@ -26,6 +26,7 @@ class SimulationRequestTest(unittest.TestCase):
             "world_source": "world Electronics {}",
             "instances": [{"id": "R1", "type": "Resistor"}],
             "simulation": {
+                "mode": "static",
                 "analysis": DC_OPERATING_POINT,
                 "settings": {"temperature": 25},
                 "outputs": ["node_voltages"],
