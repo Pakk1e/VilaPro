@@ -141,14 +141,30 @@ async function createSeriesCircuit(page) {
 
 async function expectSimulationResults(page) {
     const results = page.getByRole("region", { name: "Simulation results" });
-    if (await results.isVisible().catch(() => false)) return results;
-
     const simulationError = page.locator('[role="alert"]').filter({ hasText: "Simulation error" }).first();
-    if (await simulationError.isVisible().catch(() => false)) {
+
+    // Simulation is an asynchronous backend operation. Poll for the result or
+    // an explicit error instead of checking immediately after clicking Simulate.
+    const outcome = await expect
+        .poll(
+            async () => {
+                if (await results.isVisible().catch(() => false)) return "results";
+                if (await simulationError.isVisible().catch(() => false)) return "error";
+                return "pending";
+            },
+            {
+                timeout: 15000,
+                intervals: [250, 500, 1000],
+                message: "Timed out waiting for simulation results or a simulation error.",
+            }
+        )
+        .not.toBe("pending");
+
+    if (outcome === "error") {
         throw new Error(`Simulation returned an error: ${await simulationError.innerText()}`);
     }
 
-    throw new Error("Simulation completed without rendering results or a simulation error message.");
+    return results;
 }
 
 test.describe("Worlds DEV authenticated audit", () => {
