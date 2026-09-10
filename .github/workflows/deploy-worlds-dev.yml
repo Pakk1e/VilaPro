@@ -40,11 +40,33 @@ jobs:
           WORLDS_DEPLOY_SSH_KEY: ${{ secrets.WORLDS_DEPLOY_SSH_KEY }}
         run: |
           set -euo pipefail
+          if [[ -z "$WORLDS_DEPLOY_HOST" ]]; then
+            echo "ERROR: WORLDS_DEPLOY_HOST is empty or unavailable in the worlds-dev environment." >&2
+            exit 1
+          fi
+          if [[ -z "$WORLDS_DEPLOY_SSH_KEY" ]]; then
+            echo "ERROR: WORLDS_DEPLOY_SSH_KEY is empty or unavailable in the worlds-dev environment." >&2
+            exit 1
+          fi
+
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
           printf '%s\n' "$WORLDS_DEPLOY_SSH_KEY" > ~/.ssh/worlds_deploy_key
           chmod 600 ~/.ssh/worlds_deploy_key
-          ssh-keyscan -T 10 -H "$WORLDS_DEPLOY_HOST" >> ~/.ssh/known_hosts
+
+          echo "Testing TCP connectivity to SSH port 22..."
+          if ! timeout 10 bash -c "cat < /dev/null > /dev/tcp/$WORLDS_DEPLOY_HOST/22"; then
+            echo "ERROR: GitHub runner cannot reach $WORLDS_DEPLOY_HOST:22." >&2
+            echo "Check that TCP/22 is reachable from the public Internet and is not blocked by a firewall/NAT rule." >&2
+            exit 1
+          fi
+          echo "TCP connectivity to SSH port 22 confirmed."
+
+          echo "Collecting SSH host key..."
+          if ! ssh-keyscan -T 10 -v -H "$WORLDS_DEPLOY_HOST" >> ~/.ssh/known_hosts; then
+            echo "ERROR: SSH host-key collection failed for $WORLDS_DEPLOY_HOST:22." >&2
+            exit 1
+          fi
 
       - name: Deploy Worlds DEV
         env:
