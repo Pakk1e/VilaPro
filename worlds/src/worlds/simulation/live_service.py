@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from threading import RLock
 from typing import Mapping
 
-from .analysis import SimulationConfiguration, SimulationAnalysisError
+from .analysis import SimulationConfiguration
 from .live import LiveSimulationError, LiveSimulationSnapshot, LiveSimulationState
 from .mode import SimulationMode
 
@@ -17,9 +17,8 @@ class LiveSimulationServiceError(RuntimeError):
 class LiveSimulationManager:
     """In-memory lifecycle manager for live simulation sessions.
 
-    Execution is intentionally not implemented here yet. This boundary gives the
-    API a stable session model before a background runtime and streaming transport
-    are introduced.
+    Execution is intentionally kept outside this manager. The manager owns the
+    analysis-independent session state and lifecycle while runtimes perform work.
     """
 
     _sessions: dict[str, LiveSimulationState] = field(default_factory=dict)
@@ -34,35 +33,37 @@ class LiveSimulationManager:
         return state.snapshot()
 
     def get(self, session_id: str) -> LiveSimulationSnapshot:
-        with self._lock:
-            state = self._sessions.get(session_id)
-        if state is None:
-            raise LiveSimulationServiceError(f"live simulation session '{session_id}' does not exist")
+        state = self._get_state(session_id)
         return state.snapshot()
 
     def start(self, session_id: str) -> LiveSimulationSnapshot:
-        state = self._get_state(session_id)
-        try:
-            state.start()
-        except LiveSimulationError as exc:
-            raise LiveSimulationServiceError(str(exc)) from exc
-        return state.snapshot()
+        return self._transition(session_id, "start")
 
-    def update(self, session_id: str, *, independent_value: float | None = None, signals: Mapping[str, object] | None = None) -> LiveSimulationSnapshot:
+    def pause(self, session_id: str) -> LiveSimulationSnapshot:
+        return self._transition(session_id, "pause")
+
+    def resume(self, session_id: str) -> LiveSimulationSnapshot:
+        return self._transition(session_id, "resume")
+
+    def update(
+        self,
+        session_id: str,
+        *,
+        independent_value: float | None = None,
+        signals: Mapping[str, object] | None = None,
+    ) -> LiveSimulationSnapshot:
         state = self._get_state(session_id)
         try:
-            state.update(independent_value=independent_value, signals=dict(signals) if signals is not None else None)
+            state.update(
+                independent_value=independent_value,
+                signals=dict(signals) if signals is not None else None,
+            )
         except LiveSimulationError as exc:
             raise LiveSimulationServiceError(str(exc)) from exc
         return state.snapshot()
 
     def complete(self, session_id: str) -> LiveSimulationSnapshot:
-        state = self._get_state(session_id)
-        try:
-            state.complete()
-        except LiveSimulationError as exc:
-            raise LiveSimulationServiceError(str(exc)) from exc
-        return state.snapshot()
+        return self._transition(session_id, "complete")
 
     def cancel(self, session_id: str) -> LiveSimulationSnapshot:
         state = self._get_state(session_id)
@@ -73,6 +74,14 @@ class LiveSimulationManager:
         state = self._get_state(session_id)
         try:
             state.fail(error)
+        except LiveSimulationError as exc:
+            raise LiveSimulationServiceError(str(exc)) from exc
+        return state.snapshot()
+
+    def _transition(self, session_id: str, operation: str) -> LiveSimulationSnapshot:
+        state = self._get_state(session_id)
+        try:
+            getattr(state, operation)()
         except LiveSimulationError as exc:
             raise LiveSimulationServiceError(str(exc)) from exc
         return state.snapshot()
