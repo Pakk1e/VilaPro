@@ -88,7 +88,12 @@ export default function WorldCanvas({ workspace = "design" }) {
     if (!bounds) return;
     const position = reactFlowInstance.screenToFlowPosition({ x: bounds.left + bounds.width / 2, y: bounds.top + bounds.height / 2 });
     const label = getNextComponentLabel(nodes, definition);
-    const newNode = { id: `component-${crypto.randomUUID()}`, type: "world", position: { x: position.x - 140, y: position.y - 80 }, data: createNodeData(definition, label, definitionKey) };
+    const placementIndex = nodes.length;
+    const column = placementIndex % 3;
+    const row = Math.floor(placementIndex / 3);
+    const offsetX = (column - 1) * 220;
+    const offsetY = row * 150;
+    const newNode = { id: `component-${crypto.randomUUID()}`, type: "world", position: { x: position.x - 140 + offsetX, y: position.y - 80 + offsetY }, data: createNodeData(definition, label, definitionKey) };
     setNodes((currentNodes) => [...currentNodes, newNode]);
     setSelectedNodeId(newNode.id);
     setSelectedEdgeId(null);
