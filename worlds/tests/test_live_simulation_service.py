@@ -36,6 +36,29 @@ class LiveSimulationManagerTest(unittest.TestCase):
         completed = self.manager.complete(created.session_id)
         self.assertEqual(completed.status, "completed")
 
+    def test_pause_resume_preserves_live_state(self):
+        created = self.manager.create(self.configuration)
+        self.manager.start(created.session_id)
+        updated = self.manager.update(
+            created.session_id,
+            signals={"V(out)": 2.5},
+        )
+
+        paused = self.manager.pause(created.session_id)
+        self.assertEqual(paused.status, "paused")
+        self.assertEqual(paused.signals, updated.signals)
+
+        with self.assertRaises(LiveSimulationServiceError):
+            self.manager.update(created.session_id, signals={"V(out)": 3.0})
+
+        resumed = self.manager.resume(created.session_id)
+        self.assertEqual(resumed.status, "running")
+        updated_again = self.manager.update(
+            created.session_id,
+            signals={"V(out)": 3.0},
+        )
+        self.assertEqual(updated_again.signals["V(out)"], 3.0)
+
     def test_missing_session_is_rejected(self):
         with self.assertRaises(LiveSimulationServiceError):
             self.manager.get("missing")
