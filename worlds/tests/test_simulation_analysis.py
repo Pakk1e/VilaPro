@@ -1,6 +1,7 @@
 import unittest
 
 from worlds.simulation import (
+    AC,
     DC_OPERATING_POINT,
     SimulationAnalysisError,
     SimulationConfiguration,
@@ -65,6 +66,38 @@ class SimulationAnalysisTest(unittest.TestCase):
         self.assertEqual(response.status, "completed")
         self.assertEqual({item["id"] for item in response.components}, {"V1-id", "R1-id"})
         self.assertAlmostEqual(response.node_voltages["node_1"], 10.0, places=12)
+
+    def test_dc_operating_point_handles_capacitor_as_open_circuit(self):
+        response = SimulationService().simulate(
+            load_world_source(),
+            instances=[
+                {"id": "V1-id", "name": "Supply", "type": "VoltageSource", "parameters": {"V": 12.0}, "ports": {"p": "node_1", "n": "ground"}},
+                {"id": "C1-id", "name": "Capacitor", "type": "Capacitor", "parameters": {"C": 1e-6}, "ports": {"p": "node_1", "n": "ground"}},
+                {"id": "R1-id", "name": "Load", "type": "Resistor", "parameters": {"R": 100.0}, "ports": {"p": "node_1", "n": "ground"}},
+            ],
+            simulation={"analysis": DC_OPERATING_POINT},
+        )
+        self.assertEqual(response.status, "completed")
+        self.assertAlmostEqual(response.node_voltages["node_1"], 12.0, places=12)
+        capacitor = next(item for item in response.components if item["id"] == "C1-id")
+        self.assertAlmostEqual(capacitor["current"], 0.0, places=12)
+
+    def test_static_ac_returns_generic_result_envelope(self):
+        response = SimulationService().simulate(
+            load_world_source(),
+            instances=[
+                {"id": "V1-id", "name": "Supply", "type": "VoltageSource", "parameters": {"V": 1.0}, "ports": {"p": "node_1", "n": "ground"}},
+                {"id": "R1-id", "name": "Load", "type": "Resistor", "parameters": {"R": 100.0}, "ports": {"p": "node_1", "n": "ground"}},
+            ],
+            simulation={"analysis": AC, "settings": {"frequency": 1000, "amplitude": 2, "phase": 30}},
+        )
+        self.assertEqual(response.analysis, AC)
+        self.assertEqual(response.status, "completed")
+        self.assertIsInstance(response.result, SimulationResultModel)
+        payload = response.result.to_dict()
+        self.assertEqual([item["name"] for item in payload["datasets"]], ["frequency", "phasors"])
+        self.assertEqual(payload["datasets"][0]["values"], [1000.0])
+        self.assertAlmostEqual(payload["analysis_information"]["excitation"]["magnitude"], 2.0, places=12)
 
     def test_service_result_uses_generic_envelope(self):
         response = SimulationService().simulate(
