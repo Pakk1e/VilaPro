@@ -7,6 +7,7 @@ export const SIMULATION_ANALYSES = {
   DC_OPERATING_POINT: "dc_operating_point",
   DC_SWEEP: "dc_sweep",
   TRANSIENT: "transient",
+  AC: "ac",
 };
 
 export const DEFAULT_SIMULATION_CONFIG = {
@@ -28,6 +29,12 @@ export const DEFAULT_TRANSIENT_SETTINGS = {
   start: 0,
   stop: 1,
   step: 0.001,
+};
+
+export const DEFAULT_AC_SETTINGS = {
+  frequency: 1000,
+  amplitude: 1,
+  phase: 0,
 };
 
 export function createSimulationConfig(overrides = {}) {
@@ -55,6 +62,7 @@ export function getSimulationAnalysisLabel(analysis) {
     case SIMULATION_ANALYSES.DC_OPERATING_POINT: return "DC Operating Point";
     case SIMULATION_ANALYSES.DC_SWEEP: return "DC Sweep";
     case SIMULATION_ANALYSES.TRANSIENT: return "Transient";
+    case SIMULATION_ANALYSES.AC: return "AC Analysis";
     default: return "Unknown analysis";
   }
 }
@@ -92,11 +100,20 @@ export function getTransientValidationError(settings) {
   return null;
 }
 
+export function getAcValidationError(settings) {
+  const frequency = Number(settings?.frequency), amplitude = Number(settings?.amplitude), phase = Number(settings?.phase);
+  if (![frequency, amplitude, phase].every(Number.isFinite)) return "Frequency, amplitude and phase must be finite numbers.";
+  if (frequency <= 0) return "AC frequency must be greater than zero.";
+  if (amplitude < 0) return "AC amplitude must not be negative.";
+  return null;
+}
+
 export function getSimulationConfigValidationError(config, sweepTargets = []) {
   if (!config || !Object.values(SIMULATION_MODES).includes(config.mode)) return "Select a supported simulation mode.";
   if (!Object.values(SIMULATION_ANALYSES).includes(config.analysis)) return "Select a supported simulation analysis.";
-  if (config.mode === SIMULATION_MODES.LIVE && config.analysis !== SIMULATION_ANALYSES.DC_OPERATING_POINT) return "Live mode currently supports DC Operating Point only.";
+  if (config.mode === SIMULATION_MODES.LIVE && ![SIMULATION_ANALYSES.DC_OPERATING_POINT, SIMULATION_ANALYSES.AC].includes(config.analysis)) return "Live mode currently supports DC Operating Point and AC Analysis.";
   if (config.analysis === SIMULATION_ANALYSES.DC_SWEEP) return getDcSweepValidationError(config.settings, sweepTargets);
   if (config.analysis === SIMULATION_ANALYSES.TRANSIENT) return getTransientValidationError(config.settings);
+  if (config.analysis === SIMULATION_ANALYSES.AC) return getAcValidationError(config.settings);
   return null;
 }
