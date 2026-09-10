@@ -23,7 +23,6 @@ dist/
 *.bak
 *.backup
 *.old
-*~
 *.diff
 *-diff.txt
 
@@ -33,6 +32,11 @@ backend/*.before-*
 
 # Local archives / rollback snapshots
 archive/
+
+# Browser test artifacts
+testscreenshots/*
+!testscreenshots/README.md
+playwright-report/
 
 # OS / editor
 .DS_Store
