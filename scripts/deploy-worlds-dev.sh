@@ -2,12 +2,17 @@
 set -Eeuo pipefail
 
 BASE_DIR="/home/park-pro/VilaPro"
-BRANCH="v0.4/workspace-architecture"
+BRANCH="${WORLDS_DEPLOY_BRANCH:-v0.4/workspace-architecture}"
 FRONTEND_DIR="$BASE_DIR/frontend-dev"
 WEB_SERVICE="worlds-web.service"
 API_SERVICE="worlds-api.service"
 WEB_URL="http://127.0.0.1:3001"
 API_URL="http://127.0.0.1:8001/health"
+
+if [[ ! "$BRANCH" =~ ^[A-Za-z0-9._/-]+$ ]]; then
+  echo "ERROR: invalid deployment branch: $BRANCH" >&2
+  exit 1
+fi
 
 cd "$BASE_DIR"
 
@@ -16,8 +21,7 @@ echo "Repository: $BASE_DIR"
 echo "Branch:     $BRANCH"
 
 echo
-
-echo "[1/8] Checking working tree..."
+ echo "[1/8] Checking working tree..."
 if [[ "$(git branch --show-current)" != "$BRANCH" ]]; then
   echo "ERROR: expected branch $BRANCH, got $(git branch --show-current)" >&2
   exit 1
