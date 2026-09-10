@@ -69,29 +69,53 @@ function nodeHandle(node, handleId) {
     return node.locator(`.react-flow__handle[data-handleid="${handleId}"]`);
 }
 
+async function zoomOutCompletely(page) {
+    const zoomOut = page.locator(".react-flow__controls-zoomout");
+    await expect(zoomOut).toBeVisible();
+
+    for (let i = 0; i < 20; i += 1) {
+        if (await zoomOut.isDisabled()) break;
+        await zoomOut.click();
+    }
+}
+
 async function createSeriesCircuit(page) {
     const canvas = page.locator(".react-flow");
     const canvasBox = await canvas.boundingBox();
     if (!canvasBox) throw new Error("Unable to locate Worlds canvas.");
 
+    // Add one component first because the production canvas automatically fits
+    // the viewport when the first component is inserted.
+    const initialComponent = await addComponent(page, "Resistor", "Resistor 1");
+
+    // Move to the minimum supported zoom after that automatic fit. This must be
+    // done before creating the actual test circuit so later component placement
+    // cannot be affected by the first-component viewport adjustment.
+    await zoomOutCompletely(page);
+
+    // Delete the temporary component. The real circuit below is then created
+    // from a known empty canvas at the minimum zoom level.
+    await initialComponent.click();
+    await page.keyboard.press("Delete");
+    await expect(initialComponent).toHaveCount(0);
+
     const voltage = await addComponent(page, "Voltage Source", "Voltage Source 1");
     const resistor = await addComponent(page, "Resistor", "Resistor 1");
     const ground = await addComponent(page, "Ground", "Ground 1");
 
-    // The first component can trigger the production canvas to fit/zoom the
-    // viewport. Zoom only after all components are present so that automatic
-    // viewport adjustment cannot immediately undo the test's zoom-out.
-    const zoomOut = page.locator(".react-flow__controls-zoomout");
-    await expect(zoomOut).toBeVisible();
-    await zoomOut.click();
-    await zoomOut.click();
-
-    // Keep all three nodes comfortably inside the canvas and separated in both
-    // axes. This prevents a node body from intercepting a handle click.
+    // Arrange the circuit according to the actual port directions: voltage p is
+    // on the right, resistor p on the left, resistor n on the right, and GND on
+    // top. Horizontal separation prevents node bodies from covering connection
+    // handles during the drag.
+    const leftX = canvasBox.x + canvasBox.width * 0.25;
+    const rightX = canvasBox.x + canvasBox.width * 0.75;
     const centerX = canvasBox.x + canvasBox.width * 0.50;
-    await moveNode(page, voltage, centerX, canvasBox.y + canvasBox.height * 0.22);
-    await moveNode(page, resistor, centerX, canvasBox.y + canvasBox.height * 0.50);
-    await moveNode(page, ground, centerX, canvasBox.y + canvasBox.height * 0.78);
+    const topY = canvasBox.y + canvasBox.height * 0.30;
+    const groundY = canvasBox.y + canvasBox.height * 0.72;
+
+    await moveNode(page, voltage, leftX, topY);
+    await moveNode(page, resistor, rightX, topY);
+    await moveNode(page, ground, centerX, groundY);
 
     await nodeHandle(voltage, "p").dragTo(nodeHandle(resistor, "p"));
     await nodeHandle(resistor, "n").dragTo(nodeHandle(ground, "g"));
