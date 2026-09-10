@@ -1,3 +1,4 @@
+import time
 import unittest
 
 from worlds.simulation import (
@@ -8,6 +9,25 @@ from worlds.simulation import (
     SimulationMode,
 )
 from worlds.simulation.api_contract import live_snapshot_to_api_payload
+from worlds.simulation.live_application import _LiveContext
+from worlds.simulation.analysis import SimulationConfiguration
+from worlds.simulation.model import SimulationModel
+
+
+class _FakeRuntime:
+    def __init__(self, manager):
+        self.manager = manager
+        self.steps = 0
+
+    def step(self, session_id, model, *, known=None, configuration=None):
+        self.steps += 1
+        return self.manager.update(session_id, signals={"V(out)": float(self.steps)})
+
+    def cancel(self, session_id):
+        return self.manager.cancel(session_id)
+
+    def complete(self, session_id):
+        return self.manager.complete(session_id)
 
 
 class LiveSimulationApplicationTest(unittest.TestCase):
@@ -47,6 +67,29 @@ class LiveSimulationApplicationTest(unittest.TestCase):
                 "error": None,
             },
         )
+
+    def test_background_worker_updates_until_session_is_cancelled(self):
+        manager = LiveSimulationManager()
+        runtime = _FakeRuntime(manager)
+        service = LiveSimulationApplicationService(manager, runtime=runtime)
+        configuration = SimulationConfiguration.from_dict({"mode": "live", "analysis": "dc_operating_point"})
+        created = manager.create(configuration)
+        manager.start(created.session_id)
+        service._contexts[created.session_id] = _LiveContext(configuration, SimulationModel(), {})
+
+        service._start_worker(created.session_id)
+        deadline = time.monotonic() + 2.0
+        while runtime.steps == 0 and time.monotonic() < deadline:
+            time.sleep(0.02)
+
+        self.assertGreater(runtime.steps, 0)
+        self.assertEqual(manager.get(created.session_id).status, "running")
+        self.assertIn("V(out)", manager.get(created.session_id).signals)
+
+        manager.cancel(created.session_id)
+        service._stop_worker(created.session_id)
+        time.sleep(0.05)
+        self.assertEqual(manager.get(created.session_id).status, "cancelled")
 
 
 if __name__ == "__main__":
