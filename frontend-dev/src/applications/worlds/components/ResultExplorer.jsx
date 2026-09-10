@@ -42,7 +42,6 @@ export default function ResultExplorer({ result }) {
   const isSweep = result?.analysis === "dc_sweep";
   const isTransient = result?.analysis === "transient";
 
-  useEffect(() => { if (!selectedRow && rows[0]) setSelectedKey(rows[0].key); }, [rows, selectedRow]);
   useEffect(() => { dispatchResultSelection(selectedRow); }, [selectedRow]);
   useEffect(() => {
     const handleCircuitSelection = (event) => { const entity = event.detail; if (!entity) return; const row = rows.find((item) => item.entityType === entity.entityType && item.entityId === entity.entityId); if (row) setSelectedKey(row.key); };
