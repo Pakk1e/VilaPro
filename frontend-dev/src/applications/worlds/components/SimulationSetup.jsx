@@ -1,6 +1,8 @@
 import {
+  DEFAULT_AC_SETTINGS,
   DEFAULT_DC_SWEEP_SETTINGS,
   DEFAULT_TRANSIENT_SETTINGS,
+  getAcValidationError,
   getDcSweepValidationError,
   getSimulationAnalysisLabel,
   getTransientValidationError,
@@ -15,12 +17,14 @@ export default function SimulationSetup({ config, onChange, sweepTargets = [], v
   });
   const sweepError = config.analysis === SIMULATION_ANALYSES.DC_SWEEP ? getDcSweepValidationError(config.settings, targets) : null;
   const transientError = config.analysis === SIMULATION_ANALYSES.TRANSIENT ? getTransientValidationError(config.settings) : null;
+  const acError = config.analysis === SIMULATION_ANALYSES.AC ? getAcValidationError(config.settings) : null;
   const selectedTarget = targets.find((target) => target.id === config.settings?.source);
   const selectedParameter = selectedTarget?.parameters?.[0] ?? null;
 
   const changeAnalysis = (analysis) => {
     if (analysis === SIMULATION_ANALYSES.DC_SWEEP) onChange({ analysis, settings: { ...DEFAULT_DC_SWEEP_SETTINGS, ...config.settings } });
     else if (analysis === SIMULATION_ANALYSES.TRANSIENT) onChange({ analysis, settings: { ...DEFAULT_TRANSIENT_SETTINGS, ...config.settings } });
+    else if (analysis === SIMULATION_ANALYSES.AC) onChange({ analysis, settings: { ...DEFAULT_AC_SETTINGS, ...config.settings } });
     else onChange({ analysis, settings: {} });
   };
   const changeSetting = (name, value) => onChange({ settings: { [name]: value === "" ? "" : Number(value) } });
@@ -38,23 +42,31 @@ export default function SimulationSetup({ config, onChange, sweepTargets = [], v
           <option value={SIMULATION_ANALYSES.DC_OPERATING_POINT}>{getSimulationAnalysisLabel(SIMULATION_ANALYSES.DC_OPERATING_POINT)}</option>
           <option value={SIMULATION_ANALYSES.DC_SWEEP}>{getSimulationAnalysisLabel(SIMULATION_ANALYSES.DC_SWEEP)}</option>
           <option value={SIMULATION_ANALYSES.TRANSIENT}>{getSimulationAnalysisLabel(SIMULATION_ANALYSES.TRANSIENT)}</option>
-          <option value="ac" disabled>AC Analysis (coming later)</option>
+          <option value={SIMULATION_ANALYSES.AC}>{getSimulationAnalysisLabel(SIMULATION_ANALYSES.AC)}</option>
         </select>
       </label>
 
       {config.analysis === SIMULATION_ANALYSES.DC_OPERATING_POINT && <div className="mt-3 rounded-md border border-[#e4e7eb] bg-[#fafbfc] px-3 py-2.5 text-[10px] leading-4 text-[#69717b]">Calculates the steady-state node voltages and branch currents for the current circuit.</div>}
 
-      {config.analysis === SIMULATION_ANALYSES.TRANSIENT && (
+      {config.analysis === SIMULATION_ANALYSES.AC && (
         <div className="mt-4 space-y-3">
-          <div className="rounded-md border border-[#e4e7eb] bg-[#fafbfc] px-3 py-2.5 text-[10px] leading-4 text-[#69717b]">Calculates circuit behavior over time. Capacitor and inductor initial conditions are taken from their component properties.</div>
+          <div className="rounded-md border border-[#e4e7eb] bg-[#fafbfc] px-3 py-2.5 text-[10px] leading-4 text-[#69717b]">Live AC uses a sinusoidal excitation and reports phasor magnitude and phase for the current linear electrical model.</div>
           <div className="grid grid-cols-3 gap-2">
-            {[["start", "Start", "s"], ["stop", "Stop", "s"], ["step", "Step", "s"]].map(([name, label, unit]) => (
+            {[["frequency", "Frequency", "Hz"], ["amplitude", "Amplitude", "V/A"], ["phase", "Phase", "°"]].map(([name, label, unit]) => (
               <label key={name} className="block">
                 <span className="text-[10px] font-medium text-[#69717b]">{label}</span>
-                <div className="relative mt-1"><input type="number" value={config.settings?.[name] ?? ""} onChange={(event) => changeSetting(name, event.target.value)} step="any" className="w-full rounded-md border border-[#d9dde2] bg-white px-2 py-2 pr-6 text-xs text-[#26364d] outline-none focus:border-[#58718f]" /><span className="pointer-events-none absolute right-2 top-2 text-[9px] text-[#8a929c]">{unit}</span></div>
+                <div className="relative mt-1"><input type="number" value={config.settings?.[name] ?? ""} onChange={(event) => changeSetting(name, event.target.value)} step="any" className="w-full rounded-md border border-[#d9dde2] bg-white px-2 py-2 pr-7 text-xs text-[#26364d] outline-none focus:border-[#58718f]" /><span className="pointer-events-none absolute right-2 top-2 text-[9px] text-[#8a929c]">{unit}</span></div>
               </label>
             ))}
           </div>
+          {acError && <div role="alert" className="rounded-md border border-[#ead1d1] bg-[#fff8f8] px-3 py-2.5 text-[10px] leading-4 text-red-700">{acError}</div>}
+        </div>
+      )}
+
+      {config.analysis === SIMULATION_ANALYSES.TRANSIENT && (
+        <div className="mt-4 space-y-3">
+          <div className="rounded-md border border-[#e4e7eb] bg-[#fafbfc] px-3 py-2.5 text-[10px] leading-4 text-[#69717b]">Calculates circuit behavior over time. Capacitor and inductor initial conditions are taken from their component properties.</div>
+          <div className="grid grid-cols-3 gap-2">{[["start", "Start", "s"], ["stop", "Stop", "s"], ["step", "Step", "s"]].map(([name, label, unit]) => <label key={name} className="block"><span className="text-[10px] font-medium text-[#69717b]">{label}</span><div className="relative mt-1"><input type="number" value={config.settings?.[name] ?? ""} onChange={(event) => changeSetting(name, event.target.value)} step="any" className="w-full rounded-md border border-[#d9dde2] bg-white px-2 py-2 pr-6 text-xs text-[#26364d] outline-none focus:border-[#58718f]" /><span className="pointer-events-none absolute right-2 top-2 text-[9px] text-[#8a929c]">{unit}</span></div></label>)}</div>
           {transientError && <div role="alert" className="rounded-md border border-[#ead1d1] bg-[#fff8f8] px-3 py-2.5 text-[10px] leading-4 text-red-700">{transientError}</div>}
           <div className="rounded-md border border-[#e4e7eb] bg-[#fafbfc] px-3 py-2.5 text-[10px] leading-4 text-[#69717b]">Time is the X-axis. The result explorer can expose node voltages, branch currents and component V/I/P series.</div>
         </div>
