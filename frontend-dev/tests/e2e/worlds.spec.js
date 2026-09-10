@@ -50,7 +50,7 @@ async function signIn(page) {
 }
 
 async function addComponent(page, name, label) {
-    await page.getByRole("button", { name, exact: true }).click();
+    await page.getByRole("button", { name, exact: false }).click();
     const node = page.locator(".react-flow__node").filter({ hasText: label });
     await expect(node).toBeVisible();
     return node;
