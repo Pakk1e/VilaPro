@@ -28,6 +28,7 @@ class WorldsAPIHandler(BaseHTTPRequestHandler):
         "http://127.0.0.1:5173",
         "https://vadovsky-tech.com",
         "https://www.vadovsky-tech.com",
+        "https://worlds-dev.vadovsky-tech.com",
     }
 
     def _send_cors_headers(self):
