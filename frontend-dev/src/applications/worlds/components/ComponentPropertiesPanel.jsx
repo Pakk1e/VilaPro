@@ -1,3 +1,21 @@
+function isPropertyVisible(property, properties) {
+  const condition = property?.visibleWhen;
+
+  if (!condition) return true;
+
+  const actualValue = properties[condition.property];
+
+  if (Object.prototype.hasOwnProperty.call(condition, "equals")) {
+    return actualValue === condition.equals;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(condition, "notEquals")) {
+    return actualValue !== condition.notEquals;
+  }
+
+  return true;
+}
+
 export default function ComponentPropertiesPanel({
   definition,
   properties = {},
@@ -5,6 +23,8 @@ export default function ComponentPropertiesPanel({
 }) {
   const entries = Object.entries(
     definition?.properties ?? {}
+  ).filter(([, property]) =>
+    isPropertyVisible(property, properties)
   );
 
   if (entries.length === 0) {
@@ -43,24 +63,43 @@ export default function ComponentPropertiesPanel({
                 )}
               </div>
 
-              <input
-                type={property.type === "number" ? "number" : "text"}
-                value={value}
-                min={property.min}
-                max={property.max}
-                step={property.step ?? (property.type === "number" ? "any" : undefined)}
-                onChange={(event) => {
-                  const nextValue =
-                    property.type === "number"
-                      ? event.target.value === ""
-                        ? ""
-                        : Number(event.target.value)
-                      : event.target.value;
+              {property.type === "select" ? (
+                <select
+                  value={value}
+                  onChange={(event) =>
+                    onChange(key, event.target.value)
+                  }
+                  className="nodrag w-full rounded-md border border-[#cfd5dc] bg-white px-2.5 py-2 text-xs text-[#17253a] outline-none transition focus:border-[#58718f] focus:ring-2 focus:ring-[#dce5ef]"
+                >
+                  {(property.options ?? []).map((option) => (
+                    <option
+                      key={option.value}
+                      value={option.value}
+                    >
+                      {option.label ?? option.value}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type={property.type === "number" ? "number" : "text"}
+                  value={value}
+                  min={property.min}
+                  max={property.max}
+                  step={property.step ?? (property.type === "number" ? "any" : undefined)}
+                  onChange={(event) => {
+                    const nextValue =
+                      property.type === "number"
+                        ? event.target.value === ""
+                          ? ""
+                          : Number(event.target.value)
+                        : event.target.value;
 
-                  onChange(key, nextValue);
-                }}
-                className="nodrag w-full rounded-md border border-[#cfd5dc] bg-white px-2.5 py-2 font-mono text-xs text-[#17253a] outline-none transition focus:border-[#58718f] focus:ring-2 focus:ring-[#dce5ef]"
-              />
+                    onChange(key, nextValue);
+                  }}
+                  className="nodrag w-full rounded-md border border-[#cfd5dc] bg-white px-2.5 py-2 font-mono text-xs text-[#17253a] outline-none transition focus:border-[#58718f] focus:ring-2 focus:ring-[#dce5ef]"
+                />
+              )}
             </label>
           );
         })}
