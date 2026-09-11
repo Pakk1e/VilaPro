@@ -19,7 +19,19 @@ function getSymbol(instance) {
 
 function getValueLabel(instance) {
   if (instance.type === "Resistor") return `${instance.parameters?.R ?? "—"} Ω`;
-  if (instance.type === "VoltageSource") return `${instance.parameters?.V ?? "—"} V DC`;
+  if (instance.type === "VoltageSource") {
+    const value = instance.parameters?.V;
+    if (typeof value === "number") return `${value} V DC`;
+    if (value && typeof value === "object") {
+      const waveform = value.waveform === "sine" ? "Sine" : value.waveform === "square" ? "Square" : "Waveform";
+      const amplitude = Number(value.amplitude);
+      const frequency = Number(value.frequency);
+      if (Number.isFinite(amplitude) && Number.isFinite(frequency)) {
+        return `${waveform} ${amplitude} V · ${frequency} Hz`;
+      }
+      return waveform;
+    }
+  }
   return "";
 }
 
@@ -89,8 +101,6 @@ function getResultHighlight(schematic, selectedResultEntity) {
   }
 
   if (selectedResultEntity.entityType === "node") {
-    // A node is a shared electrical point, not a component. Highlight its net
-    // and terminals rather than putting a box around every connected component.
     return { instanceIds: new Set(), nodeId: selectedResultEntity.entityId, branchId: null };
   }
 
@@ -166,7 +176,11 @@ export default function SchematicPreview({
       }).filter(Boolean)
     : [];
 
-  const selectedResultLabel = selectedResultEntity?.label ?? selectedResultEntity?.entityId ?? null;
+  const selectedResultLabel =
+    selectedResultEntity?.label ??
+    schematic?.instances.find((instance) => instance.id === selectedResultEntity?.entityId)?.name ??
+    selectedResultEntity?.entityId ??
+    null;
   const isNodeResult = selectedResultEntity?.entityType === "node";
   const isBranchResult = selectedResultEntity?.entityType === "branch";
 
