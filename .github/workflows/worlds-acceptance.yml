@@ -7,9 +7,11 @@ on:
         description: Branch/ref to test
         required: false
         default: v0.4/workspace-architecture
-  push:
-    branches:
-      - v0.4/workspace-architecture
+  workflow_run:
+    workflows:
+      - Deploy Worlds DEV
+    types:
+      - completed
 
 concurrency:
   group: worlds-acceptance
@@ -18,6 +20,7 @@ concurrency:
 jobs:
   acceptance:
     name: Worlds browser acceptance
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'v0.4/workspace-architecture') }}
     runs-on: [self-hosted, worlds-dev]
     environment: worlds-dev
     timeout-minutes: 30
@@ -26,10 +29,10 @@ jobs:
       WORLDS_E2E_EMAIL: ${{ secrets.WORLDS_E2E_EMAIL }}
       WORLDS_E2E_PASSWORD: ${{ secrets.WORLDS_E2E_PASSWORD }}
     steps:
-      - name: Checkout
+      - name: Checkout deployed revision
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.branch || github.ref }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.branch || github.event.workflow_run.head_sha }}
           clean: true
 
       - name: Setup Node.js
