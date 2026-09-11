@@ -42,12 +42,12 @@ jobs:
         working-directory: frontend-dev
         run: npm ci
 
-      # The persistent worlds-dev runner installs Chromium as part of the deploy
-      # workflow. Reinstalling it here is redundant and can fail on runner-level
-      # package permissions; acceptance tests only need the browser executable.
-      - name: Verify Playwright Chromium
+      # The persistent worlds-dev runner normally already has Chromium from the
+      # deploy workflow. This command is intentionally without --with-deps so it
+      # can reuse the cached browser and does not require OS package privileges.
+      - name: Ensure Playwright Chromium
         working-directory: frontend-dev
-        run: npx playwright install --list
+        run: npx playwright install chromium
 
       - name: Run acceptance tests
         working-directory: frontend-dev
