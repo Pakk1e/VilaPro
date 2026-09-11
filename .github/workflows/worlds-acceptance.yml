@@ -74,6 +74,15 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
+      - name: Upload acceptance UI screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: worlds-acceptance-screenshots
+          path: frontend-dev/test-results/**/T*.png
+          if-no-files-found: ignore
+          retention-days: 14
+
       - name: Upload failure artifacts
         if: failure()
         uses: actions/upload-artifact@v4
