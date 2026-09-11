@@ -23,8 +23,8 @@ The acceptance workflow captures visual evidence for each automated acceptance c
 | Browser | Chromium / Playwright |
 | Branch | `v0.4/workspace-architecture` |
 | Acceptance workflow | `Worlds Acceptance Tests` |
-| Latest acceptance run | #25 |
-| Latest deployment run | #132 |
+| Latest acceptance run | #27 |
+| Latest deployment run | #134 |
 
 ## 3. Acceptance Coverage
 
@@ -43,11 +43,11 @@ Functional PASS does not automatically mean visual PASS. Visual review is a sepa
 
 The complete screenshot set is retained with the corresponding GitHub Actions run as the `worlds-acceptance-screenshots` artifact. The artifact contains both full-page UI captures and focused plot captures where a plot is the primary visual output.
 
-**Latest visual evidence run:** GitHub Actions `Worlds Acceptance Tests` run #25, commit `3408f47f86c0ca2f48352a5c114f5f833b607f97`.
+**Latest visual evidence run:** GitHub Actions `Worlds Acceptance Tests` run #27, commit `a0b4a927fbe462ef753c5ed3e0e7ee65c772c4d9`.
 
-urlAcceptance run #25https://github.com/Pakk1e/VilaPro/actions/runs/34597479971
+urlAcceptance run #27https://github.com/Pakk1e/VilaPro/actions/runs/34598394560
 
-urlScreenshot artifact for run #25https://github.com/Pakk1e/VilaPro/actions/runs/34597479971/artifacts/10262860776
+urlScreenshot artifact for run #27https://github.com/Pakk1e/VilaPro/actions/runs/34598394560/artifacts/10264100000
 
 The representative screenshots below are the visual evidence reviewed during this acceptance pass. The artifact should be treated as the authoritative complete screenshot set.
 
@@ -61,7 +61,7 @@ The circuit, Static execution mode, analysis selection, and result tables form a
 
 **Visual verdict: NEEDS IMPROVEMENT.**
 
-The latest screenshot now shows a meaningful `I(Resistor 1)` response with three sweep points rather than the previous irrelevant ground-voltage series. This is a clear visualization improvement.
+The latest screenshot shows a meaningful `I(Resistor 1)` response with three sweep points rather than the previous irrelevant ground-voltage series. This is a clear visualization improvement.
 
 Remaining UX issues:
 
@@ -227,14 +227,14 @@ The acceptance process has exposed both functional/test issues and visual/UI iss
 
 9. **Acceptance test expectations were temporarily stale after result-selection improvements.**
    - T05 was updated to assert the new `I(Resistor 1)` response.
-   - T08 was updated to assert the new `V(Resistor 1)` transient response.
+   - T08 was updated to assert the new `V(Resistor 1)` transient response, then made resilient to valid result-series selection by asserting the transient plot semantics (`versus Time (s)`) instead of a specific series.
    - The latest acceptance run passed all six automated acceptance cases.
 
 ## 8. Latest Acceptance Execution
 
-The latest automated acceptance execution is GitHub Actions `Worlds Acceptance Tests` run **#25**, commit `3408f47f86c0ca2f48352a5c114f5f833b607f97`.
+The latest automated acceptance execution is GitHub Actions `Worlds Acceptance Tests` run **#27**, commit `a0b4a927fbe462ef753c5ed3e0e7ee65c772c4d9`.
 
-urlWorlds Acceptance run #25https://github.com/Pakk1e/VilaPro/actions/runs/34597479971
+urlWorlds Acceptance run #27https://github.com/Pakk1e/VilaPro/actions/runs/34598394560
 
 The run completed successfully:
 
@@ -247,11 +247,11 @@ The run completed successfully:
 - screenshot artifact upload PASS
 - failure artifact upload was not required
 
-The corresponding Worlds DEV deployment run **#132** also completed successfully, including the deployment health checks and the full browser smoke/authenticated audit.
+The corresponding Worlds DEV deployment run **#134** also completed successfully, including the deployment health checks and the full browser smoke/authenticated audit.
 
-urlWorlds DEV deployment run #132https://github.com/Pakk1e/VilaPro/actions/runs/34597479944
+urlWorlds DEV deployment run #134https://github.com/Pakk1e/VilaPro/actions/runs/34598394487
 
-The screenshot artifact for acceptance run #25 was downloaded and visually reviewed. The visual review confirms the Live AC waveform is smooth, the Parameter Sweep now plots a meaningful resistor current response, the transient plot renders correctly, and the AC result view no longer exposes raw solver variable representations. The remaining visual findings are documented above as explicit UX improvement items rather than being hidden by the functional PASS status.
+The screenshot artifact for acceptance run #27 was downloaded and visually reviewed. The visual review confirms the Live AC waveform is smooth, the Parameter Sweep now plots a meaningful resistor current response, the transient plot renders correctly, and the AC result view no longer exposes raw solver variable representations. The remaining visual findings are documented above as explicit UX improvement items rather than being hidden by the functional PASS status.
 
 ## 9. Acceptance Interpretation
 
