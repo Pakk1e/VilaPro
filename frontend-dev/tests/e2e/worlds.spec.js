@@ -199,14 +199,14 @@ test.describe("Worlds DEV authenticated audit", () => {
         await assertNoBrowserErrors(errors);
     });
 
-    test("simulation setup validation is visible for an invalid DC sweep", async ({ page }, testInfo) => {
+    test("simulation setup validation is visible for an invalid parameter sweep", async ({ page }, testInfo) => {
         const errors = installBrowserErrorChecks(page);
         await signIn(page);
         await page.goto("/worlds", { waitUntil: "networkidle" });
         await page.getByRole("button", { name: "Voltage Source" }).click();
         await page.getByRole("button", { name: "Simulation" }).click();
         await page.getByLabel("Analysis").selectOption("dc_sweep");
-        await expect(page.locator('[role="alert"]').filter({ hasText: /^Select a voltage or current source to sweep\.$/ })).toBeVisible();
+        await expect(page.locator('[role="alert"]').filter({ hasText: /^Select a component or source parameter to sweep\.$/ })).toBeVisible();
         await expect(page.getByRole("button", { name: "Simulate" })).toBeDisabled();
         await saveAuditScreenshot(page, testInfo, "worlds-simulation-invalid-sweep");
         await assertNoBrowserErrors(errors);
@@ -267,19 +267,19 @@ test.describe("Worlds DEV authenticated audit", () => {
         await assertNoBrowserErrors(errors);
     });
 
-    test("real circuit runs a DC sweep and produces multiple sweep points", async ({ page }, testInfo) => {
+    test("real circuit runs a voltage-source parameter sweep", async ({ page }, testInfo) => {
         const errors = installBrowserErrorChecks(page);
         await signIn(page);
         await page.goto("/worlds", { waitUntil: "networkidle" });
         await createSeriesCircuit(page);
         await page.getByRole("button", { name: "Simulation" }).click();
         await page.getByLabel("Analysis").selectOption("dc_sweep");
-        await page.getByLabel("Sweep source").selectOption({ label: "Voltage Source 1 (Voltage Source)" });
+        await page.getByLabel("Sweep target").selectOption({ label: "Voltage Source 1 (Voltage Source)" });
         const sweepInputs = page.locator('input[type="number"]');
         await sweepInputs.nth(0).fill("0");
         await sweepInputs.nth(1).fill("12");
         await sweepInputs.nth(2).fill("3");
-        await expect(page.locator('[role="alert"]').filter({ hasText: /^Select a voltage or current source to sweep\.$/ })).toHaveCount(0);
+        await expect(page.locator('[role="alert"]').filter({ hasText: /^Select a component or source parameter to sweep\.$/ })).toHaveCount(0);
         const simulate = page.getByRole("button", { name: "Simulate" });
         await expect(simulate).toBeEnabled();
         await simulate.click();
@@ -288,7 +288,30 @@ test.describe("Worlds DEV authenticated audit", () => {
         await expect(page.getByText("Circuit Summary", { exact: true })).toBeVisible();
         await expect(page.getByText(/Values shown at the last valid sweep point\./).first()).toBeVisible();
         await expect(page.getByRole("img", { name: /result plot/i })).toBeVisible();
-        await saveAuditScreenshot(page, testInfo, "worlds-dc-sweep-results");
+        await saveAuditScreenshot(page, testInfo, "worlds-parameter-sweep-source-results");
+        await assertNoBrowserErrors(errors);
+    });
+
+    test("real circuit runs a resistor parameter sweep", async ({ page }, testInfo) => {
+        const errors = installBrowserErrorChecks(page);
+        await signIn(page);
+        await page.goto("/worlds", { waitUntil: "networkidle" });
+        await createSeriesCircuit(page);
+        await page.getByRole("button", { name: "Simulation" }).click();
+        await page.getByLabel("Analysis").selectOption("dc_sweep");
+        await page.getByLabel("Sweep target").selectOption({ label: "Resistor 1 (Resistor)" });
+        await expect(page.getByLabel("Parameter")).toHaveValue("R");
+        const sweepInputs = page.locator('input[type="number"]');
+        await sweepInputs.nth(0).fill("100");
+        await sweepInputs.nth(1).fill("300");
+        await sweepInputs.nth(2).fill("100");
+        const simulate = page.getByRole("button", { name: "Simulate" });
+        await expect(simulate).toBeEnabled();
+        await simulate.click();
+        await expectSimulationResults(page);
+        await expect(page.getByText("Circuit Summary", { exact: true })).toBeVisible();
+        await expect(page.getByRole("img", { name: /result plot/i })).toBeVisible();
+        await saveAuditScreenshot(page, testInfo, "worlds-parameter-sweep-resistor-results");
         await assertNoBrowserErrors(errors);
     });
 });
