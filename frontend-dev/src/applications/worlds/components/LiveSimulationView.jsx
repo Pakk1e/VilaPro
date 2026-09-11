@@ -100,10 +100,12 @@ export default function LiveSimulationView({ snapshot, history = [] }) {
   useEffect(() => {
     setSelectedSignals((current) => {
       const valid = current.filter((name) => signalNames.includes(name));
-      if (valid.length > 0) return valid;
-      return signalNames.filter((name) => name.endsWith(".instantaneous")).slice(0, 2).length > 0
-        ? signalNames.filter((name) => name.endsWith(".instantaneous")).slice(0, 2)
-        : signalNames.slice(0, 2);
+      if (valid.length > 0) {
+        const unchanged = valid.length === current.length && valid.every((name, index) => name === current[index]);
+        return unchanged ? current : valid;
+      }
+      const defaults = signalNames.filter((name) => name.endsWith(".instantaneous")).slice(0, 2);
+      return defaults.length > 0 ? defaults : signalNames.slice(0, 2);
     });
   }, [signalNames]);
 
