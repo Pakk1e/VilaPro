@@ -1,10 +1,12 @@
 import ComponentPropertiesPanel from "./ComponentPropertiesPanel";
 import { worldDefinitions } from "../model/worldDefinitions";
+import { WORLD_EXAMPLES } from "../model/worldExamples";
 
 export default function ComponentSidebar({
   nodes,
   selectedNode,
   onAddComponent,
+  onLoadExample,
   onSelectComponent,
   onChangeProperty,
 }) {
@@ -24,6 +26,29 @@ export default function ComponentSidebar({
         </div>
         <div className="mt-1 text-sm font-semibold text-[#17253a]">
           Palette
+        </div>
+      </div>
+
+      <div data-testid="world-examples" className="shrink-0 border-b border-[#e4e7eb] p-2">
+        <div className="px-2 pb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#69717b]">
+          Examples
+        </div>
+        <div className="space-y-1">
+          {WORLD_EXAMPLES.map((example) => (
+            <button
+              key={example.id}
+              type="button"
+              onClick={() => onLoadExample(example)}
+              className="w-full rounded-lg border border-[#e4e7eb] bg-[#fafbfc] px-3 py-2 text-left transition hover:border-[#cfd5dc] hover:bg-white"
+            >
+              <div className="text-xs font-medium text-[#26364d]">
+                {example.label}
+              </div>
+              <div className="mt-0.5 text-[9px] text-[#8a929c]">
+                {example.description}
+              </div>
+            </button>
+          ))}
         </div>
       </div>
 
