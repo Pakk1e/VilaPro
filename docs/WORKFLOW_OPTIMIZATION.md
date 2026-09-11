@@ -131,6 +131,8 @@ Canonical fixtures represent semantic circuits such as:
 - sine source
 - RC circuit
 - AC circuit
+- current-source circuit
+- parallel-resistor/junction circuit
 
 Contract tests cover:
 
@@ -140,7 +142,8 @@ Contract tests cover:
 - source waveform serialization
 - deterministic serialization
 - component type mapping
-- future schema validation boundaries
+- junction connectivity
+- graph schema validation
 
 **Exit condition:** important graph/serialization regressions are caught without a browser.
 
@@ -179,10 +182,12 @@ WorldGraph validation
   ↓
 Simulation request validation
   ↓
-Simulation model validation
+Backend simulation model
   ↓
 Result/runtime-state validation
 ```
+
+The frontend now validates the World Graph and the public simulation request/response/live-snapshot transport shapes. Backend domain/model validation remains authoritative for physics, component semantics, and numerical correctness; the frontend must not duplicate those domain rules.
 
 Errors should identify the affected component, port, parameter, or boundary.
 
@@ -215,6 +220,7 @@ Required properties:
 - failures contain enough evidence to diagnose remotely
 - changes are validated end-to-end before being reported
 - product vision is separated from implementation details
+- future architecture remains explicitly open where product decisions have not been made
 
 The intended interaction is:
 
@@ -244,22 +250,21 @@ The human should not need to manually coordinate every implementation step.
 - W6 worker tuning: 3 workers retained based on measured runner performance; 4 workers did not provide a meaningful improvement.
 - W7 measurement: ongoing; do not claim a benchmark unless the run was actually observed.
 - W8 architecture source of truth: implemented in `ARCHITECTURE.md`.
-- W9 deterministic fixtures/contracts: implemented with canonical circuit fixtures and serializer/model contract coverage.
+- W9 deterministic fixtures/contracts: implemented with canonical circuit fixtures and serializer/model contract coverage, including junction and current-source cases.
 - W10 stable browser boundaries: initial canvas/palette/inspector/simulation selectors implemented and acceptance tests updated.
 - W11 failure diagnostics: trace-on-failure, graph-state context, console/page errors, and richer failure artifact retention implemented.
-- W12 runtime/schema validation: **initial implementation complete at the World Graph boundary** through `worldGraphSchema.js` and serializer integration; simulation request/model/result validation remains for later increments.
+- W12 runtime/schema validation: **implemented for the current public boundaries** through `worldGraphSchema.js`, serializer integration, and `simulationTransport.js`; backend remains authoritative for domain/model validation.
 - W13 selective visual regression: initial placement/palette-overlap protection exists; targeted visual assertions remain to be expanded only where they add deterministic value.
 - W14 AI-effective development loop: foundation is implemented; final completion requires the remaining validation/diagnostic work and a stable operating process.
 
-## Priority after the current CI work
+## Priority after the current foundation work
 
-1. Expand schema validation into the simulation request/model boundaries without duplicating backend contracts.
-2. Expand deterministic fixtures to all important electrical analyses and reuse them in model tests.
-3. Strengthen browser failure diagnostics with safe, bounded state capture.
-4. Add selective visual geometry assertions for known layout regressions.
-5. Improve static/model test reporting so failures identify their architectural boundary.
-6. Re-measure the complete loop after these changes.
-7. Only then consider additional CI micro-optimization.
+1. Strengthen browser failure diagnostics with safe, bounded state capture.
+2. Add selective visual geometry assertions for known layout regressions.
+3. Improve static/model test reporting so failures identify their architectural boundary.
+4. Re-measure the complete loop after these changes.
+5. Establish the first minimal World/Layer extension point without implementing speculative multi-world behavior.
+6. Continue the Electrical World using that foundation.
 
 ## Safety / scope
 
