@@ -23,9 +23,12 @@ jobs:
       - self-hosted
       - worlds-dev
     environment: worlds-dev
+    outputs:
+      deployed_sha: ${{ steps.deploy_worlds.outputs.deployed_sha }}
 
     steps:
       - name: Deploy Worlds DEV
+        id: deploy_worlds
         env:
           WORLDS_DEPLOY_BRANCH: ${{ github.event_name == 'workflow_dispatch' && inputs.branch || github.ref_name }}
         run: |
@@ -44,6 +47,10 @@ jobs:
           git checkout "$WORLDS_DEPLOY_BRANCH"
           git pull --ff-only origin "$WORLDS_DEPLOY_BRANCH"
 
+          deployed_sha="$(git rev-parse HEAD)"
+          echo "Deployed commit: $deployed_sha"
+          echo "deployed_sha=$deployed_sha" >> "$GITHUB_OUTPUT"
+
           bash scripts/deploy-worlds-dev.sh
 
   acceptance:
@@ -52,4 +59,5 @@ jobs:
     uses: ./.github/workflows/worlds-acceptance.yml
     with:
       branch: ${{ github.event_name == 'workflow_dispatch' && inputs.branch || github.ref_name }}
+      revision: ${{ needs.deploy.outputs.deployed_sha }}
     secrets: inherit
