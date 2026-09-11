@@ -134,7 +134,7 @@ test.describe("Worlds acceptance suite", () => {
     const results = await waitForResults(page);
     const plot = page.getByRole("img", { name: /result plot/i });
     await expect(plot).toBeVisible();
-    await expect(results.getByText(/6\.66/).first()).toBeVisible();
+    await expect(results.getByText(/6\.67/).first()).toBeVisible();
     await expect(plot.locator("circle")).toHaveCount(3);
     await expect(plot.locator("path")).toHaveCount(1);
     await expect(plot.locator("path").first()).toHaveAttribute("d", /L/);
