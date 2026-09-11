@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 import { formatEngineeringTick, getEngineeringScale } from "../model/engineeringFormat.js";
 
@@ -95,21 +95,19 @@ function LivePlot({ history, selectedSignals }) {
 export default function LiveSimulationView({ snapshot, history = [] }) {
   const signals = useMemo(() => Object.entries(snapshot?.signals ?? {}), [snapshot]);
   const signalNames = useMemo(() => signals.map(([name]) => name).filter((name) => name !== "__live.time_s" && name !== "__live.frequency_hz" && history.some((item) => Number.isFinite(Number(item?.signals?.[name])))), [signals, history]);
-  const [selectedSignals, setSelectedSignals] = useState([]);
-
-  useEffect(() => {
-    setSelectedSignals((current) => {
-      const valid = current.filter((name) => signalNames.includes(name));
-      if (valid.length > 0) {
-        const unchanged = valid.length === current.length && valid.every((name, index) => name === current[index]);
-        return unchanged ? current : valid;
-      }
-      const defaults = signalNames.filter((name) => name.endsWith(".instantaneous")).slice(0, 2);
-      return defaults.length > 0 ? defaults : signalNames.slice(0, 2);
-    });
+  const defaultSignals = useMemo(() => {
+    const instantaneous = signalNames.filter((name) => name.endsWith(".instantaneous")).slice(0, 2);
+    return instantaneous.length > 0 ? instantaneous : signalNames.slice(0, 2);
   }, [signalNames]);
+  const [selectedSignalState, setSelectedSignalState] = useState(null);
+  const selectedSignals = selectedSignalState === null
+    ? defaultSignals
+    : selectedSignalState.filter((name) => signalNames.includes(name));
 
-  const toggleSignal = (name) => setSelectedSignals((current) => current.includes(name) ? current.filter((item) => item !== name) : [...current, name]);
+  const toggleSignal = (name) => setSelectedSignalState((current) => {
+    const selected = current === null ? defaultSignals : current;
+    return selected.includes(name) ? selected.filter((item) => item !== name) : [...selected, name];
+  });
 
   return (
     <section aria-label="Live simulation state" className="rounded-xl border border-[#d9dde2] bg-white">
