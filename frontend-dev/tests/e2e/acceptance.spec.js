@@ -160,16 +160,25 @@ test.describe("Worlds acceptance suite", () => {
     expect(errors).toEqual([]);
   });
 
-  test("T08 — transient response plot", async ({ page }, testInfo) => {
+  test("T08 — transient sine-source response plot", async ({ page }, testInfo) => {
     const errors = browserErrors(page);
     await signIn(page);
     await page.goto("/worlds", { waitUntil: "networkidle" });
-    await createSeriesCircuit(page);
+    const { voltage } = await createSeriesCircuit(page);
+
+    await voltage.click();
+    await page.getByLabel("Waveform", { exact: true }).selectOption("sine");
+    await page.getByLabel("Amplitude", { exact: true }).fill("5");
+    await page.getByLabel("Offset", { exact: true }).fill("0");
+    await page.getByLabel("Frequency", { exact: true }).fill("1");
+    await page.getByLabel("Phase", { exact: true }).fill("0");
+    await page.getByLabel("Delay", { exact: true }).fill("0");
+
     await page.getByRole("button", { name: "Simulation" }).click();
     await page.getByLabel("Analysis").selectOption("transient");
     await expect(page.getByText(/Start|Stop|Step/).first()).toBeVisible();
-    const waveformControls = page.getByText(/Sine|waveform/i);
-    if (await waveformControls.count()) await expect(waveformControls.first()).toBeVisible();
+    await expect(page.getByLabel("Waveform", { exact: true })).toHaveValue("sine");
+
     const simulate = page.getByRole("button", { name: "Simulate" });
     await expect(simulate).toBeEnabled();
     await simulate.click();
@@ -178,8 +187,8 @@ test.describe("Worlds acceptance suite", () => {
     await expect(plot).toBeVisible();
     await expect(plot).toHaveAttribute("aria-label", /versus Time \(s\) result plot/);
     await expect(results).toBeVisible();
-    await captureVisual(page, testInfo, "T08-transient-response");
-    await captureElementVisual(plot, testInfo, "T08-transient-response-plot");
+    await captureVisual(page, testInfo, "T08-transient-sine-source");
+    await captureElementVisual(plot, testInfo, "T08-transient-sine-source-plot");
     expect(errors).toEqual([]);
   });
 
