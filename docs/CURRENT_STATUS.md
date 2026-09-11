@@ -22,10 +22,13 @@ The Worlds workspace currently has explicit boundaries between:
 - runtime transport
 - result/visualization model
 - renderer/layout
+- explicit World/Layer/Representation session context
 
 The current World Graph and public simulation transport boundaries have runtime validation and deterministic tests. Backend domain/model validation remains authoritative for physics, component semantics, and numerical correctness.
 
 The frontend supports both static and live simulation concepts. The live workspace includes oscilloscope-oriented visualization for sampled signals.
+
+The current Electrical workspace now carries an explicit, minimal context identity (`universeId`, `worldId`, `layerId`, `representationId`) without coupling that context to the World Graph or changing the Electrical simulation model. This is an extension point for future Worlds/Layers, not a multi-world implementation.
 
 Browser acceptance uses stable interaction boundaries and failure diagnostics. Deployment acceptance verifies the exact deployed revision.
 
@@ -37,11 +40,12 @@ Browser acceptance uses stable interaction boundaries and failure diagnostics. D
 4. Keep component definitions separate from component instances.
 5. Keep analysis separate from execution mode.
 6. Keep static and live result/runtime boundaries explicit.
-7. Validate boundaries with useful errors.
-8. Prefer deterministic model fixtures over browser-only setup.
-9. Use targeted visual checks rather than broad fragile screenshots.
-10. Diagnose from model → serializer → backend → transport → visualization → renderer → browser/CSS.
-11. Run the complete relevant test/deploy/acceptance pipeline before reporting a change as successful.
+7. Keep World/Layer context separate from domain graph semantics.
+8. Validate boundaries with useful errors.
+9. Prefer deterministic model fixtures over browser-only setup.
+10. Use targeted visual checks rather than broad fragile screenshots.
+11. Diagnose from model → serializer → backend → transport → visualization → renderer → browser/CSS.
+12. Run the complete relevant test/deploy/acceptance pipeline before reporting a change as successful.
 
 ## Product/vision rules
 
@@ -60,7 +64,7 @@ Browser acceptance uses stable interaction boundaries and failure diagnostics. D
 
 ## Immediate engineering priority
 
-The core graph/serializer/transport foundation is established. Continue strengthening the engineering foundation only where it provides a concrete benefit to the current Electrical World, then establish the first minimal World/Layer extension point without implementing speculative multi-world behavior.
+The first minimal World/Layer extension point is now established without speculative multi-world behavior. Continue strengthening the engineering foundation only where it provides a concrete benefit to the current Electrical World, then continue the Electrical World implementation.
 
 Current useful next areas are:
 
@@ -68,8 +72,8 @@ Current useful next areas are:
 - selective geometry assertions for known layout regressions
 - architectural-boundary test reporting
 - complete-loop measurement after foundation changes
-- minimal World/Layer extension point
 - continued Electrical World implementation
+- later, when requirements become concrete, real navigation between established Layers
 
 Before starting a new feature, inspect `VISION.md`, `docs/CONCEPTS.md`, `docs/LAYER_MODEL.md`, `ARCHITECTURE.md`, and `ROADMAP.md`.
 
