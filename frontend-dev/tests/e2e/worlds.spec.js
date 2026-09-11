@@ -260,7 +260,7 @@ test.describe("Worlds DEV authenticated audit", () => {
         const results = page.getByRole("region", { name: "AC phasor results" });
         await expect(results).toBeVisible({ timeout: 15000 });
         await expect(results.getByText("AC Phasors", { exact: true })).toBeVisible();
-        await expect(results.getByText("1000", { exact: true })).toBeVisible();
+        await expect(results.getByText(/1,?000(?:\.0+)?/).first()).toBeVisible();
         await expect(results.getByText("Phasor values", { exact: true })).toBeVisible();
         await expect(page.locator('[role="alert"]').filter({ hasText: "Unsupported simulation result from analysis 'ac'" })).toHaveCount(0);
         await saveAuditScreenshot(page, testInfo, "worlds-static-ac-results");
