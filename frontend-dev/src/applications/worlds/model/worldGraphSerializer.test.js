@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { sineSourceFixture, seriesCircuitFixture } from "./__fixtures__/worldGraphFixtures.js";
+import { rcCircuitFixture, sineSourceFixture, seriesCircuitFixture } from "./__fixtures__/worldGraphFixtures.js";
 import { buildCircuitDescription, serializeWorldGraph, validateWorldGraph } from "./worldGraphSerializer.js";
 
 function instancesFor(graph) {
@@ -45,6 +45,21 @@ test("sine source fixture preserves waveform semantics at the serializer boundar
     frequency: 1,
     phase: 0,
     delay: 0,
+  });
+});
+
+test("RC fixture preserves capacitor identity and electrical topology", () => {
+  const graph = rcCircuitFixture();
+  const instances = instancesFor(graph);
+  const capacitor = instances.find((instance) => instance.id === "C1");
+
+  assert.equal(instances.length, 3);
+  assert.deepEqual(capacitor, {
+    id: "C1",
+    name: "Capacitor 1",
+    type: "Capacitor",
+    parameters: { C: 0.001 },
+    ports: { p: "node_2", n: "ground" },
   });
 });
 
