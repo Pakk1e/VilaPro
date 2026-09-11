@@ -3,84 +3,15 @@ import { test, expect } from "@playwright/test";
 const E2E_EMAIL = globalThis.process?.env.WORLDS_E2E_EMAIL;
 const E2E_PASSWORD = globalThis.process?.env.WORLDS_E2E_PASSWORD;
 
-async function signIn(page) {
-  if (!E2E_EMAIL || !E2E_PASSWORD) throw new Error("WORLDS_E2E_EMAIL and WORLDS_E2E_PASSWORD must be configured for authenticated Worlds E2E tests.");
-  await page.goto("/login", { waitUntil: "networkidle" });
-  await page.getByLabel("Email").fill(E2E_EMAIL);
-  await page.getByLabel("Password").fill(E2E_PASSWORD);
-  await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page).toHaveURL(/\/hub$/);
-}
+async function signIn(page) { if (!E2E_EMAIL || !E2E_PASSWORD) throw new Error("WORLDS_E2E_EMAIL and WORLDS_E2E_PASSWORD must be configured for authenticated Worlds E2E tests."); await page.goto("/login", { waitUntil: "networkidle" }); await page.getByLabel("Email").fill(E2E_EMAIL); await page.getByLabel("Password").fill(E2E_PASSWORD); await page.getByRole("button", { name: "Sign in" }).click(); await expect(page).toHaveURL(/\/hub$/); }
+async function addComponent(page, name, label) { await page.getByRole("button", { name, exact: false }).click(); const node = page.locator(".react-flow__node").filter({ hasText: label }); await expect(node).toBeVisible(); return node; }
+async function moveNode(page, node, x, y) { const box = await node.boundingBox(); if (!box) throw new Error("Unable to locate ReactFlow node for movement."); await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2); await page.mouse.down(); await page.mouse.move(x, y, { steps: 10 }); await page.mouse.up(); }
+function nodeHandle(node, handleId) { return node.locator(`.react-flow__handle[data-handleid="${handleId}"]`); }
+async function createSeriesCircuit(page) { const canvas = page.locator(".react-flow"); const canvasBox = await canvas.boundingBox(); if (!canvasBox) throw new Error("Unable to locate Worlds canvas."); const initialComponent = await addComponent(page, "Resistor", "Resistor 1"); const zoomOut = page.locator(".react-flow__controls-zoomout"); for (let i = 0; i < 20; i += 1) { if (await zoomOut.isDisabled()) break; await zoomOut.click(); } await initialComponent.click(); await page.keyboard.press("Delete"); await expect(initialComponent).toHaveCount(0); const voltage = await addComponent(page, "Voltage Source", "Voltage Source 1"); const resistor = await addComponent(page, "Resistor", "Resistor 1"); const ground = await addComponent(page, "Ground", "Ground 1"); const palette = page.locator("aside").filter({ hasText: "Palette" }).first(); const paletteBox = await palette.boundingBox(); if (!paletteBox) throw new Error("Unable to locate Worlds component palette."); const usableLeft = canvasBox.x + 80; const usableRight = paletteBox.x - 80; const usableWidth = usableRight - usableLeft; await moveNode(page, voltage, usableLeft + usableWidth * 0.30, canvasBox.y + canvasBox.height * 0.34); await moveNode(page, resistor, usableLeft + usableWidth * 0.70, canvasBox.y + canvasBox.height * 0.34); await moveNode(page, ground, usableLeft + usableWidth * 0.50, canvasBox.y + canvasBox.height * 0.68); await nodeHandle(voltage, "p").dragTo(nodeHandle(resistor, "p")); await nodeHandle(resistor, "n").dragTo(nodeHandle(ground, "g")); await nodeHandle(voltage, "n").dragTo(nodeHandle(ground, "g")); await expect(page.locator(".react-flow__edge")).toHaveCount(3); }
+function installBrowserErrorChecks(page) { const consoleErrors = []; const pageErrors = []; page.on("console", (message) => { if (message.type() === "error" && !message.text().includes("status of 401")) consoleErrors.push(message.text()); }); page.on("pageerror", (error) => pageErrors.push(error.message)); return { consoleErrors, pageErrors }; }
 
-async function addComponent(page, name, label) {
-  await page.getByRole("button", { name, exact: false }).click();
-  const node = page.locator(".react-flow__node").filter({ hasText: label });
-  await expect(node).toBeVisible();
-  return node;
-}
+test("authenticated user can start, pause, resume and stop Live DC", async ({ page }) => { const { consoleErrors, pageErrors } = installBrowserErrorChecks(page); await signIn(page); await page.goto("/worlds", { waitUntil: "networkidle" }); await createSeriesCircuit(page); await page.getByRole("button", { name: "Simulation" }).click(); await page.getByRole("button", { name: "Live" }).click(); await expect(page.getByRole("button", { name: "Start Live" })).toBeEnabled(); await expect(page.getByText("Live mode keeps a session open and updates the current sampled state.")).toBeVisible(); await page.getByRole("button", { name: "Start Live" }).click(); const liveScope = page.getByRole("region", { name: "Live oscilloscope" }); await expect(liveScope).toBeVisible({ timeout: 10000 }); await expect(page.getByRole("button", { name: "Pause" })).toBeVisible(); await expect(liveScope.getByLabel("Oscilloscope time window")).toBeVisible(); await expect(liveScope.getByText(/traces$/).last()).toBeVisible({ timeout: 10000 }); const traceButtons = liveScope.getByRole("button", { name: /Instantaneous|Magnitude|Phase/ }); await expect.poll(async () => traceButtons.count(), { timeout: 10000 }).toBeGreaterThan(0); await page.getByRole("button", { name: "Pause" }).click(); await expect(page.getByRole("button", { name: "Resume" })).toBeVisible(); await expect(page.locator("header").getByText("paused", { exact: true })).toBeVisible(); await page.getByRole("button", { name: "Resume" }).click(); await expect(page.getByRole("button", { name: "Pause" })).toBeVisible(); await page.getByRole("button", { name: "Stop" }).click(); await expect(page.locator("header").getByText("cancelled", { exact: true })).toBeVisible(); expect(consoleErrors).toEqual([]); expect(pageErrors).toEqual([]); });
 
-async function moveNode(page, node, x, y) {
-  const box = await node.boundingBox();
-  if (!box) throw new Error("Unable to locate ReactFlow node for movement.");
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-  await page.mouse.down();
-  await page.mouse.move(x, y, { steps: 10 });
-  await page.mouse.up();
-}
+test("authenticated user can run Live AC and receive phasor state", async ({ page }) => { const { consoleErrors, pageErrors } = installBrowserErrorChecks(page); await signIn(page); await page.goto("/worlds", { waitUntil: "networkidle" }); await createSeriesCircuit(page); await page.getByRole("button", { name: "Simulation" }).click(); await page.getByRole("button", { name: "Live" }).click(); await page.getByLabel("Analysis").selectOption({ label: "AC Analysis" }); await expect(page.getByRole("button", { name: "Start Live" })).toBeEnabled(); await page.getByRole("button", { name: "Start Live" }).click(); const liveScope = page.getByRole("region", { name: "Live oscilloscope" }); await expect(liveScope).toBeVisible({ timeout: 10000 }); await expect(liveScope.getByText(/· Magnitude$/).first()).toBeVisible({ timeout: 10000 }); await expect(liveScope.getByText(/· Phase$/).first()).toBeVisible({ timeout: 10000 }); await expect(liveScope.getByText(/· Instantaneous$/).first()).toBeVisible({ timeout: 10000 }); await expect(liveScope.getByLabel("Oscilloscope time window")).toHaveValue("0.005"); await expect(liveScope.getByText(/cycles visible/).first()).toBeVisible(); const plot = liveScope.getByRole("img", { name: /live oscilloscope/i }).first(); await expect(plot).toBeVisible(); await expect.poll(async () => (await plot.locator("path").first().getAttribute("d"))?.match(/L/g)?.length ?? 0, { timeout: 10000 }).toBeGreaterThan(20); await page.getByRole("button", { name: "Stop" }).click(); await expect(page.locator("header").getByText("cancelled", { exact: true })).toBeVisible(); expect(consoleErrors).toEqual([]); expect(pageErrors).toEqual([]); });
 
-function nodeHandle(node, handleId) {
-  return node.locator(`.react-flow__handle[data-handleid="${handleId}"]`);
-}
-
-async function createSeriesCircuit(page) {
-  const canvas = page.locator(".react-flow");
-  const canvasBox = await canvas.boundingBox();
-  if (!canvasBox) throw new Error("Unable to locate Worlds canvas.");
-  const initialComponent = await addComponent(page, "Resistor", "Resistor 1");
-  const zoomOut = page.locator(".react-flow__controls-zoomout");
-  for (let i = 0; i < 20; i += 1) {
-    if (await zoomOut.isDisabled()) break;
-    await zoomOut.click();
-  }
-  await initialComponent.click(); await page.keyboard.press("Delete"); await expect(initialComponent).toHaveCount(0);
-  const voltage = await addComponent(page, "Voltage Source", "Voltage Source 1");
-  const resistor = await addComponent(page, "Resistor", "Resistor 1");
-  const ground = await addComponent(page, "Ground", "Ground 1");
-  const palette = page.locator("aside").filter({ hasText: "Palette" }).first(); const paletteBox = await palette.boundingBox();
-  if (!paletteBox) throw new Error("Unable to locate Worlds component palette.");
-  const usableLeft = canvasBox.x + 80; const usableRight = paletteBox.x - 80; const usableWidth = usableRight - usableLeft;
-  await moveNode(page, voltage, usableLeft + usableWidth * 0.30, canvasBox.y + canvasBox.height * 0.34);
-  await moveNode(page, resistor, usableLeft + usableWidth * 0.70, canvasBox.y + canvasBox.height * 0.34);
-  await moveNode(page, ground, usableLeft + usableWidth * 0.50, canvasBox.y + canvasBox.height * 0.68);
-  await nodeHandle(voltage, "p").dragTo(nodeHandle(resistor, "p")); await nodeHandle(resistor, "n").dragTo(nodeHandle(ground, "g")); await nodeHandle(voltage, "n").dragTo(nodeHandle(ground, "g"));
-  await expect(page.locator(".react-flow__edge")).toHaveCount(3);
-}
-
-function installBrowserErrorChecks(page) {
-  const consoleErrors = []; const pageErrors = [];
-  page.on("console", (message) => { if (message.type() === "error" && !message.text().includes("status of 401")) consoleErrors.push(message.text()); });
-  page.on("pageerror", (error) => pageErrors.push(error.message));
-  return { consoleErrors, pageErrors };
-}
-
-test("authenticated user can start, pause, resume and stop Live DC", async ({ page }) => {
-  const { consoleErrors, pageErrors } = installBrowserErrorChecks(page);
-  await signIn(page); await page.goto("/worlds", { waitUntil: "networkidle" }); await createSeriesCircuit(page); await page.getByRole("button", { name: "Simulation" }).click(); await page.getByRole("button", { name: "Live" }).click();
-  await expect(page.getByRole("button", { name: "Start Live" })).toBeEnabled(); await expect(page.getByText("Live mode keeps a session open and updates the current sampled state.")).toBeVisible(); await page.getByRole("button", { name: "Start Live" }).click();
-  const liveScope = page.getByRole("region", { name: "Live oscilloscope" }); await expect(liveScope).toBeVisible({ timeout: 10000 }); await expect(page.getByRole("button", { name: "Pause" })).toBeVisible();
-  await expect(liveScope.getByLabel("Oscilloscope time window")).toBeVisible(); await expect(liveScope.getByText(/traces$/).last()).toBeVisible({ timeout: 10000 }); const traceButtons = liveScope.getByRole("button", { name: /Instantaneous|Magnitude|Phase/ }); await expect.poll(async () => traceButtons.count(), { timeout: 10000 }).toBeGreaterThan(0);
-  await page.getByRole("button", { name: "Pause" }).click(); await expect(page.getByRole("button", { name: "Resume" })).toBeVisible(); await expect(page.locator("header").getByText("paused", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Resume" }).click(); await expect(page.getByRole("button", { name: "Pause" })).toBeVisible(); await page.getByRole("button", { name: "Stop" }).click(); await expect(page.locator("header").getByText("cancelled", { exact: true })).toBeVisible();
-  expect(consoleErrors).toEqual([]); expect(pageErrors).toEqual([]);
-});
-
-test("authenticated user can run Live AC and receive phasor state", async ({ page }) => {
-  const { consoleErrors, pageErrors } = installBrowserErrorChecks(page);
-  await signIn(page); await page.goto("/worlds", { waitUntil: "networkidle" }); await createSeriesCircuit(page); await page.getByRole("button", { name: "Simulation" }).click(); await page.getByRole("button", { name: "Live" }).click(); await page.getByLabel("Analysis").selectOption({ label: "AC Analysis" });
-  await expect(page.getByRole("button", { name: "Start Live" })).toBeEnabled(); await page.getByRole("button", { name: "Start Live" }).click();
-  const liveScope = page.getByRole("region", { name: "Live oscilloscope" }); await expect(liveScope).toBeVisible({ timeout: 10000 });
-  await expect(liveScope.getByText(/· Magnitude$/).first()).toBeVisible({ timeout: 10000 }); await expect(liveScope.getByText(/· Phase$/).first()).toBeVisible({ timeout: 10000 }); await expect(liveScope.getByText(/· Instantaneous$/).first()).toBeVisible({ timeout: 10000 });
-  await expect(liveScope.getByLabel("Oscilloscope time window")).toHaveValue("0.005"); await expect(liveScope.getByText(/cycles visible/).first()).toBeVisible();
-  const plot = liveScope.getByRole("img", { name: /live oscilloscope/i }).first(); await expect(plot).toBeVisible(); await expect.poll(async () => (await plot.locator("path").first().getAttribute("d"))?.match(/L/g)?.length ?? 0, { timeout: 10000 }).toBeGreaterThan(20);
-  await page.getByRole("button", { name: "Stop" }).click(); await expect(page.locator("header").getByText("cancelled", { exact: true })).toBeVisible(); expect(consoleErrors).toEqual([]); expect(pageErrors).toEqual([]);
-});
+test("schematic selection drives the live measurement context", async ({ page }) => { const { consoleErrors, pageErrors } = installBrowserErrorChecks(page); await signIn(page); await page.goto("/worlds", { waitUntil: "networkidle" }); await createSeriesCircuit(page); await page.getByRole("button", { name: "Simulation" }).click(); await page.getByRole("button", { name: "Live" }).click(); await page.getByLabel("Analysis").selectOption({ label: "AC Analysis" }); await page.getByRole("button", { name: "Start Live" }).click(); const liveScope = page.getByRole("region", { name: "Live oscilloscope" }); await expect(liveScope).toBeVisible({ timeout: 10000 }); const schematic = page.getByRole("img", { name: "Circuit schematic preview" }); await expect(schematic).toBeVisible(); const resistorSymbol = page.locator('g[role="button"]').filter({ hasText: "Resistor 1" }).last(); await expect(resistorSymbol).toBeVisible(); await resistorSymbol.click(); const selectedMeasurement = liveScope.getByRole("button", { name: /I\(Resistor 1\) · Instantaneous/ }); await expect(selectedMeasurement).toHaveAttribute("aria-pressed", "true", { timeout: 10000 }); await page.getByRole("button", { name: "Stop" }).click(); expect(consoleErrors).toEqual([]); expect(pageErrors).toEqual([]); });
