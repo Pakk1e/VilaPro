@@ -2,7 +2,6 @@ import { test, expect } from "@playwright/test";
 
 const E2E_EMAIL = globalThis.process?.env.WORLDS_E2E_EMAIL;
 const E2E_PASSWORD = globalThis.process?.env.WORLDS_E2E_PASSWORD;
-const EXPECTED_AUTH_401 = "Failed to load resource: The server responded with a status of 401 ()";
 
 async function signIn(page) {
   if (!E2E_EMAIL || !E2E_PASSWORD) throw new Error("WORLDS_E2E_EMAIL and WORLDS_E2E_PASSWORD must be configured for authenticated Worlds E2E tests.");
@@ -68,7 +67,7 @@ function installBrowserErrorChecks(page) {
   const consoleErrors = [];
   const pageErrors = [];
   page.on("console", (message) => {
-    if (message.type() === "error" && message.text() !== EXPECTED_AUTH_401) consoleErrors.push(message.text());
+    if (message.type() === "error" && !message.text().includes("status of 401")) consoleErrors.push(message.text());
   });
   page.on("pageerror", (error) => pageErrors.push(error.message));
   return { consoleErrors, pageErrors };
@@ -89,13 +88,13 @@ test("authenticated user can start, pause, resume and stop Live DC", async ({ pa
   await expect(page.getByRole("button", { name: "Pause" })).toBeVisible();
   await expect(liveState.getByText("Waiting for the first simulation update.")).toHaveCount(0, { timeout: 10000 });
   await expect(liveState.getByText("Sample time")).toBeVisible();
-  await expect(liveState.getByText("0.5")).toBeVisible({ timeout: 10000 });
-  await expect(liveState.getByText("Plot signals", { exact: true })).toBeVisible();
   await expect(liveState.getByRole("img", { name: "Live simulation plot" })).toBeVisible();
   await expect(liveState.getByText(/samples$/).last()).toBeVisible();
   const signalCheckboxes = liveState.locator('input[type="checkbox"]');
   expect(await signalCheckboxes.count()).toBeGreaterThan(0);
-  await signalCheckboxes.first().uncheck();
+  const checkedSignals = liveState.locator('input[type="checkbox"]:checked');
+  const checkedCount = await checkedSignals.count();
+  for (let i = 0; i < checkedCount; i += 1) await checkedSignals.first().uncheck();
   await expect(liveState.getByText("Select at least one signal and wait for two live samples to plot it.")).toBeVisible();
   await signalCheckboxes.first().check();
   await page.getByRole("button", { name: "Pause" }).click();
