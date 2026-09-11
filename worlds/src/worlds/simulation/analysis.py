@@ -78,8 +78,8 @@ class SimulationConfiguration:
         if not isinstance(source_id, str) or not source_id:
             raise SimulationAnalysisError("dc_sweep.settings.source must be a non-empty string")
         parameter = settings.get("parameter")
-        if parameter is not None and parameter not in ("V", "I"):
-            raise SimulationAnalysisError("dc_sweep.settings.parameter must be 'V' for voltage sources or 'I' for current sources")
+        if parameter is not None and (not isinstance(parameter, str) or not parameter):
+            raise SimulationAnalysisError("dc_sweep.settings.parameter must be a non-empty string when provided")
         for name in ("start", "stop", "step"):
             _parse_finite_decimal(settings.get(name), name)
         step = _parse_finite_decimal(settings.get("step"), "step")
@@ -156,14 +156,23 @@ class DCSweepAnalysis:
     @staticmethod
     def _parse_settings(settings, model):
         source_id = settings.get("source")
+        if not isinstance(source_id, str) or not source_id: raise SimulationAnalysisError("dc_sweep.settings.source must be a non-empty string")
         matches = [c for c in model.components if c.component_id == source_id]
-        if not matches: raise SimulationAnalysisError(f"dc_sweep source '{source_id}' does not exist in the circuit")
-        source = matches[0]
-        expected = {"VoltageSource": "V", "CurrentSource": "I"}.get(source.component_type)
-        if expected is None: raise SimulationAnalysisError(f"dc_sweep source '{source_id}' is not an independent voltage or current source")
-        parameter = settings.get("parameter") or expected
-        if parameter != expected: raise SimulationAnalysisError(f"dc_sweep source '{source_id}' must be swept using parameter '{expected}'")
-        if parameter not in source.parameters: raise SimulationAnalysisError(f"dc_sweep source '{source_id}' does not expose parameter '{parameter}'")
+        if not matches: raise SimulationAnalysisError(f"dc_sweep target '{source_id}' does not exist in the circuit")
+        if len(matches) > 1: raise SimulationAnalysisError(f"dc_sweep target '{source_id}' is not unique")
+        target = matches[0]
+        parameter = settings.get("parameter")
+        expected = {"VoltageSource": "V", "CurrentSource": "I"}.get(target.component_type)
+        if parameter is None:
+            if expected is None:
+                raise SimulationAnalysisError(f"dc_sweep target '{source_id}' requires a parameter")
+            parameter = expected
+        if not isinstance(parameter, str) or not parameter:
+            raise SimulationAnalysisError("dc_sweep.settings.parameter must be a non-empty string")
+        if expected is not None and parameter != expected:
+            raise SimulationAnalysisError(f"dc_sweep source '{source_id}' must be swept using parameter '{expected}'")
+        if parameter not in target.parameters:
+            raise SimulationAnalysisError(f"dc_sweep target '{source_id}' does not expose parameter '{parameter}'")
         return source_id, parameter, _parse_finite_decimal(settings.get("start"), "start"), _parse_finite_decimal(settings.get("stop"), "stop"), _parse_finite_decimal(settings.get("step"), "step")
 
 
@@ -274,7 +283,7 @@ def _override_component_parameter(model, *, source_id, parameter, value):
     for component in model.components:
         if component.component_id != source_id: components.append(component); continue
         components.append(replace(component, parameters={**component.parameters, parameter:value})); found=True
-    if not found: raise SimulationAnalysisError(f"dc_sweep source '{source_id}' does not exist in the circuit")
+    if not found: raise SimulationAnalysisError(f"dc_sweep target '{source_id}' does not exist in the circuit")
     return SimulationModel(components=components, nodes=set(model.nodes))
 
 _ANALYSES = {DC_OPERATING_POINT: DCOperatingPointAnalysis(), DC_SWEEP: DCSweepAnalysis(), TRANSIENT: TransientAnalysis(), AC: ACAnalysis()}
