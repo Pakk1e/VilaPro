@@ -61,7 +61,10 @@ jobs:
         shell: bash
         run: |
           set +e
-          npx playwright test tests/e2e/acceptance.spec.js --reporter=list,html 2>&1 | tee ../acceptance-run.log
+          # Fail fast while iterating: a failing test makes the run non-green,
+          # so there is no value in spending another 10–20 minutes on the
+          # remaining tests. A fully green run still executes the entire suite.
+          npx playwright test tests/e2e/acceptance.spec.js --reporter=list,html --retries=0 --max-failures=1 2>&1 | tee ../acceptance-run.log
           status=${PIPESTATUS[0]}
           exit "$status"
 
