@@ -8,6 +8,10 @@ on:
         required: false
         default: v0.4/workspace-architecture
         type: string
+      revision:
+        description: Exact deployed commit to test
+        required: false
+        type: string
   workflow_dispatch:
     inputs:
       branch:
@@ -15,9 +19,13 @@ on:
         required: false
         default: v0.4/workspace-architecture
         type: string
+      revision:
+        description: Optional exact commit to test; when omitted, the branch is used
+        required: false
+        type: string
 
 concurrency:
-  group: worlds-acceptance-${{ inputs.branch || github.ref_name }}
+  group: worlds-acceptance-${{ inputs.branch || github.ref_name }}-${{ inputs.revision || 'branch' }}
   cancel-in-progress: true
 
 jobs:
@@ -34,7 +42,7 @@ jobs:
       - name: Checkout deployed revision
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.branch || github.sha }}
+          ref: ${{ inputs.revision || inputs.branch || github.sha }}
           clean: true
 
       - name: Setup Node.js
@@ -47,7 +55,8 @@ jobs:
         run: |
           set -euo pipefail
           echo "=== Worlds acceptance baseline ==="
-          echo "Revision: $GITHUB_SHA"
+          echo "Revision requested: ${{ inputs.revision || inputs.branch || github.sha }}"
+          echo "Checked out commit: $(git rev-parse HEAD)"
           echo "Node: $(node --version)"
           echo "npm:  $(npm --version)"
           echo "Started: $(date -Is)"
@@ -108,8 +117,6 @@ jobs:
           echo "Playwright runner setup duration=$((ended - started))ms"
           node -e "console.log('Playwright version:', require('@playwright/test/package.json').version)"
 
-      # The persistent worlds-dev runner normally already has Chromium. This is
-      # idempotent and should be a no-op when the requested browser revision exists.
       - name: Ensure Playwright Chromium
         working-directory: frontend-dev
         shell: bash
@@ -129,7 +136,8 @@ jobs:
           started=$(date +%s%3N)
           workers="${WORLDS_E2E_WORKERS:-3}"
           echo "=== Worlds browser acceptance ==="
-          echo "Revision: $GITHUB_SHA"
+          echo "Requested revision: ${{ inputs.revision || inputs.branch || github.sha }}"
+          echo "Checked out commit: $(git rev-parse HEAD)"
           echo "Workers:  $workers"
           echo "Started:  $(date -Is)"
           npx playwright test tests/e2e/acceptance.spec.js --workers="$workers" --reporter=list,html --retries=0 --trace=retain-on-failure 2>&1 | tee ../acceptance-run.log
