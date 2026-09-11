@@ -310,6 +310,141 @@ After the Live runtime is proven with DC, implement AC as a Live-capable electri
 
 Static AC frequency sweep/Bode analysis is a separate capability that can reuse the AC electrical representations and shared result infrastructure after the Live AC foundation exists.
 
+### 5.13 — Interactive Simulation Workspace UX 🔄
+
+The next Worlds phase shifts the Live experience from a telemetry/debug view toward an interactive circuit-simulator workspace inspired by the interaction model of EveryCircuit. The goal is not to copy its visual implementation, but to adopt the principles that make circuit behavior immediately understandable: simulation is visible on the schematic, controls stay close to the circuit, and the oscilloscope is an interactive analysis surface rather than an ever-growing log.
+
+EveryCircuit's documented UX provides the reference principles for this phase: simulation starts/resumes directly from the schematic, animated voltages/currents are visualized over the circuit, selected nodes/components can be plotted in an oscilloscope, transient traces are measured interactively, and AC uses an interactive frequency-response plot. citehttps://everycircuit.com/help
+
+#### 5.13A — Remove Debug Telemetry from the Primary Live UI
+
+The current `Live State` grid is an implementation/debug representation rather than a useful simulator surface. It must no longer dominate the Live workspace.
+
+- Remove the large raw signal-card grid from the primary Live view
+- Remove the generic signal checklist as the primary interaction model
+- Keep solver/session diagnostics available only where useful for errors or developer diagnostics
+- Present values in circuit context: selected component, node, meter, or schematic overlay
+- Prefer meaningful labels such as `V(R1)`, `I(C1)`, `5 V`, `2.1 mA` over internal signal identifiers
+
+#### 5.13B — Interactive Schematic Simulation
+
+The schematic becomes the primary Live visualization surface.
+
+- Show animated voltage/current information directly on wires and components where meaningful
+- Use visual flow/markers for current direction and magnitude
+- Show compact voltage labels at useful nodes
+- Keep animation legible at different zoom levels
+- Selecting a component/node exposes its relevant live measurements and controls
+- Do not require the user to understand solver signal names to inspect circuit behavior
+
+#### 5.13C — Embedded Interactive Oscilloscope
+
+The Live oscilloscope becomes a compact, persistent analysis surface associated with the schematic rather than an unbounded history panel.
+
+- Plot selected node voltages and component currents
+- Maximum of four active traces by default, matching the proven interaction pattern of EveryCircuit
+- Selection is driven primarily by clicking/selecting a circuit node or component
+- Allow traces to be added/removed without exposing backend signal names
+- Show useful measurements for the selected trace
+- Support pause/cursor inspection in a later increment
+- Keep the oscilloscope collapsible so the schematic can reclaim space
+
+#### 5.13D — Moving Time Window
+
+Live transient/AC waveform display must use a bounded moving time window instead of continually expanding the X axis.
+
+The visible window represents the most recent circuit time:
+
+```text
+simulation time →
+|---------------- visible window ----------------|
+                         ↑ now
+```
+
+The window width is user-controlled. Initial presets should cover common scales such as:
+
+- 5 µs
+- 50 µs
+- 500 µs
+- 5 ms
+- 50 ms
+- 500 ms
+- 1 s
+- 10 s
+
+The UI should also allow a custom value where practical.
+
+Behavior requirements:
+
+- The right edge follows the current simulation time while Live is running
+- Old samples leave the visible window but may remain in a bounded history buffer for short-term interaction
+- High-frequency signals such as 5 MHz must remain visually useful instead of compressing thousands of cycles into an ever-growing chart
+- Low-frequency signals must remain useful with larger windows such as 1 s
+- Sampling/display density is independent from solver step size
+- Changing the visible window should not restart the simulation
+- The chart automatically chooses sensible grid/tick spacing for the selected window
+
+#### 5.13E — Simulation Controls as a Simulator, Not a Job Runner
+
+Controls should communicate continuous simulation rather than request/response execution.
+
+- Clear Run/Pause/Stop semantics
+- Live simulation speed/time-scale control where appropriate
+- Restart/rewind without confusing it with a new static analysis
+- Make the running state visually obvious without taking excessive space
+- Keep configuration controls accessible without covering the schematic
+- Parameter changes during Live should visibly affect the running circuit when supported
+
+#### 5.13F — AC Live Visualization
+
+Live AC should use the same interactive workspace principles while respecting AC's frequency-domain meaning.
+
+- Clearly distinguish time-domain waveform viewing from phasor/frequency-response viewing
+- Keep frequency, amplitude, and phase controls close to the selected source/component
+- Show magnitude and phase in compact, readable forms
+- Provide an interactive frequency-response/oscilloscope surface where the analysis supports it
+- Do not expose raw complex-number telemetry as the primary UI
+
+#### 5.13G — Responsive Workspace and Interaction Quality
+
+- Preserve maximum schematic area when auxiliary panels are closed
+- Panels should collapse rather than permanently consume canvas space
+- Avoid clipped labels and horizontal overflow in analysis surfaces
+- Maintain usable interaction at desktop widths used by Worlds
+- Use consistent selection, hover, focus, and active states across schematic, properties, and simulation views
+- Prefer direct manipulation and context-sensitive controls over generic lists
+
+#### 5.13H — Acceptance / UX Verification
+
+Every interactive simulation change must be verified through the Worlds acceptance workflow, including visual inspection of the resulting screenshots.
+
+Minimum scenarios:
+
+- Live DC shows meaningful circuit-context values without the debug telemetry wall
+- Live transient shows a bounded moving time window
+- 5 MHz sine remains visibly inspectable with a microsecond-scale window
+- 1 Hz / slow transient remains inspectable with a second-scale window
+- Changing window size does not restart or corrupt the live session
+- Selecting a node/component creates a readable trace
+- Pause/stop/resume remain reliable
+- Static DC / sweep / transient / AC result views do not regress
+- No raw component UUIDs or backend signal identifiers are visible in the primary user experience
+
+### 5.14 — Future Interactive Physics Visualization 🔜
+
+After the Live workspace is mature, extend the same interaction model into deeper Worlds layers without coupling the UI to electrical solver internals.
+
+Potential future layers include:
+
+- Thermal
+- Mechanical
+- Control
+- Fluid
+- Physical/material
+- Microscopic
+
+The same principle applies: simulation state should be visualized in the context of the thing being simulated, while numerical/runtime details remain behind the visualization boundary.
+
 ---
 
 ## Phase 5 Current Architecture
@@ -391,3 +526,9 @@ Visualization / API
         ↓
 Worlds UI
 ```
+
+## UX Direction
+
+Worlds should evolve toward a visual, interactive simulation environment rather than a form-driven analysis tool. EveryCircuit is the reference for the interaction principles in this phase: animated simulation directly on the schematic, direct selection of nodes/components for measurement, a compact interactive oscilloscope, and controls that let users experiment while the simulation is running. citehttps://everycircuit.com/
+
+These are product/UX principles, not a requirement to reproduce EveryCircuit's branding, source code, or exact visual design.
