@@ -173,9 +173,9 @@ class DCSweepTest(unittest.TestCase):
         self.assertAlmostEqual(datasets["node_voltages"]["values"][0]["node_1"], 10.0, places=12)
         self.assertAlmostEqual(datasets["node_voltages"]["values"][1]["node_1"], 10.0, places=12)
         self.assertAlmostEqual(datasets["node_voltages"]["values"][2]["node_1"], 10.0, places=12)
-        self.assertAlmostEqual(datasets["branch_currents"]["values"][0]["node_1->ground"], 0.2, places=12)
-        self.assertAlmostEqual(datasets["branch_currents"]["values"][1]["node_1->ground"], 0.1, places=12)
-        self.assertAlmostEqual(datasets["branch_currents"]["values"][2]["node_1->ground"], 10.0 / 150.0, places=12)
+        self.assertAlmostEqual(datasets["branch_currents"]["values"][0]["node_1->ground"], -0.2, places=12)
+        self.assertAlmostEqual(datasets["branch_currents"]["values"][1]["node_1->ground"], -0.1, places=12)
+        self.assertAlmostEqual(datasets["branch_currents"]["values"][2]["node_1->ground"], -10.0 / 150.0, places=12)
         self.assertEqual(payload["analysis_information"]["sweep"], {
             "source": "R1-id",
             "parameter": "R",
