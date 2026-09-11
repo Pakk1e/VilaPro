@@ -137,14 +137,14 @@ function buildSourceParameter(componentType, properties, label) {
   }
 
   if (waveform === "dc") {
-    const propertyName = componentType === "VoltageSource" ? "voltage" : "current";
-    const parameterName = componentType === "VoltageSource" ? "V" : "I";
+    const propertyName = componentType === "Voltage Source" ? "voltage" : "current";
+    const parameterName = componentType === "Voltage Source" ? "V" : "I";
     const value = parseFiniteProperty(properties, propertyName, label);
 
     return { [parameterName]: value };
   }
 
-  const amplitude = properties.amplitude ?? (componentType === "VoltageSource" ? 12 : 0.1);
+  const amplitude = properties.amplitude ?? (componentType === "Voltage Source" ? 12 : 0.1);
   const offset = properties.offset ?? 0;
   const frequency = properties.frequency ?? 1;
   const phaseDegrees = properties.phase ?? 0;
@@ -166,7 +166,7 @@ function buildSourceParameter(componentType, properties, label) {
     throw new Error(`${label}: property "delay" must not be negative`);
   }
 
-  const parameterName = componentType === "VoltageSource" ? "V" : "I";
+  const parameterName = componentType === "Voltage Source" ? "V" : "I";
 
   return {
     [parameterName]: {
@@ -186,7 +186,7 @@ function buildInstance(node, dsu, netNames) {
   const properties = node.data?.properties ?? {};
   const parameters = {};
 
-  if (componentType === "VoltageSource" || componentType === "CurrentSource") {
+  if (componentType === "Voltage Source" || componentType === "Current Source") {
     Object.assign(
       parameters,
       buildSourceParameter(componentType, properties, node.data?.label ?? node.id)
@@ -208,7 +208,7 @@ export function buildCircuitDescription(nodes, edges) {
   const componentNodes = nodes.filter((node) => node.type === "world" && node.data?.componentType !== "Ground");
   if (componentNodes.length === 0) throw new Error("Add at least one simulation component.");
   validateGraph(nodes, edges);
-  const dsu = buildConnectivity(nodes, edges), netNames = buildNetNames(nodes, dsu);
+  const dsu = buildConnectivity(nodes, edges), netNames = buildNetNames(componentNodes.concat(nodes.filter((node) => node.type === "world" && node.data?.componentType === "Ground")), dsu);
   return { instances: componentNodes.map((node) => buildInstance(node, dsu, netNames)) };
 }
 
