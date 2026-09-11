@@ -44,21 +44,55 @@ jobs:
           cache: npm
           cache-dependency-path: frontend-dev/package-lock.json
 
+      - name: Measure runner before acceptance setup
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "=== Worlds acceptance baseline ==="
+          echo "Revision: $GITHUB_SHA"
+          echo "Node: $(node --version)"
+          echo "npm:  $(npm --version)"
+          echo "Started: $(date -Is)"
+          echo "Runner: $(hostname)"
+          echo "Load:   $(cut -d' ' -f1-3 /proc/loadavg 2>/dev/null || true)"
+          free -m 2>/dev/null | awk 'NR==1 || NR==2 {print "Memory: " $0}' || true
+          df -h "$GITHUB_WORKSPACE" 2>/dev/null | awk 'NR==1 || NR==2 {print "Disk: " $0}' || true
+
       - name: Install frontend dependencies
         working-directory: frontend-dev
-        run: npm ci
+        shell: bash
+        run: |
+          set -euo pipefail
+          started=$(date +%s%3N)
+          npm ci
+          ended=$(date +%s%3N)
+          echo "npm ci duration=$((ended - started))ms"
 
       # Keep the acceptance runner aligned with the version used by the deploy
       # workflow. It is intentionally not part of package-lock.json.
       - name: Install Playwright test runner
         working-directory: frontend-dev
-        run: npm install --no-save --package-lock=false @playwright/test@1.63.0
+        shell: bash
+        run: |
+          set -euo pipefail
+          started=$(date +%s%3N)
+          npm install --no-save --package-lock=false @playwright/test@1.63.0
+          ended=$(date +%s%3N)
+          echo "Playwright runner install duration=$((ended - started))ms"
+          node -e "console.log('Playwright version:', require('@playwright/test/package.json').version)"
 
       # The persistent worlds-dev runner normally already has Chromium. This is
       # idempotent and should be a no-op when the requested browser revision exists.
       - name: Ensure Playwright Chromium
         working-directory: frontend-dev
-        run: npx playwright install chromium
+        shell: bash
+        run: |
+          set -euo pipefail
+          started=$(date +%s%3N)
+          npx playwright install chromium
+          ended=$(date +%s%3N)
+          echo "Chromium ensure duration=$((ended - started))ms"
+          npx playwright --version
 
       - name: Run complete acceptance suite
         working-directory: frontend-dev
