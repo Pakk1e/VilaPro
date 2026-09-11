@@ -8,6 +8,24 @@ const POSITION_MAP = {
   bottom: Position.Bottom,
 };
 
+function isPropertyVisible(property, properties) {
+  const condition = property?.visibleWhen;
+
+  if (!condition) return true;
+
+  const actualValue = properties[condition.property];
+
+  if (Object.prototype.hasOwnProperty.call(condition, "equals")) {
+    return actualValue === condition.equals;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(condition, "notEquals")) {
+    return actualValue !== condition.notEquals;
+  }
+
+  return true;
+}
+
 export default function WorldNode({ data, selected }) {
   const ports = data?.ports ?? [];
   const properties = data?.properties ?? {};
@@ -15,6 +33,14 @@ export default function WorldNode({ data, selected }) {
     ? worldDefinitions[data.definitionKey]
     : null;
   const definitionProperties = definition?.properties ?? {};
+
+  const visibleProperties = Object.entries(
+    definitionProperties
+  ).filter(
+    ([, property]) =>
+      property.showOnNode !== false &&
+      isPropertyVisible(property, properties)
+  );
 
   return (
     <div
@@ -52,9 +78,9 @@ export default function WorldNode({ data, selected }) {
       </div>
 
       <div className="px-5 py-4">
-        {Object.entries(definitionProperties).length > 0 ? (
+        {visibleProperties.length > 0 ? (
           <div className="space-y-2">
-            {Object.entries(definitionProperties).map(([key, property]) => {
+            {visibleProperties.map(([key, property]) => {
               const value = properties[key] ?? property.defaultValue ?? "";
 
               return (
@@ -66,7 +92,11 @@ export default function WorldNode({ data, selected }) {
                     {property.label ?? key}
                   </span>
                   <span className="shrink-0 font-mono text-sm font-semibold text-[#17253a]">
-                    {value}
+                    {property.type === "select"
+                      ? (property.options ?? []).find(
+                          (option) => option.value === value
+                        )?.label ?? value
+                      : value}
                     {property.unit && (
                       <span className="ml-1 text-xs font-normal text-[#69717b]">
                         {property.unit}
