@@ -8,6 +8,10 @@ function node(id, componentType, label, properties, x, y) {
       { id: "p", kind: "electrical", position: "left", label: "p" },
       { id: "n", kind: "electrical", position: "right", label: "n" },
     ],
+    Capacitor: [
+      { id: "p", kind: "electrical", position: "left", label: "p" },
+      { id: "n", kind: "electrical", position: "right", label: "n" },
+    ],
     Ground: [{ id: "g", kind: "electrical", position: "top", label: "GND" }],
   };
 
@@ -60,6 +64,37 @@ export function sineSourceFixture() {
           frequency: 1,
           phase: 0,
           delay: 0,
+        },
+      },
+    },
+  });
+}
+
+export function rcCircuitFixture() {
+  const voltage = node("V1", "Voltage Source", "Voltage Source 1", {
+    waveform: "dc",
+    voltage: 5,
+  }, 100, 100);
+  const resistor = node("R1", "Resistor", "Resistor 1", { resistance: 1000 }, 300, 100);
+  const capacitor = node("C1", "Capacitor", "Capacitor 1", { capacitance: 0.001, initialVoltage: 0 }, 500, 100);
+  const ground = node("GND1", "Ground", "Ground 1", {}, 300, 250);
+  const nodes = [voltage, resistor, capacitor, ground];
+  const edges = [
+    { id: "e1", source: "V1", sourceHandle: "p", target: "R1", targetHandle: "p" },
+    { id: "e2", source: "R1", sourceHandle: "n", target: "C1", targetHandle: "p" },
+    { id: "e3", source: "C1", sourceHandle: "n", target: "GND1", targetHandle: "g" },
+    { id: "e4", source: "V1", sourceHandle: "n", target: "GND1", targetHandle: "g" },
+  ];
+  return { nodes, edges };
+}
+
+export function acCircuitFixture() {
+  return seriesCircuitFixture({
+    V1: {
+      data: {
+        properties: {
+          waveform: "dc",
+          voltage: 5,
         },
       },
     },
