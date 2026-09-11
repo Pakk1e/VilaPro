@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { sineSourceFixture, seriesCircuitFixture } from "./__fixtures__/worldGraphFixtures.js";
-import { buildCircuitDescription, serializeWorldGraph } from "./worldGraphSerializer.js";
+import { buildCircuitDescription, serializeWorldGraph, validateWorldGraph } from "./worldGraphSerializer.js";
 
 function instancesFor(graph) {
   return buildCircuitDescription(graph.nodes, graph.edges).instances;
@@ -75,5 +75,25 @@ test("unconnected component terminals are rejected", () => {
   assert.throws(
     () => serializeWorldGraph(graph.nodes, graph.edges),
     /terminal "n" is unconnected/
+  );
+});
+
+test("duplicate node identities are rejected at the graph boundary", () => {
+  const graph = seriesCircuitFixture();
+  graph.nodes[1] = { ...graph.nodes[1], id: "V1" };
+
+  assert.throws(
+    () => validateWorldGraph(graph.nodes, graph.edges),
+    /duplicate or missing node ids/
+  );
+});
+
+test("wires referencing deleted nodes are rejected at the graph boundary", () => {
+  const graph = seriesCircuitFixture();
+  graph.nodes = graph.nodes.filter((node) => node.id !== "R1");
+
+  assert.throws(
+    () => validateWorldGraph(graph.nodes, graph.edges),
+    /missing node/
   );
 });
