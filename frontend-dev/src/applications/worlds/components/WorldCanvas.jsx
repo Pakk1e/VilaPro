@@ -26,6 +26,7 @@ export default function WorldCanvas({ workspace = "design" }) {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes); const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges); const [reactFlowInstance, setReactFlowInstance] = useState(null); const [selectedNodeId, setSelectedNodeId] = useState(null); const [selectedEdgeId, setSelectedEdgeId] = useState(null); const selectedNode = nodes.find((node) => node.id === selectedNodeId) ?? null;
   const [selectedResultEntity, setSelectedResultEntity] = useState(null);
   useEffect(() => { const handleResultSelection = (event) => setSelectedResultEntity(event.detail ?? null); window.addEventListener("worlds:select-result", handleResultSelection); return () => window.removeEventListener("worlds:select-result", handleResultSelection); }, []);
+  useEffect(() => { window.__WORLDS_DEBUG__ = { workspace, selectedNodeId, selectedEdgeId, nodes: structuredClone(nodes), edges: structuredClone(edges) }; return () => { delete window.__WORLDS_DEBUG__; }; }, [workspace, selectedNodeId, selectedEdgeId, nodes, edges]);
   const onConnect = useCallback((connection) => {
     if (!canConnect(connection, nodes)) return;
     flushSync(() => {
