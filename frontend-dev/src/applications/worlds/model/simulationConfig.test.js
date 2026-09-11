@@ -69,17 +69,17 @@ test("parameter sweep rejects an unavailable parameter", () => {
 });
 
 test("parameter sweep rejects a missing target", () => {
-  assert.equal(getDcSweepValidationError({ start: 0, stop: 10, step: 1 }, ["V1"]), "Select a sweep target.");
+  assert.equal(getDcSweepValidationError({ start: 0, stop: 10, step: 1 }, []), "Select a component or source parameter to sweep.");
 });
 
 test("parameter sweep rejects an unavailable target", () => {
-  assert.equal(getDcSweepValidationError({ source: "V2", start: 0, stop: 10, step: 1 }, ["V1"]), "The selected sweep target is no longer available.");
+  assert.equal(getDcSweepValidationError({ source: "V2", parameter: "V", start: 0, stop: 10, step: 1 }, targets), "The selected sweep target is no longer available.");
 });
 
 test("parameter sweep validates step direction and zero step", () => {
-  assert.equal(getDcSweepValidationError({ source: "V1", start: 0, stop: 10, step: 0 }, ["V1"]), "The selected sweep target has no sweep parameter.");
-  assert.equal(getDcSweepValidationError({ source: "V1", start: 0, stop: 10, step: -1 }, ["V1"]), "The selected sweep target has no sweep parameter.");
-  assert.equal(getDcSweepValidationError({ source: "V1", start: 10, stop: 0, step: 1 }, ["V1"]), "The selected sweep target has no sweep parameter.");
+  assert.equal(getDcSweepValidationError({ source: "V1-id", parameter: "V", start: 0, stop: 10, step: 0 }, targets), "Step cannot be zero.");
+  assert.equal(getDcSweepValidationError({ source: "V1-id", parameter: "V", start: 0, stop: 10, step: -1 }, targets), "Step must be positive when start is below stop.");
+  assert.equal(getDcSweepValidationError({ source: "V1-id", parameter: "V", start: 10, stop: 0, step: 1 }, targets), "Step must be negative when start is above stop.");
 });
 
 test("operating point keeps the existing default configuration", () => {
