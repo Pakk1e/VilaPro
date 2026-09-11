@@ -92,6 +92,15 @@ test("authenticated user can start, pause, resume and stop Live DC", async ({ pa
   await expect(liveState.getByText("Waiting for the first simulation update.")).toHaveCount(0, { timeout: 10000 });
   await expect(liveState.getByText("Sample time")).toBeVisible();
   await expect(liveState.getByText("0.5")).toBeVisible({ timeout: 10000 });
+  await expect(liveState.getByText("Plot signals", { exact: true })).toBeVisible();
+  await expect(liveState.getByRole("img", { name: "Live simulation plot" })).toBeVisible();
+  await expect(liveState.getByText(/samples$/).last()).toBeVisible();
+
+  const signalCheckboxes = liveState.locator('input[type="checkbox"]');
+  await expect(signalCheckboxes).toHaveCount(1);
+  await signalCheckboxes.first().uncheck();
+  await expect(liveState.getByText("Select at least one signal and wait for two live samples to plot it.")).toBeVisible();
+  await signalCheckboxes.first().check();
 
   await page.getByRole("button", { name: "Pause" }).click();
   await expect(page.getByRole("button", { name: "Resume" })).toBeVisible();
@@ -121,6 +130,8 @@ test("authenticated user can run Live AC and receive phasor state", async ({ pag
   await expect(liveState.getByText(/· phase$/).first()).toBeVisible({ timeout: 10000 });
   await expect(liveState.getByText(/· instantaneous$/).first()).toBeVisible({ timeout: 10000 });
   await expect(liveState.getByText("Sample time")).toBeVisible();
+  await expect(liveState.getByText("Plot signals", { exact: true })).toBeVisible();
+  await expect(liveState.getByRole("img", { name: "Live simulation plot" })).toBeVisible();
   await page.getByRole("button", { name: "Stop" }).click();
   await expect(page.locator("header").getByText("cancelled", { exact: true })).toBeVisible();
   expect(consoleErrors).toEqual([]);
