@@ -78,16 +78,18 @@ class LiveSimulationApplicationTest(unittest.TestCase):
         created = manager.create(configuration)
         manager.start(created.session_id)
         service._contexts[created.session_id] = _LiveContext(configuration, SimulationModel(), {})
+        service._sample_times[created.session_id] = 0.0
 
         service._start_worker(created.session_id)
         deadline = time.monotonic() + 2.0
-        while runtime.steps == 0 and time.monotonic() < deadline:
+        while runtime.steps < 2 and time.monotonic() < deadline:
             time.sleep(0.02)
 
-        self.assertGreater(runtime.steps, 0)
+        self.assertGreaterEqual(runtime.steps, 2)
         self.assertEqual(manager.get(created.session_id).status, "running")
         self.assertIn("V(out)", manager.get(created.session_id).signals)
         self.assertEqual(runtime.sample_times[0], 0.0)
+        self.assertGreater(runtime.sample_times[1], runtime.sample_times[0])
 
         manager.cancel(created.session_id)
         service._stop_worker(created.session_id)
