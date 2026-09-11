@@ -144,11 +144,17 @@ function buildSourceParameter(componentType, properties, label) {
     return { [parameterName]: value };
   }
 
-  const amplitude = parseFiniteProperty(properties, "amplitude", label);
-  const offset = parseFiniteProperty(properties, "offset", label);
-  const frequency = parseFiniteProperty(properties, "frequency", label);
-  const phaseDegrees = parseFiniteProperty(properties, "phase", label);
-  const delay = parseFiniteProperty(properties, "delay", label);
+  const amplitude = properties.amplitude ?? (componentType === "VoltageSource" ? 12 : 0.1);
+  const offset = properties.offset ?? 0;
+  const frequency = properties.frequency ?? 1;
+  const phaseDegrees = properties.phase ?? 0;
+  const delay = properties.delay ?? 0;
+
+  for (const [propertyName, value] of Object.entries({ amplitude, offset, frequency, phase: phaseDegrees, delay })) {
+    if (typeof value !== "number" || !Number.isFinite(value)) {
+      throw new Error(`${label}: property "${propertyName}" must be a finite number`);
+    }
+  }
 
   if (amplitude < 0) {
     throw new Error(`${label}: property "amplitude" must not be negative`);
