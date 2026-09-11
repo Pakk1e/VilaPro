@@ -72,7 +72,7 @@ class SimulationAnalysisTest(unittest.TestCase):
             load_world_source(),
             instances=[
                 {"id": "V1-id", "name": "Supply", "type": "VoltageSource", "parameters": {"V": 12.0}, "ports": {"p": "node_1", "n": "ground"}},
-                {"id": "C1-id", "name": "Capacitor", "parameters": {"C": 1e-6}, "ports": {"p": "node_1", "n": "ground"}},
+                {"id": "C1-id", "name": "Capacitor", "type": "Capacitor", "parameters": {"C": 1e-6}, "ports": {"p": "node_1", "n": "ground"}},
                 {"id": "R1-id", "name": "Load", "type": "Resistor", "parameters": {"R": 100.0}, "ports": {"p": "node_1", "n": "ground"}},
             ],
             simulation={"analysis": DC_OPERATING_POINT},
@@ -94,10 +94,11 @@ class SimulationAnalysisTest(unittest.TestCase):
         self.assertEqual(response.status, "completed")
         payload = response.result.to_dict()
         self.assertEqual(payload["datasets"][0]["values"], [100.0, 200.0, 300.0])
-        voltages = payload["datasets"][2]["values"]
-        self.assertAlmostEqual(voltages[0]["node_1"], 10.0, places=12)
-        self.assertAlmostEqual(voltages[1]["node_1"], 10.0, places=12)
-        self.assertAlmostEqual(voltages[2]["node_1"], 10.0, places=12)
+        components = payload["datasets"][4]["values"]
+        currents = [row[1]["current"] for row in components]
+        self.assertAlmostEqual(currents[0], 0.1, places=12)
+        self.assertAlmostEqual(currents[1], 0.05, places=12)
+        self.assertAlmostEqual(currents[2], 1 / 30, places=12)
         self.assertEqual(payload["analysis_information"]["sweep"]["parameter"], "R")
 
     def test_static_ac_returns_generic_result_envelope(self):
