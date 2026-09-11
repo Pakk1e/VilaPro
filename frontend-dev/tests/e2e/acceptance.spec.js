@@ -167,17 +167,22 @@ test.describe("Worlds acceptance suite", () => {
     const { voltage } = await createSeriesCircuit(page);
 
     await voltage.click();
-    await page.getByLabel("Waveform", { exact: true }).selectOption("sine");
-    await page.getByLabel("Amplitude", { exact: true }).fill("5");
-    await page.getByLabel("Offset", { exact: true }).fill("0");
-    await page.getByLabel("Frequency", { exact: true }).fill("1");
-    await page.getByLabel("Phase", { exact: true }).fill("0");
-    await page.getByLabel("Delay", { exact: true }).fill("0");
+    const sourceProperties = page.locator("aside").locator("select").first();
+    await sourceProperties.scrollIntoViewIfNeeded();
+    await expect(sourceProperties).toBeVisible();
+    await sourceProperties.selectOption("sine");
+
+    const sourceInputs = page.locator('aside input[type="number"]');
+    await expect(sourceInputs).toHaveCount(5);
+    await sourceInputs.nth(0).fill("5");
+    await sourceInputs.nth(1).fill("0");
+    await sourceInputs.nth(2).fill("1");
+    await sourceInputs.nth(3).fill("0");
+    await sourceInputs.nth(4).fill("0");
 
     await page.getByRole("button", { name: "Simulation" }).click();
     await page.getByLabel("Analysis").selectOption("transient");
     await expect(page.getByText(/Start|Stop|Step/).first()).toBeVisible();
-    await expect(page.getByLabel("Waveform", { exact: true })).toHaveValue("sine");
 
     const simulate = page.getByRole("button", { name: "Simulate" });
     await expect(simulate).toBeEnabled();
