@@ -2,6 +2,7 @@ import { useState } from "react";
 
 import WorldCanvas from "../components/WorldCanvas";
 import WorkspaceTabs, { WORKSPACES } from "../components/WorkspaceTabs";
+import { DEFAULT_WORLD_CONTEXT } from "../model/worldContext";
 
 export default function WorldsShellPage() {
   const [workspace, setWorkspace] = useState("design");
@@ -28,7 +29,7 @@ export default function WorldsShellPage() {
         </div>
 
         <div className="min-h-0 flex-1">
-          <WorldCanvas workspace={workspace} />
+          <WorldCanvas workspace={workspace} worldContext={DEFAULT_WORLD_CONTEXT} />
         </div>
       </section>
     </div>
