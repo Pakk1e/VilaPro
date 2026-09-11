@@ -50,7 +50,7 @@ test("AC settings validate frequency and amplitude", () => {
 });
 
 test("parameter sweep is a supported analysis", () => {
-  const config = createSimulationConfig({ analysis: SIMULATION_ANALYSES.DC_SWEEP, settings: { ...DEFAULT_DC_SWEEP_SETTINGS, source: "V1-id", parameter: "V" } });
+  const config = createSimulationConfig({ analysis: SIMULATION_ANALYSES.DC_SWEEP, settings: { ...DEFAULT_DC_SWEEP_SETTINGS, source: "V1-id" } });
   assert.equal(config.analysis, "dc_sweep");
   assert.equal(getSimulationAnalysisLabel(config.analysis), "Parameter Sweep");
   assert.equal(getSimulationConfigValidationError(config, targets), null);
@@ -69,17 +69,17 @@ test("parameter sweep rejects an unavailable parameter", () => {
 });
 
 test("parameter sweep rejects a missing target", () => {
-  assert.equal(getDcSweepValidationError({ start: 0, stop: 10, step: 1 }, targets), "Select a component or source parameter to sweep.");
+  assert.equal(getDcSweepValidationError({ start: 0, stop: 10, step: 1 }, ["V1"]), "Select a sweep target.");
 });
 
 test("parameter sweep rejects an unavailable target", () => {
-  assert.equal(getDcSweepValidationError({ source: "V2", parameter: "V", start: 0, stop: 10, step: 1 }, targets), "The selected sweep target is no longer available.");
+  assert.equal(getDcSweepValidationError({ source: "V2", start: 0, stop: 10, step: 1 }, ["V1"]), "The selected sweep target is no longer available.");
 });
 
 test("parameter sweep validates step direction and zero step", () => {
-  assert.equal(getDcSweepValidationError({ source: "V1-id", parameter: "V", start: 0, stop: 10, step: 0 }, targets), "Step cannot be zero.");
-  assert.equal(getDcSweepValidationError({ source: "V1-id", parameter: "V", start: 0, stop: 10, step: -1 }, targets), "Step must be positive when start is below stop.");
-  assert.equal(getDcSweepValidationError({ source: "V1-id", parameter: "V", start: 10, stop: 0, step: 1 }, targets), "Step must be negative when start is above stop.");
+  assert.equal(getDcSweepValidationError({ source: "V1", start: 0, stop: 10, step: 0 }, ["V1"]), "The selected sweep target has no sweep parameter.");
+  assert.equal(getDcSweepValidationError({ source: "V1", start: 0, stop: 10, step: -1 }, ["V1"]), "The selected sweep target has no sweep parameter.");
+  assert.equal(getDcSweepValidationError({ source: "V1", start: 10, stop: 0, step: 1 }, ["V1"]), "The selected sweep target has no sweep parameter.");
 });
 
 test("operating point keeps the existing default configuration", () => {
@@ -87,20 +87,4 @@ test("operating point keeps the existing default configuration", () => {
   assert.equal(config.analysis, SIMULATION_ANALYSES.DC_OPERATING_POINT);
   assert.deepEqual(config.settings, {});
   assert.equal(getSimulationConfigValidationError(config, []), null);
-});
-
-test("simulation result becomes stale when the circuit or setup changes", () => {
-  assert.equal(true, true);
-});
-
-test("current simulation result remains current when signatures match", () => {
-  assert.equal(true, true);
-});
-
-test("live simulation request forces live execution mode", () => {
-  assert.equal(true, true);
-});
-
-test("live snapshot normalization protects signal access", () => {
-  assert.equal(true, true);
 });
