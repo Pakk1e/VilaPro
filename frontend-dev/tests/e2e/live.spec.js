@@ -46,7 +46,6 @@ async function createSeriesCircuit(page) {
   await initialComponent.click();
   await page.keyboard.press("Delete");
   await expect(initialComponent).toHaveCount(0);
-
   const voltage = await addComponent(page, "Voltage Source", "Voltage Source 1");
   const resistor = await addComponent(page, "Resistor", "Resistor 1");
   const ground = await addComponent(page, "Ground", "Ground 1");
@@ -84,7 +83,6 @@ test("authenticated user can start, pause, resume and stop Live DC", async ({ pa
   await page.getByRole("button", { name: "Live" }).click();
   await expect(page.getByRole("button", { name: "Start Live" })).toBeEnabled();
   await expect(page.getByText("Live mode keeps a session open and updates the current sampled state.")).toBeVisible();
-
   await page.getByRole("button", { name: "Start Live" }).click();
   const liveState = page.getByRole("region", { name: "Live simulation state" });
   await expect(liveState).toBeVisible({ timeout: 10000 });
@@ -95,13 +93,11 @@ test("authenticated user can start, pause, resume and stop Live DC", async ({ pa
   await expect(liveState.getByText("Plot signals", { exact: true })).toBeVisible();
   await expect(liveState.getByRole("img", { name: "Live simulation plot" })).toBeVisible();
   await expect(liveState.getByText(/samples$/).last()).toBeVisible();
-
   const signalCheckboxes = liveState.locator('input[type="checkbox"]');
-  await expect(signalCheckboxes).toHaveCountGreaterThan(0);
+  expect(await signalCheckboxes.count()).toBeGreaterThan(0);
   await signalCheckboxes.first().uncheck();
   await expect(liveState.getByText("Select at least one signal and wait for two live samples to plot it.")).toBeVisible();
   await signalCheckboxes.first().check();
-
   await page.getByRole("button", { name: "Pause" }).click();
   await expect(page.getByRole("button", { name: "Resume" })).toBeVisible();
   await expect(page.locator("header").getByText("paused", { exact: true })).toBeVisible();
@@ -122,7 +118,6 @@ test("authenticated user can run Live AC and receive phasor state", async ({ pag
   await page.getByRole("button", { name: "Live" }).click();
   await page.getByLabel("Analysis").selectOption({ label: "AC Analysis" });
   await expect(page.getByRole("button", { name: "Start Live" })).toBeEnabled();
-
   await page.getByRole("button", { name: "Start Live" }).click();
   const liveState = page.getByRole("region", { name: "Live simulation state" });
   await expect(liveState).toBeVisible({ timeout: 10000 });
