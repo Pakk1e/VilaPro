@@ -93,18 +93,18 @@ export default function ResultExplorer({ result }) {
   const nodeRows = rows.filter((row) => row.entityType === "node");
   const componentRows = rows.filter((row) => row.entityType === "component");
   const branchRows = rows.filter((row) => row.entityType === "branch");
+  const isSweep = result?.analysis === "dc_sweep";
+  const isTransient = result?.analysis === "transient";
+  const isAC = result?.analysis === "ac";
   const [selectedKey, setSelectedKey] = useState(null);
-  const [measurement, setMeasurement] = useState(RESULT_MEASUREMENTS.VOLTAGE);
+  const [measurement, setMeasurement] = useState(null);
   const selectedRow = rows.find((row) => row.key === selectedKey) ?? componentRows[0] ?? branchRows[0] ?? nodeRows.find((row) => row.entityId !== "ground") ?? nodeRows[0] ?? null;
   const availableMeasurements = selectedRow ? measurements.filter((item) => Boolean(selectedRow.values[item])) : [];
-  const defaultMeasurement = result?.analysis === "dc_sweep" && availableMeasurements.includes(RESULT_MEASUREMENTS.CURRENT)
+  const defaultMeasurement = isSweep && availableMeasurements.includes(RESULT_MEASUREMENTS.CURRENT)
     ? RESULT_MEASUREMENTS.CURRENT
     : RESULT_MEASUREMENTS.VOLTAGE;
   const effectiveMeasurement = availableMeasurements.includes(measurement) ? measurement : availableMeasurements.includes(defaultMeasurement) ? defaultMeasurement : availableMeasurements[0] ?? null;
   const selectedSeries = selectedRow && effectiveMeasurement ? getEntityMeasurementSeries(series, selectedRow.entityType, selectedRow.entityId, effectiveMeasurement) : null;
-  const isSweep = result?.analysis === "dc_sweep";
-  const isTransient = result?.analysis === "transient";
-  const isAC = result?.analysis === "ac";
 
   useEffect(() => { dispatchResultSelection(selectedRow); }, [selectedRow]);
   useEffect(() => {
