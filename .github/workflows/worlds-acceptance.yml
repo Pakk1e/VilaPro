@@ -19,6 +19,7 @@ jobs:
   acceptance:
     name: Worlds browser acceptance
     runs-on: [self-hosted, worlds-dev]
+    environment: worlds-dev
     timeout-minutes: 30
     env:
       BASE_URL: https://worlds-dev.vadovsky-tech.com
@@ -43,8 +44,8 @@ jobs:
         run: npm ci
 
       # The persistent worlds-dev runner normally already has Chromium from the
-      # deploy workflow. This command is intentionally without --with-deps so it
-      # can reuse the cached browser and does not require OS package privileges.
+      # deploy workflow. This is intentionally without --with-deps so it can
+      # reuse the cached browser without requiring OS package privileges.
       - name: Ensure Playwright Chromium
         working-directory: frontend-dev
         run: npx playwright install chromium
