@@ -150,6 +150,7 @@ test.describe("Worlds acceptance suite", () => {
     const results = await waitForResults(page);
     const plot = page.getByRole("img", { name: /result plot/i });
     await expect(plot).toBeVisible();
+    await expect(plot).toHaveAttribute("aria-label", /I\(Voltage Source 1\)/);
     await expect(results.getByText(/6\.67/).first()).toBeVisible();
     await expect(plot.locator("circle")).toHaveCount(3);
     await expect(plot.locator("path")).toHaveCount(1);
@@ -159,7 +160,7 @@ test.describe("Worlds acceptance suite", () => {
     expect(errors).toEqual([]);
   });
 
-  test("T08 — transient 1 Hz sine source", async ({ page }, testInfo) => {
+  test("T08 — transient response plot", async ({ page }, testInfo) => {
     const errors = browserErrors(page);
     await signIn(page);
     await page.goto("/worlds", { waitUntil: "networkidle" });
@@ -175,9 +176,10 @@ test.describe("Worlds acceptance suite", () => {
     const results = await waitForResults(page);
     const plot = page.getByRole("img", { name: /result plot/i });
     await expect(plot).toBeVisible();
+    await expect(plot).toHaveAttribute("aria-label", /V\(Voltage Source 1\)/);
     await expect(results).toBeVisible();
-    await captureVisual(page, testInfo, "T08-transient-sine");
-    await captureElementVisual(plot, testInfo, "T08-transient-sine-plot");
+    await captureVisual(page, testInfo, "T08-transient-response");
+    await captureElementVisual(plot, testInfo, "T08-transient-response-plot");
     expect(errors).toEqual([]);
   });
 
@@ -200,6 +202,8 @@ test.describe("Worlds acceptance suite", () => {
     await expect(results.getByText("AC Phasors", { exact: true })).toBeVisible();
     await expect(results.getByText(/1,?000(?:\.0+)?/).first()).toBeVisible();
     await expect(results.getByText("Phasor values", { exact: true })).toBeVisible();
+    await expect(results.getByText("V(Node 2)", { exact: true })).toBeVisible();
+    await expect(results.getByText(/Variable\(name=/)).toHaveCount(0);
     await captureVisual(page, testInfo, "T09-static-ac-phasor");
     await captureElementVisual(results, testInfo, "T09-static-ac-phasor-results");
     expect(errors).toEqual([]);
