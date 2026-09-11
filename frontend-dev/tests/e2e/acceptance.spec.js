@@ -1,4 +1,5 @@
-import { test, expect } from "@playwright/test";
+import test, { expect } from "@playwright/test";
+import { writeFile } from "node:fs/promises";
 
 async function addComponent(page, name, label) { await page.getByRole("button", { name, exact: false }).click(); const node = page.locator(".react-flow__node").filter({ hasText: label }); await expect(node).toBeVisible(); return node; }
 async function moveNode(page, node, x, y) { const box = await node.boundingBox(); if (!box) throw new Error("Unable to locate ReactFlow node."); await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2); await page.mouse.down(); await page.mouse.move(x, y, { steps: 10 }); await page.mouse.up(); }
@@ -19,6 +20,16 @@ async function captureElementVisual(locator, testInfo, name) { await expect(loca
 function browserErrors(page) { const errors = []; page.on("console", (message) => { if (message.type() === "error" && !message.text().includes("status of 401")) errors.push(message.text()); }); page.on("pageerror", (error) => errors.push(error.message)); return errors; }
 
 test.describe("Worlds acceptance suite", () => {
+  test.afterEach(async ({ page }, testInfo) => {
+    if (testInfo.status === testInfo.expectedStatus) return;
+    const diagnostics = await page.evaluate(() => ({
+      url: window.location.href,
+      viewport: { width: window.innerWidth, height: window.innerHeight },
+      worlds: window.__WORLDS_DEBUG__ ?? null,
+    })).catch((error) => ({ error: error.message }));
+    await writeFile(testInfo.outputPath("worlds-debug.json"), JSON.stringify(diagnostics, null, 2));
+  });
+
   test("T01 — basic 10 V / 1 kΩ DC operating point", async ({ page }, testInfo) => {
     const errors = browserErrors(page); await page.goto("/worlds", { waitUntil: "networkidle" }); const { voltage, resistor } = await createSeriesCircuit(page); await voltage.click(); await inspectorInputs(page).first().fill("10"); await resistor.click(); await inspectorInputs(page).first().fill("1000"); await page.getByRole("button", { name: "Simulation" }).click(); await expect(page.getByLabel("Analysis")).toHaveValue("dc_operating_point"); await page.getByTestId("simulate-button").click(); const results = await waitForResults(page); await expect(results.getByText(/10\.?0+\s*(V)?/).first()).toBeVisible(); await expect(results.getByText(/10\.?0+\s*mA/).first()).toBeVisible(); await captureVisual(page, testInfo, "T01-dc-operating-point"); await captureElementVisual(results, testInfo, "T01-dc-operating-point-results"); expect(errors).toEqual([]);
   });
