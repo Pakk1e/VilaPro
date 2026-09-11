@@ -51,11 +51,11 @@ export default function SimulationSetup({ config, onChange, sweepTargets = [], v
       {config.analysis === SIMULATION_ANALYSES.AC && (
         <div className="mt-4 space-y-3">
           <div className="rounded-md border border-[#e4e7eb] bg-[#fafbfc] px-3 py-2.5 text-[10px] leading-4 text-[#69717b]">AC uses sinusoidal excitation and reports complex phasor magnitude and phase for the current linear electrical model. Static AC is a single-frequency operating point; frequency-sweep/Bode analysis can build on the same AC representation.</div>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             {[["frequency", "Frequency", "Hz"], ["amplitude", "Amplitude", "V/A"], ["phase", "Phase", "°"]].map(([name, label, unit]) => (
-              <label key={name} className="block">
+              <label key={name} className="block min-w-0">
                 <span className="text-[10px] font-medium text-[#69717b]">{label}</span>
-                <div className="relative mt-1"><input type="number" value={config.settings?.[name] ?? ""} onChange={(event) => changeSetting(name, event.target.value)} step="any" className="w-full rounded-md border border-[#d9dde2] bg-white px-2 py-2 pr-7 text-xs text-[#26364d] outline-none focus:border-[#58718f]" /><span className="pointer-events-none absolute right-2 top-2 text-[9px] text-[#8a929c]">{unit}</span></div>
+                <div className="relative mt-1"><input type="number" value={config.settings?.[name] ?? ""} onChange={(event) => changeSetting(name, event.target.value)} step="any" className="w-full min-w-0 rounded-md border border-[#d9dde2] bg-white px-2.5 py-2 pr-10 text-xs tabular-nums text-[#26364d] outline-none focus:border-[#58718f]" /><span className="pointer-events-none absolute right-2 top-2 text-[9px] text-[#8a929c]">{unit}</span></div>
               </label>
             ))}
           </div>
