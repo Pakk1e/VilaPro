@@ -43,6 +43,15 @@ jobs:
         working-directory: frontend-dev
         run: npm ci
 
+      # Keep the acceptance runner aligned with the version used by the deploy
+      # workflow. It is intentionally not part of package-lock.json.
+      - name: Install Playwright test runner
+        working-directory: frontend-dev
+        run: npm install --no-save --package-lock=false @playwright/test@1.63.0
+
+      # The persistent worlds-dev runner normally already has Chromium from the
+      # deploy workflow. Without --with-deps this is fast when cached and does
+      # not require OS package privileges.
       - name: Ensure Playwright Chromium
         working-directory: frontend-dev
         run: npx playwright install chromium
