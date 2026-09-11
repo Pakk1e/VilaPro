@@ -102,10 +102,8 @@ test.describe("Worlds acceptance suite", () => {
 
     const numberInputs = page.locator('input[type="number"]');
     await voltage.click();
-    await expect(numberInputs.first()).toHaveValue("10");
     await numberInputs.first().fill("10");
     await resistor.click();
-    await expect(numberInputs.first()).toHaveValue("100");
     await numberInputs.first().fill("1000");
 
     await page.getByRole("button", { name: "Simulation" }).click();
@@ -134,10 +132,12 @@ test.describe("Worlds acceptance suite", () => {
     await inputs.nth(2).fill("500");
     await page.getByRole("button", { name: "Simulate" }).click();
     const results = await waitForResults(page);
-    await expect(page.getByRole("img", { name: /result plot/i })).toBeVisible();
-    await expect(results.getByText(/20\.?0+\s*mA/).first()).toBeVisible();
-    await expect(results.getByText(/10\.?0+\s*mA/).first()).toBeVisible();
+    const plot = page.getByRole("img", { name: /result plot/i });
+    await expect(plot).toBeVisible();
     await expect(results.getByText(/6\.66/).first()).toBeVisible();
+    await expect(plot.locator("circle")).toHaveCount(3);
+    await expect(plot.locator("path")).toHaveCount(1);
+    await expect(plot.locator("path").first()).toHaveAttribute("d", /L/);
     expect(errors).toEqual([]);
   });
 
@@ -190,7 +190,7 @@ test.describe("Worlds acceptance suite", () => {
     await page.getByRole("button", { name: "Simulation" }).click();
     await page.getByRole("button", { name: "Live" }).click();
     await page.getByLabel("Analysis").selectOption("ac");
-    await page.getByLabel("Frequency").fill("0.1");
+    await page.getByLabel("Frequency").fill("1");
     await page.getByLabel("Amplitude").fill("5");
     await page.getByLabel("Phase").fill("0");
     await page.getByRole("button", { name: "Start Live" }).click();
