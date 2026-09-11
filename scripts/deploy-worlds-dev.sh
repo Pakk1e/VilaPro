@@ -62,7 +62,7 @@ step_end
 
 step_start "3/5 Installing frontend dependencies and building"
 cd "$FRONTEND_DIR"
-npm ci
+npm ci --prefer-offline --no-audit --no-fund
 npm run build
 step_end
 
