@@ -9,6 +9,7 @@ import SimulationPanel from "./SimulationPanel";
 import ComponentSidebar from "./ComponentSidebar";
 import SchematicPreview from "./SchematicPreview";
 import { worldDefinitions } from "../model/worldDefinitions";
+import { DEFAULT_WORLD_CONTEXT, validateWorldContext } from "../model/worldContext";
 
 const initialNodes = [];
 const initialEdges = [];
@@ -21,12 +22,13 @@ function canConnect(connection, nodes) { if (!connection.source || !connection.s
 function getEdgeIdAtPoint(event) { return document.elementsFromPoint(event.clientX, event.clientY).find((item) => item.classList.contains("react-flow__edge-interaction"))?.parentElement?.dataset?.id ?? null; }
 function getJunctionHandle(position, endpoint) { const dx = endpoint.x - position.x; const dy = endpoint.y - position.y; if (Math.abs(dx) >= Math.abs(dy)) return dx < 0 ? "junction-left" : "junction-right"; return dy < 0 ? "junction-top" : "junction-bottom"; }
 
-export default function WorldCanvas({ workspace = "design" }) {
+export default function WorldCanvas({ workspace = "design", worldContext = DEFAULT_WORLD_CONTEXT }) {
+  validateWorldContext(worldContext);
   const isDesignWorkspace = workspace === "design";
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes); const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges); const [reactFlowInstance, setReactFlowInstance] = useState(null); const [selectedNodeId, setSelectedNodeId] = useState(null); const [selectedEdgeId, setSelectedEdgeId] = useState(null); const selectedNode = nodes.find((node) => node.id === selectedNodeId) ?? null;
   const [selectedResultEntity, setSelectedResultEntity] = useState(null);
   useEffect(() => { const handleResultSelection = (event) => setSelectedResultEntity(event.detail ?? null); window.addEventListener("worlds:select-result", handleResultSelection); return () => window.removeEventListener("worlds:select-result", handleResultSelection); }, []);
-  useEffect(() => { window.__WORLDS_DEBUG__ = { workspace, selectedNodeId, selectedEdgeId, nodes: structuredClone(nodes), edges: structuredClone(edges) }; return () => { delete window.__WORLDS_DEBUG__; }; }, [workspace, selectedNodeId, selectedEdgeId, nodes, edges]);
+  useEffect(() => { window.__WORLDS_DEBUG__ = { workspace, worldContext, selectedNodeId, selectedEdgeId, nodes: structuredClone(nodes), edges: structuredClone(edges) }; return () => { delete window.__WORLDS_DEBUG__; }; }, [workspace, worldContext, selectedNodeId, selectedEdgeId, nodes, edges]);
   const onConnect = useCallback((connection) => {
     if (!canConnect(connection, nodes)) return;
     flushSync(() => {
@@ -48,7 +50,7 @@ export default function WorldCanvas({ workspace = "design" }) {
   const handleConnectEnd = (event, connectionState) => { if (!isDesignWorkspace || connectionState.isValid || !connectionState.fromNode || !reactFlowInstance) return; const edgeId = getEdgeIdAtPoint(event); if (!edgeId) return; const edge = edges.find((currentEdge) => currentEdge.id === edgeId); if (!edge) return; const position = reactFlowInstance.screenToFlowPosition({ x: event.clientX, y: event.clientY }); const junctionId = `junction-${crypto.randomUUID()}`; const junctionNode = { id: junctionId, type: "junction", position: { x: position.x - 8, y: position.y - 8 }, data: { kind: "junction", portKind: "electrical" } }; const sourceHandle = connectionState.fromHandle?.id; if (!sourceHandle) return; const firstEdge = { id: `edge-${crypto.randomUUID()}`, source: edge.source, sourceHandle: edge.sourceHandle, target: junctionId, targetHandle: "junction-left", type: "circuit" }; const secondEdge = { id: `edge-${crypto.randomUUID()}`, source: junctionId, sourceHandle: "junction-right", target: edge.target, targetHandle: edge.targetHandle, type: "circuit" }; const newComponentEdge = { id: `edge-${crypto.randomUUID()}`, source: connectionState.fromNode.id, sourceHandle, target: junctionId, targetHandle: "junction-bottom", type: "circuit" }; setNodes((currentNodes) => [...currentNodes, junctionNode]); setEdges((currentEdges) => [...currentEdges.filter((currentEdge) => currentEdge.id !== edge.id), firstEdge, secondEdge, newComponentEdge]); };
   const sweepTargets = nodes.filter((node) => node.type === "world").map((node) => { const definition = worldDefinitions[node.data?.definitionKey]; const parameters = definition?.simulationParameters ?? []; if (parameters.length === 0) return null; return { id: node.id, label: node.data?.label ?? node.id, componentType: node.data?.componentType ?? "Component", parameters }; }).filter(Boolean);
   const flowClass = isDesignWorkspace ? "absolute inset-0" : "absolute inset-0 pointer-events-none opacity-0";
-  return <div data-testid="worlds-canvas" className={`relative h-full w-full ${isDesignWorkspace ? "" : "bg-[#f6f6f4]"}`} tabIndex={0} onKeyDown={onKeyDown}>
+  return <div data-testid="worlds-canvas" data-world-id={worldContext.worldId} data-layer-id={worldContext.layerId} data-representation-id={worldContext.representationId} className={`relative h-full w-full ${isDesignWorkspace ? "" : "bg-[#f6f6f4]"}`} tabIndex={0} onKeyDown={onKeyDown}>
     <div className={flowClass} aria-hidden={!isDesignWorkspace}>
       <ReactFlow nodes={nodes} edges={edges} edgeTypes={edgeTypes} nodeTypes={nodeTypes} connectionMode="loose" defaultEdgeOptions={{ type: "circuit", interactionWidth: 30 }} connectionLineType="smoothstep" nodesDraggable={isDesignWorkspace} nodesConnectable={isDesignWorkspace} elementsSelectable={isDesignWorkspace} onNodesChange={handleNodesChange} onEdgesChange={onEdgesChange} onEdgeClick={handleEdgeClick} onConnect={onConnect} onConnectEnd={handleConnectEnd} onInit={setReactFlowInstance} onNodeClick={handleNodeClick} onPaneClick={handlePaneClick} onEdgeDoubleClick={insertJunctionOnEdge} fitView><Background /><Controls /><ComponentSidebar nodes={nodes.filter((node) => node.type === "world")} selectedNode={selectedNode?.type === "world" ? selectedNode : null} onAddComponent={addComponent} onSelectComponent={(id) => { setSelectedNodeId(id); setSelectedEdgeId(null); }} onChangeProperty={updateSelectedProperty} /></ReactFlow>
     </div>
