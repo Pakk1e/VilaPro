@@ -91,6 +91,13 @@ async function captureVisual(page, testInfo, name) {
   });
 }
 
+async function captureElementVisual(locator, testInfo, name) {
+  await expect(locator).toBeVisible();
+  await locator.screenshot({
+    path: testInfo.outputPath(`${name}.png`),
+  });
+}
+
 function browserErrors(page) {
   const errors = [];
   page.on("console", (message) => {
@@ -120,6 +127,7 @@ test.describe("Worlds acceptance suite", () => {
     await expect(results.getByText(/10\.?0+\s*(V)?/).first()).toBeVisible();
     await expect(results.getByText(/10\.?0+\s*mA/).first()).toBeVisible();
     await captureVisual(page, testInfo, "T01-dc-operating-point");
+    await captureElementVisual(results, testInfo, "T01-dc-operating-point-results");
     expect(errors).toEqual([]);
   });
 
@@ -147,6 +155,7 @@ test.describe("Worlds acceptance suite", () => {
     await expect(plot.locator("path")).toHaveCount(1);
     await expect(plot.locator("path").first()).toHaveAttribute("d", /L/);
     await captureVisual(page, testInfo, "T05-parameter-sweep");
+    await captureElementVisual(plot, testInfo, "T05-parameter-sweep-plot");
     expect(errors).toEqual([]);
   });
 
@@ -164,9 +173,11 @@ test.describe("Worlds acceptance suite", () => {
     await expect(simulate).toBeEnabled();
     await simulate.click();
     const results = await waitForResults(page);
-    await expect(page.getByRole("img", { name: /result plot/i })).toBeVisible();
+    const plot = page.getByRole("img", { name: /result plot/i });
+    await expect(plot).toBeVisible();
     await expect(results).toBeVisible();
     await captureVisual(page, testInfo, "T08-transient-sine");
+    await captureElementVisual(plot, testInfo, "T08-transient-sine-plot");
     expect(errors).toEqual([]);
   });
 
@@ -190,6 +201,7 @@ test.describe("Worlds acceptance suite", () => {
     await expect(results.getByText(/1,?000(?:\.0+)?/).first()).toBeVisible();
     await expect(results.getByText("Phasor values", { exact: true })).toBeVisible();
     await captureVisual(page, testInfo, "T09-static-ac-phasor");
+    await captureElementVisual(results, testInfo, "T09-static-ac-phasor-results");
     expect(errors).toEqual([]);
   });
 
@@ -220,6 +232,7 @@ test.describe("Worlds acceptance suite", () => {
     const directionChanges = turns.slice(1).filter((v, i) => v !== turns[i]).length;
     expect(directionChanges).toBeGreaterThanOrEqual(2);
     await captureVisual(page, testInfo, "T13-live-ac-smooth-sine");
+    await captureElementVisual(plot, testInfo, "T13-live-ac-smooth-sine-plot");
     expect(errors).toEqual([]);
     await page.getByRole("button", { name: "Stop" }).click();
   });
