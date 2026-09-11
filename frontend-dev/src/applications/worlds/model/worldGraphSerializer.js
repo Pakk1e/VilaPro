@@ -70,10 +70,10 @@ function getBackendType(node) {
 }
 
 export function validateWorldGraph(nodes, edges) {
-  validateWorldGraphSchema(nodes, edges);
   const grounds = nodes.filter((node) => node.data?.componentType === "Ground");
   if (grounds.length === 0) throw new Error("Ground is required before the circuit can be simulated.");
   if (grounds.length > 1) throw new Error("The circuit must contain only one Ground component.");
+  validateWorldGraphSchema(nodes, edges);
 
   const nodeIds = new Set();
   const valid = new Set();
