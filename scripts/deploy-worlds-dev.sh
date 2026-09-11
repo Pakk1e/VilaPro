@@ -16,12 +16,32 @@ fi
 
 cd "$BASE_DIR"
 
+step_start() {
+  STEP_NAME="$1"
+  STEP_START_NS="$(date +%s%N)"
+  echo
+  echo "[$STEP_NAME] START $(date -Is)"
+}
+
+step_end() {
+  local end_ns elapsed_ms
+  end_ns="$(date +%s%N)"
+  elapsed_ms="$(( (end_ns - STEP_START_NS) / 1000000 ))"
+  echo "[$STEP_NAME] END $(date -Is) duration=${elapsed_ms}ms"
+}
+
+runner_snapshot() {
+  echo "[runner] $(date -Is) load=$(cut -d' ' -f1-3 /proc/loadavg 2>/dev/null || true)"
+  if command -v free >/dev/null 2>&1; then free -m | awk 'NR==1 || NR==2 {print "[runner] " $0}' || true; fi
+  if command -v df >/dev/null 2>&1; then df -h "$BASE_DIR" | awk 'NR==1 || NR==2 {print "[runner] " $0}' || true; fi
+}
+
 echo "=== Worlds DEV deployment ==="
 echo "Repository: $BASE_DIR"
 echo "Branch:     $BRANCH"
+runner_snapshot
 
-echo
- echo "[1/8] Checking working tree..."
+step_start "1/8 Checking working tree"
 if [[ "$(git branch --show-current)" != "$BRANCH" ]]; then
   echo "ERROR: expected branch $BRANCH, got $(git branch --show-current)" >&2
   exit 1
@@ -31,43 +51,42 @@ if [[ -n "$(git status --porcelain)" ]]; then
   git status --short >&2
   exit 1
 fi
+step_end
 
-echo
- echo "[2/8] Updating source..."
+step_start "2/8 Updating source"
 git fetch origin "$BRANCH"
 git pull --ff-only origin "$BRANCH"
-
 DEPLOYED_COMMIT="$(git rev-parse HEAD)"
 echo "Deploying commit: $DEPLOYED_COMMIT"
+step_end
 
-echo
- echo "[3/8] Backend tests..."
+step_start "3/8 Backend tests"
 cd "$BASE_DIR/worlds"
 PYTHONPATH=src python3 -m unittest discover -s tests
+step_end
 
- echo
- echo "[4/8] Frontend dependencies..."
+step_start "4/8 Frontend dependencies"
 cd "$FRONTEND_DIR"
 npm ci
+step_end
 
- echo
- echo "[5/8] Frontend lint..."
+step_start "5/8 Frontend lint"
 npm run lint
+step_end
 
- echo
- echo "[6/8] Frontend tests and build..."
+step_start "6/8 Frontend tests and build"
 npm test
 npm run build
+step_end
 
- echo
- echo "[7/8] Installing/updating Worlds web service..."
+step_start "7/8 Installing/updating Worlds web service"
 sudo install -m 0644 "$BASE_DIR/deploy/systemd/worlds-web.service" "/etc/systemd/system/$WEB_SERVICE"
 sudo systemctl daemon-reload
 sudo systemctl restart "$API_SERVICE"
 sudo systemctl restart "$WEB_SERVICE"
+step_end
 
- echo
- echo "[8/8] Health checks..."
+step_start "8/8 Health checks"
 for attempt in {1..20}; do
   if curl --fail --silent --show-error "$API_URL" >/dev/null && curl --fail --silent --show-error "$WEB_URL" >/dev/null; then
     break
@@ -79,9 +98,10 @@ for attempt in {1..20}; do
   fi
   sleep 1
 done
-
 sudo systemctl --no-pager --full status "$API_SERVICE" "$WEB_SERVICE"
+step_end
 
+runner_snapshot
 echo
 echo "=== Worlds DEV deployment complete ==="
 echo "Commit:  $DEPLOYED_COMMIT"
