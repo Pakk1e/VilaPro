@@ -8,7 +8,7 @@ from worlds.semantics import WorldSemanticAnalyzer
 from worlds.semantics.component import ComponentSemanticAnalyzer
 from worlds.vdl import Parser
 
-from .analysis import SimulationConfiguration
+from .analysis import AC, SimulationConfiguration
 from .builder import build_simulation_component
 from .live import LiveSimulationSnapshot
 from .live_runtime import LiveSimulationRuntime, LiveSimulationRuntimeError
@@ -90,8 +90,20 @@ class LiveSimulationApplicationService:
         except LiveSimulationRuntimeError as exc:
             raise LiveSimulationApplicationError(str(exc)) from exc
         if snapshot.status == "running" and snapshot.independent_value == sample_time:
-            self._set_sample_time(session_id, sample_time + 0.5)
+            self._set_sample_time(session_id, sample_time + self._sample_interval(context.configuration))
         return snapshot
+
+    @staticmethod
+    def _sample_interval(configuration: SimulationConfiguration) -> float:
+        if configuration.analysis != AC:
+            return 0.05
+        try:
+            frequency = float(configuration.settings.get("frequency", 1000.0))
+        except (TypeError, ValueError):
+            return 0.05
+        if frequency <= 0:
+            return 0.05
+        return min(0.05, 1.0 / (20.0 * frequency))
 
     def pause(self, session_id: str) -> LiveSimulationSnapshot:
         try:
@@ -150,7 +162,7 @@ class LiveSimulationApplicationService:
                 self.step(session_id)
             except LiveSimulationApplicationError:
                 return
-            stop_event.wait(0.5)
+            stop_event.wait(0.05)
 
     def _stop_worker(self, session_id: str) -> None:
         with self._lock:
