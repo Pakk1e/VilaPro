@@ -23,14 +23,14 @@ test("series circuit fixture serializes topology and parameters deterministicall
     name: "Voltage Source 1",
     type: "VoltageSource",
     parameters: { V: 10 },
-    ports: { n: "ground", p: "node_1" },
+    ports: { n: "ground", p: "node_2" },
   });
   assert.deepEqual(resistor, {
     id: "R1",
     name: "Resistor 1",
     type: "Resistor",
     parameters: { R: 1000 },
-    ports: { p: "node_1", n: "ground" },
+    ports: { p: "node_2", n: "ground" },
   });
 });
 
@@ -59,7 +59,7 @@ test("RC fixture preserves capacitor identity and electrical topology", () => {
     name: "Capacitor 1",
     type: "Capacitor",
     parameters: { C: 0.001 },
-    ports: { p: "node_2", n: "ground" },
+    ports: { p: "node_3", n: "ground" },
   });
 });
 
