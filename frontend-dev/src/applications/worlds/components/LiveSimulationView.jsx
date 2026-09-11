@@ -62,9 +62,8 @@ function getAcParameters(snapshot, name) {
   const base = name.slice(0, -".instantaneous".length);
   return { magnitude: Number(snapshot?.signals?.[`${base}.magnitude`]), phaseDegrees: Number(snapshot?.signals?.[`${base}.phase_deg`]), frequency: Number(snapshot?.signals?.["__live.frequency_hz"]) };
 }
-function buildAcWindowSamples(snapshot, name, windowSeconds) {
+function buildAcWindowSamples(snapshot, name, windowSeconds, now) {
   const { magnitude, phaseDegrees, frequency } = getAcParameters(snapshot, name);
-  const now = Number(snapshot?.signals?.["__live.time_s"]);
   if (![magnitude, phaseDegrees, frequency, now].every(Number.isFinite) || frequency <= 0) return [];
   const start = now - windowSeconds;
   const cycles = windowSeconds * frequency;
@@ -101,9 +100,9 @@ function PlotPanel({ points, selectedSignals, title, windowSeconds, now }) {
     <div className="flex flex-wrap gap-x-4 gap-y-1 px-4 pb-3 text-[10px] text-[#69717b]">{selectedSignals.map((name, index) => <span key={name} className="inline-flex items-center gap-1.5"><span className={`inline-block h-2 w-2 rounded-full ${index % 2 === 0 ? "bg-[#26364d]" : "bg-[#58718f]"}`} /><span>{signalLabel(name)}</span></span>)}</div>
   </div>;
 }
-function LivePlot({ snapshot, history, selectedSignals, windowSeconds }) {
-  const now = Number(snapshot?.signals?.["__live.time_s"]); if (!Number.isFinite(now) || selectedSignals.length === 0) return null;
-  const points = Object.fromEntries(selectedSignals.map((name) => [name, isAcInstantaneous(name) ? buildAcWindowSamples(snapshot, name, windowSeconds) : buildHistorySamples(history, name, windowSeconds, now)]));
+function LivePlot({ snapshot, history, selectedSignals, windowSeconds, now }) {
+  if (!Number.isFinite(now) || selectedSignals.length === 0) return null;
+  const points = Object.fromEntries(selectedSignals.map((name) => [name, isAcInstantaneous(name) ? buildAcWindowSamples(snapshot, name, windowSeconds, now) : buildHistorySamples(history, name, windowSeconds, now)]));
   const families = selectedSignals.reduce((result, name) => { const family = parseSignalName(name).family === "voltage" ? "Voltage" : parseSignalName(name).family === "current" ? "Current" : "Signal"; if (!result[family]) result[family] = []; result[family].push(name); return result; }, {});
   return <div className="space-y-2">{Object.entries(families).map(([title, names]) => <PlotPanel key={title} points={points} selectedSignals={names} title={title} windowSeconds={windowSeconds} now={now} />)}</div>;
 }
@@ -112,18 +111,21 @@ export default function LiveSimulationView({ snapshot, history = [] }) {
   const signalNames = useMemo(() => Object.keys(snapshot?.signals ?? {}).filter((name) => name !== "__live.time_s" && name !== "__live.frequency_hz").filter((name) => history.some((item) => Number.isFinite(Number(item?.signals?.[name]))) || isAcInstantaneous(name)), [snapshot, history]);
   const defaultSignals = useMemo(() => { const instantaneous = signalNames.filter(isAcInstantaneous).slice(0, 2); return instantaneous.length ? instantaneous : signalNames.slice(0, 2); }, [signalNames]);
   const frequency = Number(snapshot?.signals?.["__live.frequency_hz"]);
+  const snapshotTime = Number(snapshot?.signals?.["__live.time_s"]);
   const [selectedSignals, setSelectedSignals] = useState(null);
   const [windowSeconds, setWindowSeconds] = useState(() => chooseDefaultWindow(frequency));
+  const [displayTime, setDisplayTime] = useState(snapshotTime);
   useEffect(() => { if (Number.isFinite(frequency) && frequency > 0) setWindowSeconds((current) => current === 0.05 ? chooseDefaultWindow(frequency) : current); }, [frequency]);
+  useEffect(() => { if (!Number.isFinite(snapshotTime)) return undefined; setDisplayTime(snapshotTime); if (snapshot?.status !== "running") return undefined; const startedAt = performance.now(); let frameId; const tick = () => { setDisplayTime(snapshotTime + (performance.now() - startedAt) / 1000); frameId = requestAnimationFrame(tick); }; frameId = requestAnimationFrame(tick); return () => cancelAnimationFrame(frameId); }, [snapshotTime, snapshot?.status]);
   const activeSignals = (selectedSignals ?? defaultSignals).filter((name) => signalNames.includes(name)).slice(0, MAX_TRACES);
   const acCycles = Number.isFinite(frequency) && frequency > 0 ? frequency * windowSeconds : null;
   const toggleSignal = (name) => setSelectedSignals((current) => { const next = current ?? defaultSignals; if (next.includes(name)) return next.filter((item) => item !== name); if (next.length >= MAX_TRACES) return next; return [...next, name]; });
 
   return <section aria-label="Live oscilloscope" className="overflow-hidden rounded-xl border border-[#d9dde2] bg-white">
     <div className="border-b border-[#e4e7eb] px-4 py-3"><div className="flex flex-wrap items-center justify-between gap-3"><div><div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#58718f]">Live oscilloscope</div><div className="mt-1 text-xs text-[#69717b]">A moving view of the latest part of the simulation.</div></div><div className="flex items-center gap-2"><span className="text-[10px] font-medium text-[#69717b]">Window</span><select aria-label="Oscilloscope time window" value={windowSeconds} onChange={(event) => setWindowSeconds(Number(event.target.value))} className="rounded-md border border-[#cfd5dc] bg-white px-2 py-1.5 text-[11px] font-medium text-[#26364d] outline-none focus:border-[#58718f]">{WINDOW_PRESETS.map((preset) => <option key={preset.value} value={preset.value}>{preset.label}</option>)}</select></div></div>
-      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-[#8a929c]"><span>t = {formatSignal(Number(snapshot?.signals?.["__live.time_s"]))} s</span>{Number.isFinite(frequency) && frequency > 0 && <span>f = {formatSignal(frequency)} Hz</span>}{acCycles !== null && <span>{formatSignal(acCycles)} cycles visible</span>}<span>{activeSignals.length}/{MAX_TRACES} traces</span></div>
+      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-[#8a929c]"><span>t = {formatSignal(displayTime)} s</span>{Number.isFinite(frequency) && frequency > 0 && <span>f = {formatSignal(frequency)} Hz</span>}{acCycles !== null && <span>{formatSignal(acCycles)} cycles visible</span>}<span>{activeSignals.length}/{MAX_TRACES} traces</span></div>
     </div>
     {signalNames.length > 0 && <div className="border-b border-[#e4e7eb] px-4 py-2.5"><div className="flex flex-wrap gap-1.5">{signalNames.map((name) => { const active = activeSignals.includes(name); return <button key={name} type="button" onClick={() => toggleSignal(name)} aria-pressed={active} className={`max-w-full truncate rounded-full border px-2.5 py-1 text-[10px] font-medium transition ${active ? "border-[#58718f] bg-[#f1f5f9] text-[#26364d]" : "border-[#e4e7eb] bg-white text-[#69717b] hover:bg-[#fafbfc]"}`}>{signalLabel(name)}</button>; })}</div></div>}
-    <div className="p-3">{activeSignals.length > 0 ? <LivePlot snapshot={snapshot} history={history} selectedSignals={activeSignals} windowSeconds={windowSeconds} /> : <div className="flex h-48 items-center justify-center rounded-lg border border-dashed border-[#d9dde2] bg-[#fafbfc] px-4 text-center text-xs text-[#69717b]">Select a signal to add it to the oscilloscope.</div>}</div>
+    <div className="p-3">{activeSignals.length > 0 ? <LivePlot snapshot={snapshot} history={history} selectedSignals={activeSignals} windowSeconds={windowSeconds} now={displayTime} /> : <div className="flex h-48 items-center justify-center rounded-lg border border-dashed border-[#d9dde2] bg-[#fafbfc] px-4 text-center text-xs text-[#69717b]">Select a signal to add it to the oscilloscope.</div>}</div>
   </section>;
 }
