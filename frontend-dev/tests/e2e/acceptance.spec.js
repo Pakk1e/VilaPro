@@ -84,6 +84,13 @@ async function waitForResults(page) {
   return results;
 }
 
+async function captureVisual(page, testInfo, name) {
+  await page.screenshot({
+    path: testInfo.outputPath(`${name}.png`),
+    fullPage: true,
+  });
+}
+
 function browserErrors(page) {
   const errors = [];
   page.on("console", (message) => {
@@ -94,7 +101,7 @@ function browserErrors(page) {
 }
 
 test.describe("Worlds acceptance suite", () => {
-  test("T01 — basic 10 V / 1 kΩ DC operating point", async ({ page }) => {
+  test("T01 — basic 10 V / 1 kΩ DC operating point", async ({ page }, testInfo) => {
     const errors = browserErrors(page);
     await signIn(page);
     await page.goto("/worlds", { waitUntil: "networkidle" });
@@ -112,10 +119,11 @@ test.describe("Worlds acceptance suite", () => {
     const results = await waitForResults(page);
     await expect(results.getByText(/10\.?0+\s*(V)?/).first()).toBeVisible();
     await expect(results.getByText(/10\.?0+\s*mA/).first()).toBeVisible();
+    await captureVisual(page, testInfo, "T01-dc-operating-point");
     expect(errors).toEqual([]);
   });
 
-  test("T05 — resistor Parameter Sweep 500/1000/1500 Ω", async ({ page }) => {
+  test("T05 — resistor Parameter Sweep 500/1000/1500 Ω", async ({ page }, testInfo) => {
     const errors = browserErrors(page);
     await signIn(page);
     await page.goto("/worlds", { waitUntil: "networkidle" });
@@ -138,10 +146,11 @@ test.describe("Worlds acceptance suite", () => {
     await expect(plot.locator("circle")).toHaveCount(3);
     await expect(plot.locator("path")).toHaveCount(1);
     await expect(plot.locator("path").first()).toHaveAttribute("d", /L/);
+    await captureVisual(page, testInfo, "T05-parameter-sweep");
     expect(errors).toEqual([]);
   });
 
-  test("T08 — transient 1 Hz sine source", async ({ page }) => {
+  test("T08 — transient 1 Hz sine source", async ({ page }, testInfo) => {
     const errors = browserErrors(page);
     await signIn(page);
     await page.goto("/worlds", { waitUntil: "networkidle" });
@@ -157,10 +166,11 @@ test.describe("Worlds acceptance suite", () => {
     const results = await waitForResults(page);
     await expect(page.getByRole("img", { name: /result plot/i })).toBeVisible();
     await expect(results).toBeVisible();
+    await captureVisual(page, testInfo, "T08-transient-sine");
     expect(errors).toEqual([]);
   });
 
-  test("T09 — static AC resistor phasor result", async ({ page }) => {
+  test("T09 — static AC resistor phasor result", async ({ page }, testInfo) => {
     const errors = browserErrors(page);
     await signIn(page);
     await page.goto("/worlds", { waitUntil: "networkidle" });
@@ -179,10 +189,11 @@ test.describe("Worlds acceptance suite", () => {
     await expect(results.getByText("AC Phasors", { exact: true })).toBeVisible();
     await expect(results.getByText(/1,?000(?:\.0+)?/).first()).toBeVisible();
     await expect(results.getByText("Phasor values", { exact: true })).toBeVisible();
+    await captureVisual(page, testInfo, "T09-static-ac-phasor");
     expect(errors).toEqual([]);
   });
 
-  test("T13 — Live AC instantaneous waveform is smooth sinusoid", async ({ page }) => {
+  test("T13 — Live AC instantaneous waveform is smooth sinusoid", async ({ page }, testInfo) => {
     const errors = browserErrors(page);
     await signIn(page);
     await page.goto("/worlds", { waitUntil: "networkidle" });
@@ -208,11 +219,12 @@ test.describe("Worlds acceptance suite", () => {
     const turns = points.slice(1).map((p, i) => Math.sign(p.y - points[i].y)).filter((v) => v !== 0);
     const directionChanges = turns.slice(1).filter((v, i) => v !== turns[i]).length;
     expect(directionChanges).toBeGreaterThanOrEqual(2);
+    await captureVisual(page, testInfo, "T13-live-ac-smooth-sine");
     expect(errors).toEqual([]);
     await page.getByRole("button", { name: "Stop" }).click();
   });
 
-  test("T16 — invalid AC frequency is rejected", async ({ page }) => {
+  test("T16 — invalid AC frequency is rejected", async ({ page }, testInfo) => {
     const errors = browserErrors(page);
     await signIn(page);
     await page.goto("/worlds", { waitUntil: "networkidle" });
@@ -223,6 +235,7 @@ test.describe("Worlds acceptance suite", () => {
     const simulate = page.getByRole("button", { name: "Simulate" });
     await expect(simulate).toBeDisabled();
     await expect(page.locator('[role="alert"]').first()).toBeVisible();
+    await captureVisual(page, testInfo, "T16-invalid-ac-frequency");
     expect(errors).toEqual([]);
   });
 });
