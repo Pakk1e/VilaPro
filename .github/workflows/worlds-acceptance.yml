@@ -96,10 +96,13 @@ jobs:
           fi
 
           rm -rf node_modules/@playwright/test node_modules/playwright node_modules/playwright-core
-          mkdir -p node_modules/@playwright
+          mkdir -p node_modules/@playwright node_modules/.bin
           ln -s "$package_root" node_modules/@playwright/test
           ln -s "$cache_root/node_modules/playwright" node_modules/playwright
           ln -s "$cache_root/node_modules/playwright-core" node_modules/playwright-core
+          rm -f node_modules/.bin/playwright node_modules/.bin/playwright-core
+          ln -s "$cache_root/node_modules/.bin/playwright" node_modules/.bin/playwright
+          ln -s "$cache_root/node_modules/.bin/playwright-core" node_modules/.bin/playwright-core
 
           ended=$(date +%s%3N)
           echo "Playwright runner setup duration=$((ended - started))ms"
