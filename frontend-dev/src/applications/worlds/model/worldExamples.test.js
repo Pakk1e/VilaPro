@@ -1,0 +1,35 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+
+import { WORLD_EXAMPLES } from "./worldExamples.js";
+import { validateWorldGraphSchema } from "./worldGraphSchema.js";
+import { buildCircuitDescription } from "./worldGraphSerializer.js";
+
+
+test("electrical examples expose stable, complete graphs", () => {
+  assert.deepEqual(WORLD_EXAMPLES.map((example) => example.id), [
+    "voltage-divider",
+    "rc-low-pass",
+    "parallel-resistors",
+  ]);
+
+  for (const example of WORLD_EXAMPLES) {
+    const graph = example.createGraph();
+    assert.equal(validateWorldGraphSchema(graph.nodes, graph.edges), true);
+    assert.ok(graph.nodes.length > 0);
+    assert.ok(graph.edges.length > 0);
+    assert.equal(graph.nodes.filter((node) => node.data?.componentType === "Ground").length, 1);
+    assert.doesNotThrow(() => buildCircuitDescription(graph.nodes, graph.edges));
+  }
+});
+
+
+test("electrical examples create independent graph instances", () => {
+  const first = WORLD_EXAMPLES[0].createGraph();
+  const second = WORLD_EXAMPLES[0].createGraph();
+  first.nodes[0].position.x = 9999;
+  first.nodes[0].data.properties.voltage = 1;
+
+  assert.equal(second.nodes[0].position.x, 80);
+  assert.equal(second.nodes[0].data.properties.voltage, 10);
+});
