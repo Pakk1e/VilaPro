@@ -23,7 +23,7 @@ The Worlds workspace currently has explicit boundaries between:
 - result/visualization model
 - renderer/layout
 
-The current World Graph and simulation transport boundaries have runtime validation and deterministic tests.
+The current World Graph and public simulation transport boundaries have runtime validation and deterministic tests. Backend domain/model validation remains authoritative for physics, component semantics, and numerical correctness.
 
 The frontend supports both static and live simulation concepts. The live workspace includes oscilloscope-oriented visualization for sampled signals.
 
@@ -60,17 +60,16 @@ Browser acceptance uses stable interaction boundaries and failure diagnostics. D
 
 ## Immediate engineering priority
 
-Continue strengthening the foundation before building speculative long-term features.
+The core graph/serializer/transport foundation is established. Continue strengthening the engineering foundation only where it provides a concrete benefit to the current Electrical World, then establish the first minimal World/Layer extension point without implementing speculative multi-world behavior.
 
-Useful next areas are:
+Current useful next areas are:
 
-- deterministic fixtures for important circuit/analysis cases
-- model-boundary tests
-- simulation contract coverage
-- targeted browser diagnostics
-- selective geometry assertions
-- documentation consistency
-- complete pipeline measurement
+- safe, bounded browser failure diagnostics
+- selective geometry assertions for known layout regressions
+- architectural-boundary test reporting
+- complete-loop measurement after foundation changes
+- minimal World/Layer extension point
+- continued Electrical World implementation
 
 Before starting a new feature, inspect `VISION.md`, `docs/CONCEPTS.md`, `docs/LAYER_MODEL.md`, `ARCHITECTURE.md`, and `ROADMAP.md`.
 
