@@ -7,6 +7,14 @@ function formatSignal(value) {
   return new Intl.NumberFormat("en-US", { maximumSignificantDigits: 8 }).format(value);
 }
 
+function formatIdentifier(value) {
+  return String(value ?? "")
+    .replace(/^V_/, "")
+    .replace(/^I_/, "")
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
 function parseSignalName(name) {
   if (name === "__live.time_s") return { label: "Sample time", family: "time", plotFamily: "time", unit: "s" };
   if (name === "__live.frequency_hz") return { label: "Frequency", family: "frequency", plotFamily: "frequency", unit: "Hz" };
@@ -21,20 +29,20 @@ function parseSignalName(name) {
   const kind = suffix?.[1] ?? "Value";
   const plotKind = kind === "Phase" ? "phase" : "value";
 
-  const variableMatch = base.match(/^Variable\(name='([^']+)'\)$/);
+  const variableMatch = base.match(/^Variable\(name=['"]([^'"]+)['"]\)$/);
   if (variableMatch) {
     const variable = variableMatch[1];
-    if (variable.startsWith("V_")) return { label: `V(${variable.slice(2)}) · ${kind}`, family: "voltage", plotFamily: `voltage-${plotKind}`, unit: kind === "Phase" ? "°" : "V" };
-    if (variable.startsWith("I_")) return { label: `I(${variable.slice(2)}) · ${kind}`, family: "current", plotFamily: `current-${plotKind}`, unit: kind === "Phase" ? "°" : "A" };
-    return { label: `${variable} · ${kind}`, family: "value", plotFamily: `value-${plotKind}`, unit: kind === "Phase" ? "°" : "" };
+    if (variable.startsWith("V_")) return { label: `V(${formatIdentifier(variable.slice(2))}) · ${kind}`, family: "voltage", plotFamily: `voltage-${plotKind}`, unit: kind === "Phase" ? "°" : "V" };
+    if (variable.startsWith("I_")) return { label: `I(${formatIdentifier(variable.slice(2))}) · ${kind}`, family: "current", plotFamily: `current-${plotKind}`, unit: kind === "Phase" ? "°" : "A" };
+    return { label: `${formatIdentifier(variable)} · ${kind}`, family: "value", plotFamily: `value-${plotKind}`, unit: kind === "Phase" ? "°" : "" };
   }
 
-  const branchMatch = base.match(/^BranchCurrent\(name='[^']+',\s*arguments=\((.*)\),\s*component='([^']+)'\)$/);
+  const branchMatch = base.match(/^BranchCurrent\(name=['"]?[^'",]+['"]?,\s*arguments=\((.*)\),\s*component=['"]?([^'")]+)['"]?\)$/);
   if (branchMatch) {
-    return { label: `I(${branchMatch[2]}) · ${kind}`, family: "current", plotFamily: `current-${plotKind}`, unit: kind === "Phase" ? "°" : "A" };
+    return { label: `I(${formatIdentifier(branchMatch[2])}) · ${kind}`, family: "current", plotFamily: `current-${plotKind}`, unit: kind === "Phase" ? "°" : "A" };
   }
 
-  return { label: `${base} · ${kind}`, family: "value", plotFamily: `value-${plotKind}`, unit: kind === "Phase" ? "°" : "" };
+  return { label: `${formatIdentifier(base)} · ${kind}`, family: "value", plotFamily: `value-${plotKind}`, unit: kind === "Phase" ? "°" : "" };
 }
 
 function signalLabel(name) {
@@ -234,18 +242,13 @@ export default function LiveSimulationView({ snapshot, history = [] }) {
             <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#69717b]">Plot signals</div>
             <div className="mt-1 text-[11px] text-[#8a929c]">Choose the measurements you want to see.</div>
           </div>
-          <div className="shrink-0 text-[10px] font-medium text-[#69717b]">{selectedSignals.length} selected</div>
+          <div className="shrink-0 text-[10px] text-[#69717b]">{selectedSignals.length} selected</div>
         </div>
-        <div className="mt-3 max-h-44 overflow-y-auto rounded-lg border border-[#e4e7eb] bg-[#fafbfc] p-2">
-          {Object.entries(groupedSignalNames).map(([group, names]) => <div key={group} className="mb-2 last:mb-0">
-            <div className="px-2 py-1 text-[9px] font-semibold uppercase tracking-[0.12em] text-[#8a929c]">{group}</div>
-            <div className="grid gap-1 sm:grid-cols-2">
-              {names.map((name) => <label key={name} className="flex min-w-0 cursor-pointer items-start gap-2 rounded-md px-2 py-1.5 text-xs text-[#26364d] hover:bg-white"><input className="mt-0.5 shrink-0" type="checkbox" checked={selectedSignals.includes(name)} onChange={() => toggleSignal(name)} /><span className="min-w-0 break-words leading-4">{signalLabel(name)}</span></label>)}
-            </div>
-          </div>)}
+        <div className="mt-3 space-y-3">
+          {Object.entries(groupedSignalNames).map(([group, names]) => <div key={group}><div className="mb-1.5 text-[9px] font-semibold uppercase tracking-[0.12em] text-[#8a929c]">{group}</div><div className="grid gap-1 sm:grid-cols-2">{names.map((name) => <label key={name} className="flex min-w-0 items-start gap-2 rounded-md px-2 py-1.5 text-[11px] text-[#35445a] hover:bg-[#fafbfc]"><input type="checkbox" checked={selectedSignals.includes(name)} onChange={() => toggleSignal(name)} className="mt-0.5" /><span className="min-w-0 truncate" title={name}>{signalLabel(name)}</span></label>)}</div></div>)}
         </div>
       </div>}
-      <LivePlot history={history} selectedSignals={selectedSignals} />
+      {signalNames.length > 0 && <LivePlot history={history} selectedSignals={selectedSignals} />}
     </section>
   );
 }
