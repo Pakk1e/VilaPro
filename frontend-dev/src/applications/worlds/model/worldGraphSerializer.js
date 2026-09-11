@@ -67,22 +67,43 @@ function getBackendType(node) {
   return definition.backendType;
 }
 
-function validateGraph(nodes, edges) {
+export function validateWorldGraph(nodes, edges) {
   const grounds = nodes.filter((node) => node.data?.componentType === "Ground");
   if (grounds.length === 0) throw new Error("Ground is required before the circuit can be simulated.");
   if (grounds.length > 1) throw new Error("The circuit must contain only one Ground component.");
-  const valid = new Set(), connected = new Set();
+
+  const nodeIds = new Set();
+  const valid = new Set();
   for (const node of nodes) {
+    if (!node?.id || nodeIds.has(node.id)) throw new Error("Circuit contains duplicate or missing node ids.");
+    nodeIds.add(node.id);
     if (node.type === "junction") {
       for (const handle of ["junction-top", "junction-right", "junction-bottom", "junction-left"]) valid.add(endpointKey(node.id, handle));
-    } else for (const port of getComponentPorts(node)) valid.add(endpointKey(node.id, port.id));
+      continue;
+    }
+    if (node.type !== "world") throw new Error(`Circuit contains unsupported node type "${node.type}".`);
+    if (!node.data?.componentType) throw new Error(`Node "${node.id}" has no component type`);
+    const ports = getComponentPorts(node);
+    const portIds = new Set();
+    for (const port of ports) {
+      if (!port?.id || portIds.has(port.id)) throw new Error(`${node.data?.label ?? node.id}: circuit contains duplicate or missing port ids.`);
+      portIds.add(port.id);
+      valid.add(endpointKey(node.id, port.id));
+    }
   }
+
+  const connected = new Set();
+  const edgeIds = new Set();
   for (const edge of edges) {
+    if (!edge?.id || edgeIds.has(edge.id)) throw new Error("Circuit contains duplicate or missing wire ids.");
+    edgeIds.add(edge.id);
     if (!edge.source || !edge.target || !edge.sourceHandle || !edge.targetHandle) throw new Error("Circuit contains an invalid wire endpoint.");
+    if (!nodeIds.has(edge.source) || !nodeIds.has(edge.target)) throw new Error("Circuit contains a wire referencing a missing node.");
     const source = endpointKey(edge.source, edge.sourceHandle), target = endpointKey(edge.target, edge.targetHandle);
     if (!valid.has(source) || !valid.has(target)) throw new Error("Circuit contains a wire connected to an invalid terminal.");
     connected.add(source); connected.add(target);
   }
+
   for (const node of nodes) if (node.type === "world") for (const port of getComponentPorts(node)) {
     const endpoint = endpointKey(node.id, port.id);
     if (!connected.has(endpoint)) throw new Error(`${node.data?.label ?? node.id}: terminal "${port.label ?? port.id}" is unconnected.`);
@@ -207,7 +228,7 @@ function buildInstance(node, dsu, netNames) {
 export function buildCircuitDescription(nodes, edges) {
   const componentNodes = nodes.filter((node) => node.type === "world" && node.data?.componentType !== "Ground");
   if (componentNodes.length === 0) throw new Error("Add at least one simulation component.");
-  validateGraph(nodes, edges);
+  validateWorldGraph(nodes, edges);
   const dsu = buildConnectivity(nodes, edges), netNames = buildNetNames(componentNodes.concat(nodes.filter((node) => node.type === "world" && node.data?.componentType === "Ground")), dsu);
   return { instances: componentNodes.map((node) => buildInstance(node, dsu, netNames)) };
 }
