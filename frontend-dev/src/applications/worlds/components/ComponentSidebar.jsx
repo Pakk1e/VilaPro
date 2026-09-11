@@ -14,6 +14,7 @@ export default function ComponentSidebar({
 
   return (
     <aside
+      data-testid="component-palette"
       onClick={(event) => event.stopPropagation()}
       className="absolute right-4 top-4 z-10 flex max-h-[calc(100vh-32px)] w-[320px] flex-col overflow-hidden rounded-xl border border-[#d9dde2] bg-white shadow-md"
     >
@@ -110,7 +111,7 @@ export default function ComponentSidebar({
         </div>
 
         {selectedNode ? (
-          <div>
+          <div data-testid="component-inspector">
             <div className="border-b border-[#e4e7eb] px-4 py-3">
               <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#69717b]">
                 Selected component
