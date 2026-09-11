@@ -19,7 +19,7 @@ export const DEFAULT_SIMULATION_CONFIG = {
 
 export const DEFAULT_DC_SWEEP_SETTINGS = {
   source: "",
-  parameter: "V",
+  parameter: "",
   start: 0,
   stop: 10,
   step: 1,
@@ -60,7 +60,7 @@ export function getSimulationModeLabel(mode) {
 export function getSimulationAnalysisLabel(analysis) {
   switch (analysis) {
     case SIMULATION_ANALYSES.DC_OPERATING_POINT: return "DC Operating Point";
-    case SIMULATION_ANALYSES.DC_SWEEP: return "DC Sweep";
+    case SIMULATION_ANALYSES.DC_SWEEP: return "Parameter Sweep";
     case SIMULATION_ANALYSES.TRANSIENT: return "Transient";
     case SIMULATION_ANALYSES.AC: return "AC Analysis";
     default: return "Unknown analysis";
@@ -76,11 +76,11 @@ export function getDcSweepValidationError(settings, sweepTargets = []) {
   const targets = normalizeSweepTargets(sweepTargets);
   const target = targets.find((item) => item.id === source);
   const legacyTargets = targets.some((item) => item.legacy);
-  if (!source) return legacyTargets ? "Select a voltage source to sweep." : "Select a voltage or current source to sweep.";
-  if (!target) return "The selected sweep source is no longer available.";
-  const parameter = settings?.parameter ?? target.parameters?.[0]?.parameter ?? (target.legacy ? "V" : "");
-  if (!parameter) return "The selected sweep source has no sweep parameter.";
-  if (Array.isArray(target.parameters) && target.parameters.length > 0 && !target.parameters.some((item) => (typeof item === "string" ? item : item.parameter) === parameter)) return "The selected sweep source parameter is no longer available.";
+  if (!source) return legacyTargets ? "Select a sweep target." : "Select a component or source parameter to sweep.";
+  if (!target) return "The selected sweep target is no longer available.";
+  const parameter = settings?.parameter ?? target.parameters?.[0]?.parameter ?? (target.legacy ? "" : "");
+  if (!parameter) return "The selected sweep target has no sweep parameter.";
+  if (Array.isArray(target.parameters) && target.parameters.length > 0 && !target.parameters.some((item) => (typeof item === "string" ? item : item.parameter) === parameter)) return "The selected sweep parameter is no longer available.";
   const start = Number(settings?.start), stop = Number(settings?.stop), step = Number(settings?.step);
   if (![start, stop, step].every(Number.isFinite)) return "Start, stop and step must be finite numbers.";
   if (step === 0) return "Step cannot be zero.";
