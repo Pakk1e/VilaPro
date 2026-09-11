@@ -8,8 +8,8 @@ function formatSignal(value) {
 }
 
 function parseSignalName(name) {
-  if (name === "__live.time_s") return { label: "Sample time", family: "time", unit: "s" };
-  if (name === "__live.frequency_hz") return { label: "Frequency", family: "frequency", unit: "Hz" };
+  if (name === "__live.time_s") return { label: "Sample time", family: "time", plotFamily: "time", unit: "s" };
+  if (name === "__live.frequency_hz") return { label: "Frequency", family: "frequency", plotFamily: "frequency", unit: "Hz" };
 
   const suffixes = [
     [".instantaneous", "Instantaneous"],
@@ -19,21 +19,22 @@ function parseSignalName(name) {
   const suffix = suffixes.find(([value]) => name.endsWith(value));
   const base = suffix ? name.slice(0, -suffix[0].length) : name;
   const kind = suffix?.[1] ?? "Value";
+  const plotKind = kind === "Phase" ? "phase" : "value";
 
   const variableMatch = base.match(/^Variable\(name='([^']+)'\)$/);
   if (variableMatch) {
     const variable = variableMatch[1];
-    if (variable.startsWith("V_")) return { label: `V(${variable.slice(2)}) · ${kind}`, family: "voltage", unit: suffix?.[1] === "Phase" ? "°" : "V" };
-    if (variable.startsWith("I_")) return { label: `I(${variable.slice(2)}) · ${kind}`, family: "current", unit: suffix?.[1] === "Phase" ? "°" : "A" };
-    return { label: `${variable} · ${kind}`, family: "value", unit: suffix?.[1] === "Phase" ? "°" : "" };
+    if (variable.startsWith("V_")) return { label: `V(${variable.slice(2)}) · ${kind}`, family: "voltage", plotFamily: `voltage-${plotKind}`, unit: kind === "Phase" ? "°" : "V" };
+    if (variable.startsWith("I_")) return { label: `I(${variable.slice(2)}) · ${kind}`, family: "current", plotFamily: `current-${plotKind}`, unit: kind === "Phase" ? "°" : "A" };
+    return { label: `${variable} · ${kind}`, family: "value", plotFamily: `value-${plotKind}`, unit: kind === "Phase" ? "°" : "" };
   }
 
   const branchMatch = base.match(/^BranchCurrent\(name='[^']+',\s*arguments=\((.*)\),\s*component='([^']+)'\)$/);
   if (branchMatch) {
-    return { label: `I(${branchMatch[2]}) · ${kind}`, family: "current", unit: suffix?.[1] === "Phase" ? "°" : "A" };
+    return { label: `I(${branchMatch[2]}) · ${kind}`, family: "current", plotFamily: `current-${plotKind}`, unit: kind === "Phase" ? "°" : "A" };
   }
 
-  return { label: `${base} · ${kind}`, family: "value", unit: suffix?.[1] === "Phase" ? "°" : "" };
+  return { label: `${base} · ${kind}`, family: "value", plotFamily: `value-${plotKind}`, unit: kind === "Phase" ? "°" : "" };
 }
 
 function signalLabel(name) {
@@ -113,23 +114,31 @@ function LivePlot({ history, selectedSignals }) {
   }
 
   const groups = selectedSignals.reduce((result, name) => {
-    const family = parseSignalName(name).family;
-    const key = family === "phase" ? "phase" : family;
+    const key = parseSignalName(name).plotFamily;
     if (!result[key]) result[key] = [];
     result[key].push(name);
     return result;
   }, {});
 
+  const titles = {
+    "voltage-value": "Voltage",
+    "voltage-phase": "Voltage phase",
+    "current-value": "Current",
+    "current-phase": "Current phase",
+    "value-value": "Signal",
+    "value-phase": "Signal phase",
+    time: "Time",
+    frequency: "Frequency",
+  };
+
   return (
     <div className="overflow-hidden rounded-lg border border-[#e4e7eb] bg-white">
       <div className="border-b border-[#e4e7eb] px-4 py-3">
         <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#69717b]">Live plot</div>
-        <div className="mt-1 text-xs text-[#8a929c]">Selected signals versus sample time. Signals with different units use separate scales.</div>
+        <div className="mt-1 text-xs text-[#8a929c]">Selected signals versus sample time. Different signal types use separate scales.</div>
         <div className="mt-1 text-[10px] text-[#69717b]">{points.length} samples</div>
       </div>
-      {Object.entries(groups).map(([family, names]) => (
-        <PlotPanel key={family} points={points} selectedSignals={names} title={family === "voltage" ? "Voltage" : family === "current" ? "Current" : family === "frequency" ? "Frequency" : family === "time" ? "Time" : "Signal"} />
-      ))}
+      {Object.entries(groups).map(([family, names]) => <PlotPanel key={family} points={points} selectedSignals={names} title={titles[family] ?? "Signal"} />)}
     </div>
   );
 }
