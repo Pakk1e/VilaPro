@@ -125,7 +125,9 @@ test("authenticated user can run Live AC and receive phasor state", async ({ pag
   await expect(liveState.getByText(/· Instantaneous$/).first()).toBeVisible({ timeout: 10000 });
   await expect(liveState.getByText("Sample time")).toBeVisible();
   await expect(liveState.getByText("Plot signals", { exact: true })).toBeVisible();
-  await expect(liveState.getByRole("img", { name: /live simulation plot/i }).first()).toBeVisible();
+  const plot = liveState.getByRole("img", { name: /live simulation plot/i }).first();
+  await expect(plot).toBeVisible();
+  await expect.poll(async () => (await plot.locator("path").first().getAttribute("d"))?.match(/L/g)?.length ?? 0, { timeout: 10000 }).toBeGreaterThan(20);
   await page.getByRole("button", { name: "Stop" }).click();
   await expect(page.locator("header").getByText("cancelled", { exact: true })).toBeVisible();
   expect(consoleErrors).toEqual([]);
