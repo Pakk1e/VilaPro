@@ -45,6 +45,55 @@ function signalUnit(name) {
   return parseSignalName(name).unit;
 }
 
+function isInstantaneousSignal(name) {
+  return name.endsWith(".instantaneous");
+}
+
+function getAcInstantaneousValue(snapshot, name, time) {
+  if (!isInstantaneousSignal(name)) return Number(snapshot.signals[name]);
+  const magnitude = Number(snapshot.signals[`${name.slice(0, -".instantaneous".length)}.magnitude`]);
+  const phaseDegrees = Number(snapshot.signals[`${name.slice(0, -".instantaneous".length)}.phase_deg`]);
+  const frequency = Number(snapshot.signals["__live.frequency_hz"]);
+  if (!Number.isFinite(magnitude) || !Number.isFinite(phaseDegrees) || !Number.isFinite(frequency)) {
+    return Number(snapshot.signals[name]);
+  }
+  return magnitude * Math.cos(2 * Math.PI * frequency * time + (phaseDegrees * Math.PI) / 180);
+}
+
+function buildPlotSamples(points, name) {
+  if (!isInstantaneousSignal(name) || points.length < 2) {
+    return points.map((snapshot) => ({
+      time: Number(snapshot.signals["__live.time_s"]),
+      value: Number(snapshot.signals[name]),
+    }));
+  }
+
+  const samples = [];
+  points.forEach((snapshot, index) => {
+    if (index === 0) {
+      samples.push({ time: Number(snapshot.signals["__live.time_s"]), value: getAcInstantaneousValue(snapshot, name, Number(snapshot.signals["__live.time_s"])) });
+      return;
+    }
+
+    const previous = points[index - 1];
+    const startTime = Number(previous.signals["__live.time_s"]);
+    const endTime = Number(snapshot.signals["__live.time_s"]);
+    const duration = endTime - startTime;
+    const frequency = Number(snapshot.signals["__live.frequency_hz"]);
+    const cycles = Number.isFinite(frequency) && frequency > 0 ? Math.abs(duration * frequency) : 0;
+    const segments = Math.min(256, Math.max(16, Math.ceil(cycles * 48)));
+
+    for (let segment = 1; segment <= segments; segment += 1) {
+      const ratio = segment / segments;
+      const time = startTime + duration * ratio;
+      const value = getAcInstantaneousValue(snapshot, name, time);
+      samples.push({ time, value });
+    }
+  });
+
+  return samples;
+}
+
 function PlotPanel({ points, selectedSignals, title, width = 720, height = 280 }) {
   const margin = { top: 18, right: 22, bottom: 46, left: 64 };
   const plotWidth = width - margin.left - margin.right;
@@ -53,7 +102,7 @@ function PlotPanel({ points, selectedSignals, title, width = 720, height = 280 }
   const xMin = Math.min(...xValues);
   const xMax = Math.max(...xValues);
   const xRange = xMax - xMin || 1;
-  const yValues = selectedSignals.flatMap((name) => points.map((snapshot) => Number(snapshot.signals[name])).filter(Number.isFinite));
+  const yValues = selectedSignals.flatMap((name) => buildPlotSamples(points, name).map(({ value }) => value).filter(Number.isFinite));
   if (yValues.length < 2) return null;
 
   const yMin = Math.min(...yValues);
@@ -72,13 +121,9 @@ function PlotPanel({ points, selectedSignals, title, width = 720, height = 280 }
 
   const paths = selectedSignals.map((name) => {
     const commands = [];
-    let started = false;
-    points.forEach((snapshot) => {
-      const xValue = Number(snapshot.signals["__live.time_s"]);
-      const yValue = Number(snapshot.signals[name]);
-      if (!Number.isFinite(yValue)) { started = false; return; }
-      commands.push(`${started ? "L" : "M"} ${scaleX(xValue).toFixed(2)} ${scaleY(yValue).toFixed(2)}`);
-      started = true;
+    buildPlotSamples(points, name).forEach(({ time, value }) => {
+      if (!Number.isFinite(value) || !Number.isFinite(time)) return;
+      commands.push(`${commands.length === 0 ? "M" : "L"} ${scaleX(time).toFixed(2)} ${scaleY(value).toFixed(2)}`);
     });
     return { name, path: commands.join(" ") };
   }).filter((item) => item.path);
