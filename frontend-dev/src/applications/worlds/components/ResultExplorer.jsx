@@ -7,6 +7,42 @@ import ResultChart from "./ResultChart";
 
 const measurements = [RESULT_MEASUREMENTS.VOLTAGE, RESULT_MEASUREMENTS.CURRENT, RESULT_MEASUREMENTS.POWER];
 
+function formatIdentifier(value) {
+  return String(value ?? "")
+    .replace(/^V_/, "")
+    .replace(/^I_/, "")
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+function formatACVariable(name) {
+  const raw = String(name ?? "");
+  const voltageMatch = raw.match(/^Variable\(name=['"]V_(.+?)['"]\)$/);
+  if (voltageMatch) return `V(${formatIdentifier(voltageMatch[1])})`;
+
+  const currentMatch = raw.match(/^Variable\(name=['"]I_(.+?)['"]\)$/);
+  if (currentMatch) return `I(${formatIdentifier(currentMatch[1])})`;
+
+  if (raw.startsWith("BranchCurrent(")) {
+    const variables = [...raw.matchAll(/Variable\(name=['"]([^'"]+)['"]\)/g)].map((match) => match[1]);
+    if (variables.length >= 2) return `I(${formatIdentifier(variables[0])} → ${formatIdentifier(variables[1])})`;
+    if (variables.length === 1) return `I(${formatIdentifier(variables[0])})`;
+    return "Branch current";
+  }
+
+  return raw;
+}
+
+function getACUnit(name) {
+  const raw = String(name ?? "");
+  if (/^Variable\(name=['"]V_/.test(raw)) return "V";
+  if (/^Variable\(name=['"]I_/.test(raw) || raw.startsWith("BranchCurrent(")) return "A";
+  return "";
+}
+
+function formatACValue(value, unit) {
+  return formatEngineeringValue(value, unit);
+}
 
 function SummaryTable({ title, rows, selectedRow, onSelect, isSweep }) {
   return <div className="border-b border-[#e4e7eb] last:border-b-0">
@@ -40,8 +76,12 @@ function ACResultView({ result }) {
     </div>
     <div className="border-t border-[#e4e7eb]">
       <div className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#69717b]">Phasor values</div>
-      <div className="overflow-x-auto"><table className="w-full border-collapse text-left"><thead className="bg-[#fafbfc]"><tr className="border-y border-[#eef0f2]"><th className="px-4 py-2 text-[9px] font-semibold uppercase tracking-[0.1em] text-[#69717b]">Variable</th><th className="px-3 py-2 text-[9px] font-semibold uppercase tracking-[0.1em] text-[#69717b]">Magnitude</th><th className="px-3 py-2 text-[9px] font-semibold uppercase tracking-[0.1em] text-[#69717b]">Phase</th><th className="px-3 py-2 text-[9px] font-semibold uppercase tracking-[0.1em] text-[#69717b]">Real</th><th className="px-3 py-2 text-[9px] font-semibold uppercase tracking-[0.1em] text-[#69717b]">Imaginary</th></tr></thead>
-        <tbody>{phasors.length === 0 ? <tr><td colSpan="5" className="px-4 py-4 text-xs text-[#69717b]">No AC phasor values are available.</td></tr> : phasors.map((item) => <tr key={item.name} className="border-b border-[#eef0f2] last:border-b-0"><td className="max-w-[24rem] truncate px-4 py-2.5 text-xs font-medium text-[#17253a]" title={item.name}>{item.name}</td><td className="px-3 py-2.5 font-mono text-[11px] text-[#35445a]">{item.magnitude}</td><td className="px-3 py-2.5 font-mono text-[11px] text-[#35445a]">{item.phase_deg}°</td><td className="px-3 py-2.5 font-mono text-[11px] text-[#35445a]">{item.real}</td><td className="px-3 py-2.5 font-mono text-[11px] text-[#35445a]">{item.imag}</td></tr>)}</tbody>
+      <div className="overflow-x-auto"><table className="w-full min-w-[560px] border-collapse text-left"><thead className="bg-[#fafbfc]"><tr className="border-y border-[#eef0f2]"><th className="w-[34%] px-4 py-2 text-[9px] font-semibold uppercase tracking-[0.1em] text-[#69717b]">Signal</th><th className="px-3 py-2 text-[9px] font-semibold uppercase tracking-[0.1em] text-[#69717b]">Magnitude</th><th className="px-3 py-2 text-[9px] font-semibold uppercase tracking-[0.1em] text-[#69717b]">Phase</th><th className="px-3 py-2 text-[9px] font-semibold uppercase tracking-[0.1em] text-[#69717b]">Real</th><th className="px-3 py-2 text-[9px] font-semibold uppercase tracking-[0.1em] text-[#69717b]">Imaginary</th></tr></thead>
+        <tbody>{phasors.length === 0 ? <tr><td colSpan="5" className="px-4 py-4 text-xs text-[#69717b]">No AC phasor values are available.</td></tr> : phasors.map((item) => {
+          const label = formatACVariable(item.name);
+          const unit = getACUnit(item.name);
+          return <tr key={item.name} className="border-b border-[#eef0f2] last:border-b-0"><td className="px-4 py-2.5 text-xs font-medium text-[#17253a]" title={item.name}>{label}</td><td className="px-3 py-2.5 font-mono text-[11px] text-[#35445a]">{formatACValue(item.magnitude, unit)}</td><td className="px-3 py-2.5 font-mono text-[11px] text-[#35445a]">{formatACValue(item.phase_deg, "")}°</td><td className="px-3 py-2.5 font-mono text-[11px] text-[#35445a]">{formatACValue(item.real, unit)}</td><td className="px-3 py-2.5 font-mono text-[11px] text-[#35445a]">{formatACValue(item.imag, unit)}</td></tr>;
+        })}</tbody>
       </table></div>
     </div>
   </section>;
@@ -55,9 +95,12 @@ export default function ResultExplorer({ result }) {
   const branchRows = rows.filter((row) => row.entityType === "branch");
   const [selectedKey, setSelectedKey] = useState(null);
   const [measurement, setMeasurement] = useState(RESULT_MEASUREMENTS.VOLTAGE);
-  const selectedRow = rows.find((row) => row.key === selectedKey) ?? rows[0] ?? null;
+  const selectedRow = rows.find((row) => row.key === selectedKey) ?? componentRows[0] ?? branchRows[0] ?? nodeRows.find((row) => row.entityId !== "ground") ?? nodeRows[0] ?? null;
   const availableMeasurements = selectedRow ? measurements.filter((item) => Boolean(selectedRow.values[item])) : [];
-  const effectiveMeasurement = availableMeasurements.includes(measurement) ? measurement : availableMeasurements[0] ?? null;
+  const defaultMeasurement = result?.analysis === "dc_sweep" && availableMeasurements.includes(RESULT_MEASUREMENTS.CURRENT)
+    ? RESULT_MEASUREMENTS.CURRENT
+    : RESULT_MEASUREMENTS.VOLTAGE;
+  const effectiveMeasurement = availableMeasurements.includes(measurement) ? measurement : availableMeasurements.includes(defaultMeasurement) ? defaultMeasurement : availableMeasurements[0] ?? null;
   const selectedSeries = selectedRow && effectiveMeasurement ? getEntityMeasurementSeries(series, selectedRow.entityType, selectedRow.entityId, effectiveMeasurement) : null;
   const isSweep = result?.analysis === "dc_sweep";
   const isTransient = result?.analysis === "transient";
