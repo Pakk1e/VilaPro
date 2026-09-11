@@ -41,8 +41,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-          cache-dependency-path: frontend-dev/package-lock.json
 
       - name: Measure runner before acceptance setup
         shell: bash
@@ -65,7 +63,7 @@ jobs:
         run: |
           set -euo pipefail
           started=$(date +%s%3N)
-          npm ci
+          npm ci --prefer-offline --no-audit --no-fund
           ended=$(date +%s%3N)
           echo "npm ci duration=$((ended - started))ms"
 
@@ -77,7 +75,7 @@ jobs:
         run: |
           set -euo pipefail
           started=$(date +%s%3N)
-          npm install --no-save --package-lock=false @playwright/test@1.63.0
+          npm install --no-save --package-lock=false --prefer-offline --no-audit --no-fund @playwright/test@1.63.0
           ended=$(date +%s%3N)
           echo "Playwright runner install duration=$((ended - started))ms"
           node -e "console.log('Playwright version:', require('@playwright/test/package.json').version)"
