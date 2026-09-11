@@ -121,14 +121,78 @@ function getPortNet(node, portId, dsu, netNames) {
   return net;
 }
 
-function buildInstance(node, dsu, netNames) {
-  const definition = PROPERTY_TO_PARAMETER[node.data?.componentType], properties = node.data?.properties ?? {}, parameters = {};
-  for (const [propertyName, parameterName] of Object.entries(definition.parameter)) {
-    const value = properties[propertyName];
-    if (typeof value !== "number" || !Number.isFinite(value)) throw new Error(`${node.data?.label ?? node.id}: property "${propertyName}" must be a finite number`);
-    if (value <= 0) throw new Error(`${node.data?.label ?? node.id}: property "${propertyName}" must be greater than zero`);
-    parameters[parameterName] = value;
+function parseFiniteProperty(properties, propertyName, label) {
+  const value = properties[propertyName];
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw new Error(`${label}: property "${propertyName}" must be a finite number`);
   }
+  return value;
+}
+
+function buildSourceParameter(componentType, properties, label) {
+  const waveform = properties.waveform ?? "dc";
+
+  if (!["dc", "sine", "square"].includes(waveform)) {
+    throw new Error(`${label}: property "waveform" must be one of DC, Sine, Square`);
+  }
+
+  if (waveform === "dc") {
+    const propertyName = componentType === "VoltageSource" ? "voltage" : "current";
+    const parameterName = componentType === "VoltageSource" ? "V" : "I";
+    const value = parseFiniteProperty(properties, propertyName, label);
+
+    return { [parameterName]: value };
+  }
+
+  const amplitude = parseFiniteProperty(properties, "amplitude", label);
+  const offset = parseFiniteProperty(properties, "offset", label);
+  const frequency = parseFiniteProperty(properties, "frequency", label);
+  const phaseDegrees = parseFiniteProperty(properties, "phase", label);
+  const delay = parseFiniteProperty(properties, "delay", label);
+
+  if (amplitude < 0) {
+    throw new Error(`${label}: property "amplitude" must not be negative`);
+  }
+  if (frequency <= 0) {
+    throw new Error(`${label}: property "frequency" must be greater than zero for periodic waveforms`);
+  }
+  if (delay < 0) {
+    throw new Error(`${label}: property "delay" must not be negative`);
+  }
+
+  const parameterName = componentType === "VoltageSource" ? "V" : "I";
+
+  return {
+    [parameterName]: {
+      waveform,
+      amplitude,
+      offset,
+      frequency,
+      phase: phaseDegrees * Math.PI / 180,
+      delay,
+    },
+  };
+}
+
+function buildInstance(node, dsu, netNames) {
+  const componentType = node.data?.componentType;
+  const definition = PROPERTY_TO_PARAMETER[componentType];
+  const properties = node.data?.properties ?? {};
+  const parameters = {};
+
+  if (componentType === "VoltageSource" || componentType === "CurrentSource") {
+    Object.assign(
+      parameters,
+      buildSourceParameter(componentType, properties, node.data?.label ?? node.id)
+    );
+  } else {
+    for (const [propertyName, parameterName] of Object.entries(definition.parameter)) {
+      const value = parseFiniteProperty(properties, propertyName, node.data?.label ?? node.id);
+      if (value <= 0) throw new Error(`${node.data?.label ?? node.id}: property "${propertyName}" must be greater than zero`);
+      parameters[parameterName] = value;
+    }
+  }
+
   const ports = {};
   for (const port of getComponentPorts(node)) ports[port.id] = getPortNet(node, port.id, dsu, netNames);
   return { id: node.id, name: node.data?.label ?? node.id, type: getBackendType(node), parameters, ports };
