@@ -54,7 +54,8 @@ jobs:
           echo "npm:  $(npm --version)"
           echo "Started: $(date -Is)"
           echo "Runner: $(hostname)"
-          echo "Load:   $(cut -d' ' -f1-3 /proc/loadavg 2>/dev/null || true)"
+          echo "CPU threads: $(nproc 2>/dev/null || true)"
+          echo "Load: $(cut -d' ' -f1-3 /proc/loadavg 2>/dev/null || true)"
           free -m 2>/dev/null | awk 'NR==1 || NR==2 {print "Memory: " $0}' || true
           df -h "$GITHUB_WORKSPACE" 2>/dev/null | awk 'NR==1 || NR==2 {print "Disk: " $0}' || true
 
@@ -100,10 +101,12 @@ jobs:
         run: |
           set -o pipefail
           started=$(date +%s%3N)
+          workers="${WORLDS_E2E_WORKERS:-3}"
           echo "=== Worlds browser acceptance ==="
           echo "Revision: $GITHUB_SHA"
+          echo "Workers:  $workers"
           echo "Started:  $(date -Is)"
-          npx playwright test tests/e2e/acceptance.spec.js --reporter=list,html --retries=0 2>&1 | tee ../acceptance-run.log
+          npx playwright test tests/e2e/acceptance.spec.js --workers="$workers" --reporter=list,html --retries=0 2>&1 | tee ../acceptance-run.log
           status=${PIPESTATUS[0]}
           ended=$(date +%s%3N)
           echo "Finished: $(date -Is)"
