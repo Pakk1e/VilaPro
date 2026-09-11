@@ -202,7 +202,10 @@ class ACAnalysis:
     def run(self, model, *, known=None, configuration=None, session=None):
         if configuration is None: raise SimulationAnalysisError("ac requires a simulation configuration")
         ac_configuration = ACConfiguration.from_dict(configuration.settings)
-        return solve_ac(model, ac_configuration)
+        result = solve_ac(model, ac_configuration)
+        if session is not None:
+            session.record_point(result, time=0.0)
+        return result
 
 
 def _build_transient_execution_points(configuration: TransientConfiguration) -> tuple[float, ...]:
