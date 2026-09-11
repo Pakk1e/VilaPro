@@ -20,13 +20,52 @@ function getNodePortKind(node, handleId) { if (node?.type === "junction") { if (
 function canConnect(connection, nodes) { if (!connection.source || !connection.sourceHandle || !connection.target || !connection.targetHandle) return false; if (connection.source === connection.target) return false; const sourceNode = nodes.find((node) => node.id === connection.source); const targetNode = nodes.find((node) => node.id === connection.target); if (!sourceNode || !targetNode) return false; const sourceKind = getNodePortKind(sourceNode, connection.sourceHandle); const targetKind = getNodePortKind(targetNode, connection.targetHandle); if (!sourceKind || !targetKind) return false; return sourceKind === targetKind; }
 function getEdgeIdAtPoint(event) { const element = document.elementsFromPoint(event.clientX, event.clientY).find((item) => item.classList.contains("react-flow__edge-interaction")); return element?.parentElement?.dataset?.id ?? null; }
 function getJunctionHandle(position, endpoint) { const dx = endpoint.x - position.x; const dy = endpoint.y - position.y; if (Math.abs(dx) >= Math.abs(dy)) return dx < 0 ? "junction-left" : "junction-right"; return dy < 0 ? "junction-top" : "junction-bottom"; }
+function isGroundEndpoint(nodeId, handleId, nodes) { return nodes.some((node) => node.id === nodeId && node.data?.componentType === "Ground" && handleId === "g"); }
+function getGroundEdge(edge, groundId) { if (edge.source === groundId && edge.sourceHandle === "g") return edge; if (edge.target === groundId && edge.targetHandle === "g") return edge; return null; }
 
 export default function WorldCanvas({ workspace = "design" }) {
   const isDesignWorkspace = workspace === "design";
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes); const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges); const [reactFlowInstance, setReactFlowInstance] = useState(null); const [selectedNodeId, setSelectedNodeId] = useState(null); const [selectedEdgeId, setSelectedEdgeId] = useState(null); const selectedNode = nodes.find((node) => node.id === selectedNodeId) ?? null;
   const [selectedResultEntity, setSelectedResultEntity] = useState(null);
   useEffect(() => { const handleResultSelection = (event) => setSelectedResultEntity(event.detail ?? null); window.addEventListener("worlds:select-result", handleResultSelection); return () => window.removeEventListener("worlds:select-result", handleResultSelection); }, []);
-  const onConnect = useCallback((connection) => { if (!canConnect(connection, nodes)) return; flushSync(() => { setEdges((currentEdges) => { const alreadyConnected = currentEdges.some((edge) => edge.source === connection.source && edge.sourceHandle === connection.sourceHandle && edge.target === connection.target && edge.targetHandle === connection.targetHandle); return alreadyConnected ? currentEdges : addEdge({ ...connection, type: "circuit" }, currentEdges); }); }); }, [nodes, setEdges]);
+  const onConnect = useCallback((connection) => {
+    if (!canConnect(connection, nodes)) return;
+    flushSync(() => {
+      setEdges((currentEdges) => {
+        const alreadyConnected = currentEdges.some((edge) => edge.source === connection.source && edge.sourceHandle === connection.sourceHandle && edge.target === connection.target && edge.targetHandle === connection.targetHandle);
+        if (alreadyConnected) return currentEdges;
+        const groundId = isGroundEndpoint(connection.source, connection.sourceHandle, nodes) ? connection.source : isGroundEndpoint(connection.target, connection.targetHandle, nodes) ? connection.target : null;
+        if (!groundId) return addEdge({ ...connection, type: "circuit" }, currentEdges);
+        const existingGroundEdge = currentEdges.map((edge) => getGroundEdge(edge, groundId)).find(Boolean);
+        if (!existingGroundEdge) return addEdge({ ...connection, type: "circuit" }, currentEdges);
+        const existingJunctionEdge = currentEdges.find((edge) => {
+          if (edge.id === existingGroundEdge.id) return false;
+          return (edge.source === groundId && edge.target.startsWith("junction-")) || (edge.target === groundId && edge.source.startsWith("junction-"));
+        });
+        if (existingJunctionEdge) {
+          const junctionId = existingJunctionEdge.source === groundId ? existingJunctionEdge.target : existingJunctionEdge.source;
+          const componentId = groundId === connection.source ? connection.target : connection.source;
+          const componentHandle = groundId === connection.source ? connection.targetHandle : connection.sourceHandle;
+          const newEdge = { id: `edge-${crypto.randomUUID()}`, source: componentId, sourceHandle: componentHandle, target: junctionId, targetHandle: "junction-right", type: "circuit" };
+          return [...currentEdges, newEdge];
+        }
+        const junctionId = `junction-${crypto.randomUUID()}`;
+        const groundNode = nodes.find((node) => node.id === groundId);
+        const junctionNode = { id: junctionId, type: "junction", position: { x: (groundNode?.position?.x ?? 0) + 132, y: (groundNode?.position?.y ?? 0) - 42 }, data: { kind: "junction", portKind: "electrical" } };
+        const existingComponentId = existingGroundEdge.source === groundId ? existingGroundEdge.target : existingGroundEdge.source;
+        const existingComponentHandle = existingGroundEdge.source === groundId ? existingGroundEdge.targetHandle : existingGroundEdge.sourceHandle;
+        const newComponentId = groundId === connection.source ? connection.target : connection.source;
+        const newComponentHandle = groundId === connection.source ? connection.targetHandle : connection.sourceHandle;
+        const replacementEdges = [
+          { id: `edge-${crypto.randomUUID()}`, source: existingComponentId, sourceHandle: existingComponentHandle, target: junctionId, targetHandle: "junction-left", type: "circuit" },
+          { id: `edge-${crypto.randomUUID()}`, source: newComponentId, sourceHandle: newComponentHandle, target: junctionId, targetHandle: "junction-right", type: "circuit" },
+          { id: `edge-${crypto.randomUUID()}`, source: junctionId, sourceHandle: "junction-bottom", target: groundId, targetHandle: "g", type: "circuit" },
+        ];
+        setNodes((currentNodes) => [...currentNodes, junctionNode]);
+        return [...currentEdges.filter((edge) => edge.id !== existingGroundEdge.id), ...replacementEdges];
+      });
+    });
+  }, [nodes, setEdges, setNodes]);
   const addComponent = (definitionKey) => { if (!reactFlowInstance) return; const definition = worldDefinitions[definitionKey]; if (!definition) return; const bounds = document.querySelector(".react-flow")?.getBoundingClientRect(); if (!bounds) return; const position = reactFlowInstance.screenToFlowPosition({ x: bounds.left + bounds.width / 2, y: bounds.top + bounds.height / 2 }); const label = getNextComponentLabel(nodes, definition); const placementIndex = nodes.length; const column = placementIndex % 3; const row = Math.floor(placementIndex / 3); const offsetX = (column - 1) * 320; const offsetY = row * 150; const newNode = { id: `component-${crypto.randomUUID()}`, type: "world", position: { x: position.x - 140 + offsetX, y: position.y - 80 + offsetY }, data: createNodeData(definition, label, definitionKey) }; setNodes((currentNodes) => [...currentNodes, newNode]); setSelectedNodeId(newNode.id); setSelectedEdgeId(null); };
   const updateSelectedProperty = (property, value) => { if (!selectedNodeId || !isDesignWorkspace) return; setNodes((currentNodes) => currentNodes.map((node) => node.id !== selectedNodeId ? node : { ...node, data: { ...node.data, properties: { ...(node.data?.properties ?? {}), [property]: value } } })); };
   const handleNodesChange = (changes) => { if (!isDesignWorkspace) return; onNodesChange(changes); for (const change of changes) if (change.type === "remove" && change.id === selectedNodeId) setSelectedNodeId(null); };
