@@ -99,7 +99,7 @@ jobs:
         run: |
           set -o pipefail
           started=$(date +%s%3N)
-          workers="${WORLDS_E2E_WORKERS:-3}"
+          workers="${WORLDS_E2E_WORKERS:-4}"
           echo "=== Worlds browser acceptance ==="
           echo "Revision: $GITHUB_SHA"
           echo "Workers:  $workers"
