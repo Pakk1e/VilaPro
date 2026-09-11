@@ -1,11 +1,16 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { formatEngineeringTick, getEngineeringScale } from "../model/engineeringFormat.js";
 
 const WINDOW_PRESETS = [
+  { value: 0.000001, label: "1 µs" },
+  { value: 0.000002, label: "2 µs" },
   { value: 0.000005, label: "5 µs" },
+  { value: 0.00001, label: "10 µs" },
   { value: 0.00005, label: "50 µs" },
+  { value: 0.0001, label: "100 µs" },
   { value: 0.0005, label: "500 µs" },
+  { value: 0.001, label: "1 ms" },
   { value: 0.005, label: "5 ms" },
   { value: 0.05, label: "50 ms" },
   { value: 0.5, label: "500 ms" },
@@ -24,6 +29,11 @@ function formatWindowLabel(seconds) {
   if (seconds >= 1) return `${formatSignal(seconds)} s`;
   if (seconds >= 0.001) return `${formatSignal(seconds * 1000)} ms`;
   return `${formatSignal(seconds * 1000000)} µs`;
+}
+function chooseDefaultWindow(frequency) {
+  if (!Number.isFinite(frequency) || frequency <= 0) return 0.05;
+  const target = 5 / frequency;
+  return WINDOW_PRESETS.reduce((closest, preset) => Math.abs(preset.value - target) < Math.abs(closest.value - target) ? preset : closest, WINDOW_PRESETS[0]).value;
 }
 function formatIdentifier(value) {
   return String(value ?? "").replace(/^V_/, "").replace(/^I_/, "").replace(/_/g, " ").replace(/\b\w/g, (character) => character.toUpperCase());
@@ -79,7 +89,7 @@ function PlotPanel({ points, selectedSignals, title, windowSeconds, now }) {
   const scaleX = (relativeTime) => margin.left + ((relativeTime - xMin) / xRange) * plotWidth; const scaleY = (value) => margin.top + (1 - (value - chartYMin) / chartYRange) * plotHeight;
   const xTicks = [xMin, xMin / 2, xMax]; const yTicks = [chartYMin, chartYMin + chartYRange / 2, chartYMax]; const xScale = getEngineeringScale(xTicks, "s"); const yScale = getEngineeringScale(yTicks, signalUnit(selectedSignals[0]));
   return <div className="overflow-hidden rounded-lg border border-[#e4e7eb] bg-white">
-    <div className="flex items-center justify-between border-b border-[#e4e7eb] px-4 py-2.5"><div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#69717b]">{title}</div><div className="text-[10px] text-[#8a929c]">{formatWindowLabel(windowSeconds)}</div></div>
+    <div className="flex items-center justify-between border-b border-[#e4e7eb] px-4 py-2.5"><div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#69717b]">{title}</div><div className="text-[10px] font-medium text-[#8a929c]">{formatWindowLabel(windowSeconds)}</div></div>
     <div className="overflow-x-auto px-3 py-2"><svg viewBox={`0 0 ${width} ${height}`} className="h-auto min-w-[560px] w-full" role="img" aria-label={`${title} live oscilloscope`}>
       {yTicks.map((tick) => { const y = scaleY(tick); return <g key={`y-${tick}`}><line x1={margin.left} x2={width - margin.right} y1={y} y2={y} stroke="#e4e7eb" strokeWidth="1" /><text x={margin.left - 9} y={y + 4} textAnchor="end" fontSize="10" fill="#69717b">{formatEngineeringTick(tick, signalUnit(selectedSignals[0]), yScale)}</text></g>; })}
       {xTicks.map((tick) => { const x = scaleX(tick); return <g key={`x-${tick}`}><line x1={x} x2={x} y1={margin.top} y2={height - margin.bottom} stroke="#f0f1f3" strokeWidth="1" /><text x={x} y={height - margin.bottom + 19} textAnchor="middle" fontSize="10" fill="#69717b">{formatEngineeringTick(tick, "s", xScale)}</text></g>; })}
@@ -103,13 +113,14 @@ export default function LiveSimulationView({ snapshot, history = [] }) {
   const defaultSignals = useMemo(() => { const instantaneous = signalNames.filter(isAcInstantaneous).slice(0, 2); return instantaneous.length ? instantaneous : signalNames.slice(0, 2); }, [signalNames]);
   const frequency = Number(snapshot?.signals?.["__live.frequency_hz"]);
   const [selectedSignals, setSelectedSignals] = useState(null);
-  const [windowSeconds, setWindowSeconds] = useState(() => (Number.isFinite(frequency) && frequency > 0 ? 0.005 : 1));
+  const [windowSeconds, setWindowSeconds] = useState(() => chooseDefaultWindow(frequency));
+  useEffect(() => { if (Number.isFinite(frequency) && frequency > 0) setWindowSeconds((current) => current === 0.05 ? chooseDefaultWindow(frequency) : current); }, [frequency]);
   const activeSignals = (selectedSignals ?? defaultSignals).filter((name) => signalNames.includes(name)).slice(0, MAX_TRACES);
   const acCycles = Number.isFinite(frequency) && frequency > 0 ? frequency * windowSeconds : null;
   const toggleSignal = (name) => setSelectedSignals((current) => { const next = current ?? defaultSignals; if (next.includes(name)) return next.filter((item) => item !== name); if (next.length >= MAX_TRACES) return next; return [...next, name]; });
 
   return <section aria-label="Live oscilloscope" className="overflow-hidden rounded-xl border border-[#d9dde2] bg-white">
-    <div className="border-b border-[#e4e7eb] px-4 py-3"><div className="flex flex-wrap items-center justify-between gap-3"><div><div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#58718f]">Live oscilloscope</div><div className="mt-1 text-xs text-[#69717b]">The view follows the simulation clock and shows only the latest time window.</div></div><div className="flex items-center gap-2"><span className="text-[10px] font-medium text-[#69717b]">Window</span><select aria-label="Oscilloscope time window" value={windowSeconds} onChange={(event) => setWindowSeconds(Number(event.target.value))} className="rounded-md border border-[#cfd5dc] bg-white px-2 py-1.5 text-[11px] font-medium text-[#26364d] outline-none focus:border-[#58718f]">{WINDOW_PRESETS.map((preset) => <option key={preset.value} value={preset.value}>{preset.label}</option>)}</select></div></div>
+    <div className="border-b border-[#e4e7eb] px-4 py-3"><div className="flex flex-wrap items-center justify-between gap-3"><div><div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#58718f]">Live oscilloscope</div><div className="mt-1 text-xs text-[#69717b]">A moving view of the latest part of the simulation.</div></div><div className="flex items-center gap-2"><span className="text-[10px] font-medium text-[#69717b]">Window</span><select aria-label="Oscilloscope time window" value={windowSeconds} onChange={(event) => setWindowSeconds(Number(event.target.value))} className="rounded-md border border-[#cfd5dc] bg-white px-2 py-1.5 text-[11px] font-medium text-[#26364d] outline-none focus:border-[#58718f]">{WINDOW_PRESETS.map((preset) => <option key={preset.value} value={preset.value}>{preset.label}</option>)}</select></div></div>
       <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-[#8a929c]"><span>t = {formatSignal(Number(snapshot?.signals?.["__live.time_s"]))} s</span>{Number.isFinite(frequency) && frequency > 0 && <span>f = {formatSignal(frequency)} Hz</span>}{acCycles !== null && <span>{formatSignal(acCycles)} cycles visible</span>}<span>{activeSignals.length}/{MAX_TRACES} traces</span></div>
     </div>
     {signalNames.length > 0 && <div className="border-b border-[#e4e7eb] px-4 py-2.5"><div className="flex flex-wrap gap-1.5">{signalNames.map((name) => { const active = activeSignals.includes(name); return <button key={name} type="button" onClick={() => toggleSignal(name)} aria-pressed={active} className={`max-w-full truncate rounded-full border px-2.5 py-1 text-[10px] font-medium transition ${active ? "border-[#58718f] bg-[#f1f5f9] text-[#26364d]" : "border-[#e4e7eb] bg-white text-[#69717b] hover:bg-[#fafbfc]"}`}>{signalLabel(name)}</button>; })}</div></div>}
