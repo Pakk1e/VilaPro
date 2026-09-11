@@ -1,6 +1,6 @@
 # VilaPro Worlds Architecture
 
-This document is the engineering source of truth for the Worlds application architecture. It is intentionally separate from the product vision: product direction can evolve, but these boundaries should only change deliberately.
+This document is the engineering source of truth for the Worlds application architecture. Product direction is defined separately in `VISION.md`, `docs/CONCEPTS.md`, `docs/LAYER_MODEL.md`, and `docs/WORLDS.md`. These engineering boundaries should only change deliberately.
 
 ## 1. Core principle
 
@@ -12,24 +12,20 @@ The architecture must keep these concerns separate:
 Visual World Model
        │
        ├── editing / selection / layout
-       │
        ▼
 Canonical World Graph
        │
        ├── serialization boundary
-       │
        ▼
 Simulation / VDL Model
        │
        ├── analysis
-       │
        └── execution mode
               ├── Static
               └── Live
        │
        ▼
 Results / Runtime State
-       │
        ▼
 Visualization
 ```
@@ -74,7 +70,7 @@ Instance state must not duplicate the component definition unnecessarily.
 
 ### 2.3 World graph
 
-The World graph is the canonical visual/editing model.
+The World graph is the canonical visual/editing model for the current workspace/layer.
 
 A graph contains:
 
@@ -94,6 +90,8 @@ Graph invariants:
 7. Deleting a component must not leave dangling connections.
 8. Moving or zooming the canvas must not change electrical topology.
 9. Renderer state must not silently mutate simulation semantics.
+
+The World Graph is not the definition of the entire Lab OS Universe; it is the canonical editable representation of the current workspace/layer.
 
 ### 2.4 Serialization boundary
 
@@ -292,6 +290,7 @@ Examples:
 - waveform configuration serializes correctly
 - serialization is deterministic
 - supported component definitions map to supported backend types
+- public simulation request/response/live transport shapes are validated
 
 ### Component/model tests
 
@@ -317,15 +316,14 @@ Screenshot/geometry checks are appropriate for layout-sensitive behavior such as
 
 Canonical graph fixtures live under the Worlds model test area. Fixtures represent known circuits and should be reusable by model tests and, where practical, browser tests.
 
-Recommended baseline fixtures:
+Current baseline fixtures include:
 
-- empty world
-- resistor
-- voltage divider
 - series circuit
 - sine source
 - RC circuit
 - AC test circuit
+- current-source circuit
+- parallel-resistor/junction circuit
 
 A fixture should describe semantic graph state rather than browser coordinates unless the test specifically targets layout.
 
@@ -364,9 +362,7 @@ Do not add test IDs everywhere. Prefer accessible roles/labels first.
 
 ## 13. Schema and validation direction
 
-As the graph evolves, introduce explicit runtime validation at the graph/simulation boundary.
-
-The target is:
+Current validation boundaries are explicit:
 
 ```text
 Editor
@@ -375,10 +371,12 @@ validated WorldGraph
   ↓
 validated SimulationRequest
   ↓
-validated SimulationModel
+Backend simulation/domain model
   ↓
-validated Result/RuntimeState
+validated Result / Runtime transport
 ```
+
+The frontend validates public data shape and graph invariants. The backend remains authoritative for physical semantics, model validity, and numerical correctness. Frontend validation should not duplicate backend domain rules.
 
 Validation should produce useful, component-specific errors rather than generic failures.
 
@@ -411,9 +409,9 @@ Worlds
  ├── Mechanical
  ├── Control
  ├── Fluid
- └── future layers
+ └── future worlds/layers
 ```
 
-The visual world model remains separate from layer-specific semantics. Components can acquire deeper representations over time without breaking the editor or simulation runtime boundaries.
+The visual world model remains separate from layer-specific semantics. Components can acquire deeper representations over time without breaking the editor or simulation runtime boundaries. The exact cross-world coupling and user-created representation architecture remain intentionally open until the product needs them.
 
-This document defines engineering boundaries. Product vision, priorities, and user-facing goals should be captured separately once the current optimization and architecture work is complete.
+This document defines engineering boundaries; product vision and long-term decisions are maintained in the canonical product/architecture documents listed above.
