@@ -50,7 +50,7 @@ test("AC settings validate frequency and amplitude", () => {
 });
 
 test("parameter sweep is a supported analysis", () => {
-  const config = createSimulationConfig({ analysis: SIMULATION_ANALYSES.DC_SWEEP, settings: { ...DEFAULT_DC_SWEEP_SETTINGS, source: "V1-id" } });
+  const config = createSimulationConfig({ analysis: SIMULATION_ANALYSES.DC_SWEEP, settings: { ...DEFAULT_DC_SWEEP_SETTINGS, source: "V1-id", parameter: "V" } });
   assert.equal(config.analysis, "dc_sweep");
   assert.equal(getSimulationAnalysisLabel(config.analysis), "Parameter Sweep");
   assert.equal(getSimulationConfigValidationError(config, targets), null);
