@@ -1,197 +1,271 @@
 # Workflow Optimization
 
-This document defines the workflow-speed work for the Worlds development loop. The goal is to reduce feedback time without weakening the acceptance gate or making the self-hosted runner less deterministic.
+This document defines the engineering workflow for the Worlds development loop. The goal is not only lower feedback time, but a development system that makes changes safer, more deterministic, easier to diagnose, and easier for an AI coding agent to reason about.
 
-The optimization work is intentionally separated from Worlds application behavior. It may change GitHub Actions workflows, deployment scripts used only by Worlds DEV, and runner/tooling configuration. The production `deploy.sh` remains untouched.
-
-## Current problem
-
-The Worlds DEV loop currently performs overlapping validation and browser-tool installation across deployment and acceptance:
-
-```text
-push
-  -> CI validation
-  -> Worlds DEV deployment
-       - backend tests
-       - npm ci
-       - frontend lint
-       - frontend tests
-       - frontend build
-       - service restart / health checks
-       - Playwright runner install
-       - Chromium install
-       - browser smoke
-  -> Worlds acceptance
-       - npm ci
-       - Playwright runner install
-       - Chromium install/check
-       - full acceptance suite
-```
-
-This creates unnecessary wall-clock time, especially on the persistent `worlds-dev` self-hosted runner. A failed acceptance test can also stop the suite early, which means another complete deployment/test cycle is needed to discover later failures.
+The optimization work is intentionally separated from Worlds application behavior. It may change GitHub Actions workflows, deployment scripts used only by Worlds DEV, runner/tooling configuration, test infrastructure, and engineering documentation. The production `deploy.sh` remains untouched.
 
 ## Optimization principles
 
-1. **Measure before optimizing.** Record step-level durations and runner resource usage instead of guessing which operation is slow.
-2. **Do not weaken validation.** The final acceptance gate must still run the complete suite and require every test to pass.
+1. **Measure before optimizing.** Record step-level durations and runner resource usage instead of guessing.
+2. **Do not weaken validation.** The final acceptance gate must run the complete suite and require every test to pass.
 3. **Remove duplicated work first.** Deployment and acceptance should each do only the work needed for their role.
 4. **Keep deployment deterministic.** Persistent caches/tooling must not allow stale dependencies or browsers to silently change the tested revision.
 5. **Serialize deployment and acceptance.** Acceptance must validate the revision that was actually deployed and only start after a successful deployment/health check.
-6. **Use parallelism only when measured runner capacity supports it.** More Playwright workers are not automatically faster on a constrained self-hosted runner.
-7. **Keep production deployment untouched.** `deploy.sh` is outside this optimization scope.
+6. **Use parallelism only when measured runner capacity supports it.** More Playwright workers are not automatically faster.
+7. **Optimize for diagnosis as well as execution time.** A fast failure with poor evidence is less useful than a slightly slower failure with enough information to fix it immediately.
+8. **Keep architecture explicit.** Repeatedly inferred architecture is a source of accidental coupling and regression.
+9. **Prefer deterministic contracts over browser-only verification.** Pure graph/model invariants should be tested without a browser whenever possible.
+10. **Keep production deployment untouched.** `deploy.sh` remains outside this scope.
 
-## Phased plan
+## Target loop
+
+```text
+change
+  ↓
+contract/model validation
+  ↓
+frontend build
+  ↓
+DEV deployment
+  ↓
+health check
+  ↓
+complete browser acceptance
+  ↓
+artifacts + diagnosis
+  ↓
+report only after all relevant checks are green
+```
+
+## Phases
 
 ### W1 — Baseline measurement
 
-Instrument the Worlds DEV deployment and acceptance workflows so every expensive step reports a duration. Measure:
+Instrument the Worlds DEV deployment and acceptance workflows so expensive steps report duration and, where practical, runner resource characteristics.
 
-- git update/checkout
-- backend test suite
-- frontend dependency installation
-- frontend lint
-- frontend tests
-- frontend build
-- service restart
-- health checks
-- Playwright runner installation
-- Chromium installation/check
-- browser smoke
-- full browser acceptance
-
-Where practical, also capture runner CPU, RAM, disk and network characteristics during the expensive steps.
-
-**Exit condition:** one complete deployment + acceptance cycle has a timing baseline that identifies the dominant costs.
+**Exit condition:** one complete deployment + acceptance cycle has a timing baseline.
 
 ### W2 — Remove duplicated validation from deployment
 
-The Worlds DEV deployment script should be responsible for deploying a known revision, starting/restarting the Worlds services, and performing health checks. CI remains responsible for source validation.
+The Worlds DEV deployment script is responsible for deploying a known revision, starting/restarting Worlds services, building what deployment requires, and performing health checks. CI/browser acceptance owns browser validation.
 
-Evaluate moving frontend build output into CI artifacts only if that produces a measured improvement without making deployment less reliable. Do not introduce this complexity merely for theoretical speed.
-
-**Exit condition:** deployment no longer repeats CI-only validation unless a specific deployment requirement justifies it.
+**Exit condition:** deployment no longer repeats CI-only validation without a specific reason.
 
 ### W3 — Persistent browser tooling and dependency cache
 
 - Keep npm download caching enabled through `setup-node`.
-- Keep Playwright Chromium installed on the persistent `worlds-dev` runner.
-- Avoid downloading/installing the same browser on every run when the required browser revision is already present.
-- Keep `npm ci` deterministic; do not replace it with an uncontrolled `npm install` just to save time.
+- Reuse Playwright installation safely on the persistent runner.
+- Reuse Chromium when the required browser revision is present.
+- Keep dependency installation deterministic.
 
-**Exit condition:** repeated runs reuse safe cached resources and show a measurable reduction in setup time.
+**Exit condition:** repeated runs reuse safe cached resources.
 
 ### W4 — Acceptance execution
 
-The acceptance workflow remains the authoritative browser gate.
+The acceptance workflow is the authoritative browser gate.
 
-- Run the **entire acceptance suite** in every acceptance run.
-- Do not use `--max-failures=1` for the final acceptance gate.
-- Keep retries at zero unless a specific flaky-test investigation proves retries are required.
-- Tune Playwright workers only after W1 resource measurements.
-- Preserve screenshots, reports and failure artifacts.
+- Run the entire suite.
+- Do not stop after the first failure.
+- Keep retries at zero unless a specific investigation proves retries are necessary.
+- Tune workers using measured runner capacity.
+- Preserve useful artifacts.
 
-This is important: a failed test must not cause the run to stop before the other independent tests have reported. We want one run to tell us the complete state of the release candidate.
-
-**Exit condition:** one acceptance run reports all tests, with no early termination, and remains green when the code is correct.
+**Exit condition:** one acceptance run reports the complete suite.
 
 ### W5 — Deployment → acceptance contract
 
-Make the relationship explicit:
-
 ```text
-CI green
+CI/deploy revision
    ↓
-Deploy exact commit
+Deploy exact revision
    ↓
-Health checks green
+Health checks
    ↓
-Acceptance exact deployed commit
+Acceptance exact deployed revision
 ```
 
-Acceptance must not accidentally test an older/newer checkout because another push arrived while the runner was busy. Concurrency/cancellation behavior must be reviewed as part of this phase.
+Acceptance must not accidentally test another checkout because another push arrived while the runner was busy.
 
-**Exit condition:** acceptance logs clearly identify the deployed commit under test.
+**Exit condition:** acceptance identifies the deployed revision under test.
 
 ### W6 — Resource-aware parallelism
 
-After W1 data is available, test controlled Playwright parallelism. Start conservatively and compare wall-clock time, CPU saturation, memory pressure and test stability.
+Test controlled Playwright parallelism and compare execution time, CPU, memory, and stability. Keep the smallest worker count that gives good throughput.
 
-Do not increase workers if it makes the runner slower or less reliable.
-
-**Exit condition:** worker count is evidence-based and improves total feedback time without increasing functional failures.
+**Exit condition:** worker count is evidence-based.
 
 ### W7 — Re-measure and document
 
-Run several representative Worlds changes through the optimized workflow and compare them with the W1 baseline.
+Compare representative changes against the baseline and record deployment, acceptance, setup, browser execution, total feedback, and diagnosis time.
 
-Record:
+**Exit condition:** optimization has a measured benefit without weakening validation.
 
-- median deployment duration
-- median acceptance duration
-- total push-to-green time
-- cache/setup time
-- browser execution time
-- failure diagnosis time
+### W8 — Architecture source of truth
 
-**Exit condition:** the optimization has a measured benefit and the final workflow remains deterministic.
+Create and maintain `ARCHITECTURE.md` as the engineering source of truth for Worlds boundaries.
 
-## Target workflow
+It defines:
+
+- component definition vs instance
+- canonical World Graph
+- connection/topology semantics
+- serializer boundary
+- backend simulation boundary
+- analysis vs execution mode
+- static result vs live runtime state
+- renderer responsibilities/non-responsibilities
+- debugging order
+- testing layers
+- long-term multi-layer direction
+
+**Exit condition:** a new contributor or coding agent can determine where a change belongs without relying on conversation history.
+
+### W9 — Deterministic model contracts and fixtures
+
+Build a fast contract-test layer around the World Graph and serializer.
+
+Canonical fixtures represent semantic circuits such as:
+
+- series circuit
+- voltage divider
+- sine source
+- RC circuit
+- AC circuit
+
+Contract tests cover:
+
+- valid topology
+- invalid endpoints
+- missing/unconnected terminals
+- source waveform serialization
+- deterministic serialization
+- component type mapping
+- future schema validation boundaries
+
+**Exit condition:** important graph/serialization regressions are caught without a browser.
+
+### W10 — Stable browser interaction boundaries
+
+Prefer accessible roles/labels. Add narrowly scoped `data-testid` selectors at stable integration boundaries only.
+
+Current boundaries include the canvas, component palette, component inspector, simulation panel, simulation setup, and primary simulation action.
+
+**Exit condition:** acceptance tests do not need fragile CSS or generic input selectors for important controls.
+
+### W11 — Failure diagnostics
+
+On acceptance failure, preserve richer diagnostic evidence where practical:
+
+- screenshot
+- Playwright trace
+- console/page errors
+- URL
+- viewport/zoom
+- selected node
+- graph/fixture context
+
+Success artifacts should remain lightweight. Failure artifacts should maximize diagnostic value.
+
+**Exit condition:** common UI failures can be classified as graph, serializer, backend, transport, visualization, renderer/layout, or browser/CSS failures from one run.
+
+### W12 — Runtime/schema validation
+
+Introduce explicit validation at important data boundaries:
 
 ```text
-                         PUSH
-                           │
-                           ▼
-                  ┌─────────────────┐
-                  │   Worlds CI     │
-                  │                 │
-                  │ backend tests   │
-                  │ frontend tests  │
-                  │ lint + build    │
-                  └────────┬────────┘
-                           │
-                         GREEN
-                           │
-                           ▼
-                  ┌─────────────────┐
-                  │ Worlds DEV      │
-                  │ deployment      │
-                  │                 │
-                  │ deploy revision │
-                  │ restart         │
-                  │ health check    │
-                  └────────┬────────┘
-                           │
-                         HEALTHY
-                           │
-                           ▼
-                  ┌─────────────────┐
-                  │ Browser         │
-                  │ Acceptance     │
-                  │                 │
-                  │ ALL tests run  │
-                  │ no early stop  │
-                  └────────┬────────┘
-                           │
-                     ALL GREEN
-                           │
-                           ▼
-                         DONE
+Editor
+  ↓
+WorldGraph validation
+  ↓
+Simulation request validation
+  ↓
+Simulation model validation
+  ↓
+Result/runtime-state validation
 ```
 
-## Priority
+Errors should identify the affected component, port, parameter, or boundary.
 
-1. W1 — baseline measurement
-2. W2 — remove duplicated validation
-3. W3 — persistent npm/Playwright tooling
-4. W4 — complete acceptance execution without early termination
-5. W5 — exact deployment/acceptance revision contract
-6. W6 — measured worker parallelism
-7. W7 — final measurement and documentation
+**Exit condition:** malformed cross-layer data fails close to its source instead of becoming a distant UI symptom.
+
+### W13 — Visual regression where it has high value
+
+Use screenshot/geometry assertions selectively for behavior that is inherently visual:
+
+- component insertion and viewport behavior
+- palette overlap
+- wire-to-port alignment
+- simulation workspace layout
+- oscilloscope readability
+
+Do not turn every browser test into a screenshot test.
+
+**Exit condition:** important visual regressions have deterministic signals without excessive artifact noise.
+
+### W14 — AI-effective development loop
+
+The project should make it possible to work from high-level architecture, product intent, and priorities while the implementation agent handles the mechanics.
+
+Required properties:
+
+- architecture is explicit
+- invariants are testable
+- fixtures reproduce known states
+- tests identify the violated boundary
+- failures contain enough evidence to diagnose remotely
+- changes are validated end-to-end before being reported
+- product vision is separated from implementation details
+
+The intended interaction is:
+
+```text
+Human
+  ↓
+architecture / product intent / priorities
+  ↓
+AI implementation agent
+  ↓
+inspect → design → implement → test → deploy → accept → diagnose
+  ↓
+Human receives verified result
+```
+
+The human should not need to manually coordinate every implementation step.
+
+**Exit condition:** routine implementation, testing, deployment, and diagnosis can be handled without requiring the user to provide low-level instructions.
+
+## Current implementation status
+
+- W1 measurement: implemented and retained in deployment/acceptance logs.
+- W2 duplicate deployment validation: implemented for the Worlds DEV path.
+- W3 persistent Playwright tooling: implemented on the `worlds-dev` runner; Chromium remains idempotently ensured.
+- W4 complete acceptance: implemented with zero retries and no early-failure limit.
+- W5 deployment/acceptance contract: implemented through the reusable acceptance workflow and deployed-branch checkout.
+- W6 worker tuning: 3 workers retained based on measured runner performance; 4 workers did not provide a meaningful improvement.
+- W7 measurement: ongoing; do not claim a benchmark unless the run was actually observed.
+- W8 architecture source of truth: implemented in `ARCHITECTURE.md`.
+- W9 deterministic fixtures/contracts: initial serializer fixtures and contract tests implemented.
+- W10 stable browser boundaries: initial canvas/palette/inspector/simulation selectors implemented and acceptance tests updated.
+- W11 failure diagnostics: trace-on-failure and richer failure artifact retention implemented.
+- W12 runtime/schema validation: planned next; existing serializer validation is the first boundary to formalize.
+- W13 selective visual regression: partially represented by existing visual acceptance captures; targeted assertions remain to be expanded.
+- W14 AI-effective development loop: architecture and workflow contracts are now documented; final completion requires the remaining validation/diagnostic work and a stable operating process.
+
+## Priority after the current CI work
+
+1. Strengthen graph/schema validation at the serializer boundary.
+2. Expand deterministic fixtures to RC/AC and reuse them in model tests.
+3. Add graph-state diagnostics to browser failures where safe.
+4. Add selective visual geometry assertions for known layout regressions.
+5. Improve static/model test reporting so a failure identifies its architectural boundary.
+6. Re-measure the complete loop after these changes.
+7. Only then consider additional CI micro-optimization.
 
 ## Safety / scope
 
-- Worlds DEV workflow and Worlds-specific deployment tooling are in scope.
-- The Worlds application itself should not be changed merely to optimize CI.
-- Production `scripts/deploy.sh` must remain untouched.
+- Worlds DEV workflow and Worlds-specific engineering tooling are in scope.
+- The Worlds application may be changed when needed to establish stronger architecture/test boundaries.
+- Production `scripts/deploy.sh` remains untouched.
 - Functional acceptance remains the release gate.
-- Do not report the optimization as complete until the relevant workflow changes have gone through a complete green CI/deployment/acceptance cycle.
+- Do not report an optimization as complete until the relevant workflow has gone through a complete green CI/deployment/acceptance cycle.
+- Do not claim a benchmark that has not actually been measured.
