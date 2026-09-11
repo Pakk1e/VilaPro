@@ -2,7 +2,7 @@
 
 ## 1. Purpose
 
-This report records the browser-level acceptance tests for the Worlds simulation workspace. The suite is intended to verify the most important user-facing simulation workflows against the deployed Worlds DEV environment, complementing the lower-level unit/integration tests and the manual test suite.
+This report records the browser-level acceptance tests for the Worlds simulation workspace. The suite verifies the most important user-facing simulation workflows against the deployed Worlds DEV environment, complementing lower-level unit/integration tests and the manual test suite.
 
 The automated suite is implemented in:
 
@@ -11,7 +11,7 @@ The automated suite is implemented in:
 
 The manual test procedure is documented in `docs/WORLDS_MANUAL_TEST_SUITE.md`.
 
-The acceptance workflow also captures a full-page screenshot for each automated acceptance case. These screenshots are published as the `worlds-acceptance-screenshots` GitHub Actions artifact so they can be reviewed for visual correctness and UI/UX quality, not only functional correctness.
+The acceptance workflow captures visual evidence for each automated acceptance case. Each case produces a full-page screenshot and, where applicable, a focused result/plot screenshot. The screenshots are published as the `worlds-acceptance-screenshots` GitHub Actions artifact so they can be reviewed for visual correctness and UI/UX quality, not only functional correctness.
 
 ## 2. Test Environment
 
@@ -26,18 +26,97 @@ The acceptance workflow also captures a full-page screenshot for each automated 
 
 ## 3. Acceptance Coverage
 
-| ID | Test | Expected coverage | Functional status | Visual evidence |
+| ID | Test | Expected coverage | Functional status | Visual status |
 |---|---|---|---|---|
-| T01 | Basic 10 V / 1 kΩ DC operating point | Build a series circuit and verify the DC result is approximately 10 V and 10 mA | PASS on latest recorded run | Screenshot captured by current suite; review pending next execution |
-| T05 | Resistor Parameter Sweep 500/1000/1500 Ω | Select a component parameter, execute the sweep, verify three plotted points and the expected 6.67 mA endpoint | PASS on latest recorded run | Screenshot captured by current suite; review pending next execution |
-| T08 | Transient 1 Hz sine source | Execute transient simulation and verify a result plot is produced without browser errors | PASS on latest recorded run | Screenshot captured by current suite; review pending next execution |
-| T09 | Static AC resistor phasor result | Execute a 1 kHz AC analysis with 5 V amplitude and verify the AC phasor result view | PASS on latest recorded run | Screenshot captured by current suite; review pending next execution |
-| T13 | Live AC instantaneous waveform | Start Live AC and verify the rendered instantaneous waveform contains a dense, smooth sinusoidal trace with multiple direction changes | PASS on latest recorded run | Screenshot captured by current suite; review pending next execution |
-| T16 | Invalid AC frequency | Enter zero frequency and verify simulation is rejected/disabled with a validation alert | PASS on latest recorded run | Screenshot captured by current suite; review pending next execution |
+| T01 | Basic 10 V / 1 kΩ DC operating point | Build a series circuit and verify the DC result is approximately 10 V and 10 mA | PASS | PASS |
+| T05 | Resistor Parameter Sweep 500/1000/1500 Ω | Select a component parameter, execute the sweep, verify three plotted points and the expected 6.67 mA endpoint | PASS | **NEEDS IMPROVEMENT** |
+| T08 | Transient response plot | Execute transient simulation and verify a result plot is produced without browser errors | PASS | **NEEDS IMPROVEMENT** |
+| T09 | Static AC resistor phasor result | Execute a 1 kHz AC analysis with 5 V amplitude and verify the AC phasor result view | PASS | **NEEDS IMPROVEMENT** |
+| T13 | Live AC instantaneous waveform | Start Live AC and verify the rendered instantaneous waveform contains a dense, smooth sinusoidal trace with multiple direction changes | PASS | PASS with minor UX notes |
+| T16 | Invalid AC frequency | Enter zero frequency and verify simulation is rejected/disabled with a validation alert | PASS | PASS with minor UX note |
 
 Functional PASS does not automatically mean visual PASS. Visual review is a separate acceptance dimension.
 
-## 4. Visual Review Criteria
+## 4. Visual Evidence
+
+The complete screenshot set is retained with the corresponding GitHub Actions run as the `worlds-acceptance-screenshots` artifact. The artifact contains both full-page UI captures and focused plot captures where a plot is the primary visual output.
+
+**Visual evidence run:** GitHub Actions `Worlds Acceptance Tests` run #20, commit `f7f3cd8eccbdac5b35df15022031ddea15d49ec4`.
+
+Artifact: `worlds-acceptance-screenshots`
+
+Run: `https://github.com/Pakk1e/VilaPro/actions/runs/34593928172`
+
+The representative screenshots below are the visual evidence reviewed during this acceptance pass. They are intentionally referenced by test ID so the report remains useful even when the GitHub Actions artifact eventually expires.
+
+### T01 — DC operating point
+
+**Visual verdict: PASS.**
+
+The circuit, Static execution mode, analysis selection, and result tables form a clear left-to-right workflow. User-facing labels such as `Ground`, `Node 2`, `Voltage Source 1`, and `Resistor 1` are readable, and voltage/current/power values are presented with units.
+
+The main remaining UX opportunity is that the result area extends below the viewport, so users need to scroll for some details. This is acceptable for the current acceptance viewport.
+
+### T05 — Parameter Sweep
+
+**Visual verdict: NEEDS IMPROVEMENT.**
+
+The current screenshot shows a meaningful three-point current response rather than the previous meaningless flat ground-voltage plot. This is a functional visualization improvement.
+
+However, the focused plot still needs stronger user context:
+
+- the X-axis is labelled only `Sweep`, rather than the actual swept parameter (`Resistance (Ω)`);
+- the plotted series label is `I(Voltage Source 1)`, which is technically valid but not the most intuitive primary response for a resistor sweep;
+- the compact plot has limited room for axis/tick information.
+
+The visualization is therefore understandable to an engineering user who already knows the test, but it is not yet as self-explanatory as it should be.
+
+### T08 — Transient response
+
+**Visual verdict: NEEDS IMPROVEMENT.**
+
+The result plot is clean and readable, with labelled axes and a clearly rendered trace. However, the captured test configuration uses the current DC source representation, producing a flat 12 V transient trace rather than the intended sine-source waveform described in the original manual case.
+
+This is an important product distinction: the transient solver can render a result, but the current Worlds UI does not yet expose the time-varying source configuration needed to make this an actual sine-source acceptance case.
+
+The automated acceptance case was therefore deliberately narrowed to **transient response plot rendering** rather than falsely claiming that the screenshot validates a sine waveform.
+
+The proper sine-source acceptance case should be restored once waveform configuration is available in the Worlds UI.
+
+### T09 — Static AC phasor
+
+**Visual verdict: NEEDS IMPROVEMENT.**
+
+The AC result table is readable and clearly separates magnitude, phase, real, and imaginary values. The frequency, amplitude, and phase controls are also comfortably sized.
+
+One visible UX issue is that two current rows can appear with the same user-facing label (`I(Node 2 → Ground)`) even though they represent different directional/branch contexts. This can make the result table ambiguous.
+
+The AC result presentation should eventually provide a unique, explicit identity for each current measurement, for example by including the component/branch name or polarity context.
+
+### T13 — Live AC
+
+**Visual verdict: PASS with minor UX notes.**
+
+The focused plot is visibly smooth and sinusoidal, not triangular. The trace has the expected continuous curvature and multiple direction changes. This confirms the recent dense waveform reconstruction is working as intended visually.
+
+The full-page screenshot also shows the Live state, signal-selection controls, and instantaneous measurements together, which makes the relationship between selected signals and the plot understandable.
+
+Minor UX observations:
+
+- some signal-card labels are truncated because the available card width is limited;
+- the plot should continue to receive adequate vertical space as additional signals/features are added.
+
+Neither issue blocks acceptance of the current Live AC visualization.
+
+### T16 — Invalid AC frequency
+
+**Visual verdict: PASS with minor UX note.**
+
+The validation message `AC frequency must be greater than zero.` is clearly visible near the top of the simulation area, while the invalid `0 Hz` field remains visible below. The error is understandable without inspecting browser logs.
+
+The remaining UX opportunity is to make the relationship between the invalid field, validation state, and disabled/blocked simulation action even more visually explicit.
+
+## 5. Visual Review Criteria
 
 For every captured screenshot, review the UI from a user-facing perspective in addition to checking whether the test assertions passed.
 
@@ -81,7 +160,7 @@ For every captured screenshot, review the UI from a user-facing perspective in a
 - No unexplained icons or controls
 - Sensible responsive behavior at the acceptance viewport
 
-## 5. Validation Notes
+## 6. Validation Notes
 
 ### T01 — DC operating point
 
@@ -91,8 +170,6 @@ Expected result:
 
 - Voltage: approximately 10 V
 - Current: approximately 10 mA
-
-Visual review should confirm that the DC result is easy to find and that voltage/current values are clearly labeled with units.
 
 ### T05 — Parameter Sweep
 
@@ -104,13 +181,11 @@ The sweep is performed against the resistor's `R` parameter:
 
 The expected sweep therefore contains three points: 500 Ω, 1000 Ω and 1500 Ω. The test verifies the plot contains exactly three points and that the 1500 Ω result is displayed as approximately 6.67 mA.
 
-Visual review should confirm that the selected component and parameter are understandable, the sweep controls are not cramped, and the resulting three-point plot is readable.
+### T08 — Transient response
 
-### T08 — Transient sine
+The current automated acceptance case verifies that transient analysis can be configured and executed through the UI and that a result plot is rendered. It intentionally does not claim to validate a sine source because the current UI does not expose waveform configuration.
 
-The test verifies that the transient analysis can be configured and executed through the UI and that a result plot is rendered. Detailed numerical waveform checkpoints remain covered by the manual test suite and lower-level simulation tests.
-
-Visual review should confirm that the transient controls and resulting waveform have a clear hierarchy and that the plot is large enough to interpret.
+Detailed transient numerical checkpoints and the intended sine-source case remain covered by the manual test suite and lower-level simulation tests until waveform configuration is exposed in Worlds.
 
 ### T09 — Static AC
 
@@ -122,32 +197,19 @@ The test configures:
 
 It verifies that the AC phasor result view is displayed and contains the expected analysis information.
 
-Visual review should confirm that frequency/amplitude/phase controls are comfortably sized and that phasor values are distinguishable from ordinary DC/transient results.
-
 ### T13 — Live AC waveform
 
 This is the important regression test for the Live AC plotting work. The test uses a 1 Hz, 5 V source and verifies that the instantaneous plot is rendered with more than 50 line segments and at least two direction changes.
 
 The purpose is to prevent sparse live snapshots from producing a visibly triangular waveform instead of a smooth sinusoid. The frontend reconstructs a dense instantaneous waveform from the AC phasor information and sample time.
 
-Visual review should specifically check:
-
-- smooth sinusoidal shape;
-- readable signal labels;
-- useful plot dimensions;
-- clear Live state;
-- sensible selection controls;
-- no raw internal signal names exposed to the user.
-
 ### T16 — Invalid AC input
 
-A frequency of 0 Hz is invalid for the AC analysis. The test verifies that the UI disables the simulation action and exposes a validation alert rather than submitting an invalid simulation.
+A frequency of 0 Hz is invalid for the AC analysis. The test verifies that the UI blocks invalid simulation and exposes a validation alert rather than submitting an invalid simulation.
 
-Visual review should confirm that the error is immediately understandable and that the disabled Simulate action has an obvious relationship to the invalid frequency field.
+## 7. Issues Found During Acceptance Testing
 
-## 6. Issues Found During Acceptance Testing
-
-The first acceptance execution exposed several test/implementation mismatches. These were corrected before recording the final result:
+The acceptance process has exposed both functional/test issues and visual/UI issues. Functional mismatches were corrected before the corresponding tests were considered passing.
 
 1. **T01 used the voltage-source default instead of explicitly setting 10 V.**
    - Corrected the test to set the source value explicitly.
@@ -163,36 +225,47 @@ The first acceptance execution exposed several test/implementation mismatches. T
 4. **Acceptance runner dependency setup was incomplete.**
    - The workflow was updated to install the Playwright test runner explicitly and ensure Chromium is available.
 
-5. **Visual evidence was not previously published separately.**
-   - The acceptance tests now capture a full-page screenshot for each acceptance case.
-   - The workflow publishes these screenshots in a dedicated `worlds-acceptance-screenshots` artifact on every run, including successful runs.
+5. **Visual evidence was initially not available as a dedicated artifact.**
+   - The workflow now captures and uploads acceptance screenshots on successful runs as well as failed runs.
+   - Focused plot screenshots are captured for tests where the plot itself is the important visual output.
 
-These changes improve the reliability of the acceptance suite and make visual/UI/UX review a first-class part of acceptance rather than relying only on functional assertions.
+6. **Parameter Sweep visualization was initially not meaningful.**
+   - The result explorer was changed so the sweep defaults toward the swept component/response rather than an irrelevant ground-voltage series.
+   - Visual review still identifies the axis/series labelling as an improvement area.
 
-## 7. Latest Recorded Functional Execution
+7. **Transient sine acceptance was not actually a sine-source UI test.**
+   - The acceptance case was renamed/narrowed to transient response plot rendering rather than making a false visual claim.
+   - A true sine-source acceptance test remains a follow-up once waveform configuration is available in the UI.
 
-The latest completed acceptance execution before visual-evidence capture was GitHub Actions run **#10** (`Worlds Acceptance Tests`) for commit `d6a699db82dd044aabe93aefe134d266d075bea4`.
+8. **Static AC current labels can be ambiguous.**
+   - Visual review identified duplicate-looking current labels in the AC result table. This should be addressed in a future UX pass.
 
-The acceptance test step completed successfully and uploaded the Playwright report. The new screenshot-capture implementation has since been committed and triggered a new acceptance run; its job is currently queued on the self-hosted `worlds-dev` runner, so no visual PASS/FAIL judgment has been recorded yet for the new screenshot evidence.
+## 8. Latest Acceptance Execution
 
-## 8. Visual Acceptance Status
+The screenshot evidence reviewed in this report comes from GitHub Actions `Worlds Acceptance Tests` run **#20**, commit `f7f3cd8eccbdac5b35df15022031ddea15d49ec4`.
 
-Visual acceptance is intentionally tracked separately from automated functional acceptance.
+The run completed successfully, including the acceptance test step and the screenshot artifact upload. The dedicated screenshot artifact is `worlds-acceptance-screenshots`.
 
-A screenshot can be:
+A later push triggered another acceptance run after additional result-explorer changes. That run should be treated as the next acceptance baseline once its functional and visual evidence has been reviewed.
 
-- **Functional PASS / Visual PASS** — behavior is correct and the UI presentation is also acceptable.
-- **Functional PASS / Visual REVIEW** — behavior works, but the screenshot needs human/engineering review for layout, clarity, or UX.
-- **Functional FAIL** — behavior itself is incorrect; visual review is secondary until the functional issue is fixed.
-- **Visual FAIL** — functionality works, but the presentation has a concrete UI/UX defect that should be corrected.
+## 9. Acceptance Interpretation
 
-The first visual review should be performed from the six screenshots produced by the new acceptance run. T13 should receive particular attention because the smooth-sine rendering was a recent regression target.
+Worlds acceptance now has two independent dimensions:
 
-## 9. Future Improvements
+- **Functional acceptance** — the workflow behaves correctly and automated assertions pass.
+- **Visual/UX acceptance** — the rendered interface and visualization make sense to a human user and present the engineering information clearly.
 
-The following improvements are intentionally tracked separately from the functional acceptance work:
+A test should not be considered fully accepted merely because Playwright reports `PASS`. A visual defect can keep an otherwise functional test at `NEEDS IMPROVEMENT` until the UI is corrected.
+
+This distinction is particularly important for simulation software because a technically correct dataset can still be presented as an incorrect, ambiguous, or misleading visualization.
+
+## 10. Future Improvements
 
 - Strengthen T13 with numerical sine-curve fitting rather than only point-density/direction-change checks.
+- Add true automated sine-source transient coverage once waveform configuration is exposed in the Worlds UI.
+- Improve Parameter Sweep axis/series labelling so the swept parameter and response are immediately obvious.
+- Make AC current measurement labels uniquely identify their branch/component and polarity context.
+- Improve signal-card sizing/truncation in Live mode.
 - Expand automated coverage toward the remaining manual cases (T02–T04, T06–T07, T10–T12, T14–T15, T17–T18).
 - Add targeted screenshots for important intermediate states when a single final screenshot is insufficient to judge an interaction.
 - Run acceptance tests only after the corresponding Worlds DEV deployment and health checks have completed.
