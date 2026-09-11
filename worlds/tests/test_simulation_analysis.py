@@ -72,7 +72,7 @@ class SimulationAnalysisTest(unittest.TestCase):
             load_world_source(),
             instances=[
                 {"id": "V1-id", "name": "Supply", "type": "VoltageSource", "parameters": {"V": 12.0}, "ports": {"p": "node_1", "n": "ground"}},
-                {"id": "C1-id", "name": "Capacitor", "type": "Capacitor", "parameters": {"C": 1e-6}, "ports": {"p": "node_1", "n": "ground"}},
+                {"id": "C1-id", "name": "Capacitor", "parameters": {"C": 1e-6}, "ports": {"p": "node_1", "n": "ground"}},
                 {"id": "R1-id", "name": "Load", "type": "Resistor", "parameters": {"R": 100.0}, "ports": {"p": "node_1", "n": "ground"}},
             ],
             simulation={"analysis": DC_OPERATING_POINT},
@@ -81,6 +81,24 @@ class SimulationAnalysisTest(unittest.TestCase):
         self.assertAlmostEqual(response.node_voltages["node_1"], 12.0, places=12)
         capacitor = next(item for item in response.components if item["id"] == "C1-id")
         self.assertAlmostEqual(capacitor["current"], 0.0, places=12)
+
+    def test_component_parameter_sweep_changes_resistance(self):
+        response = SimulationService().simulate(
+            load_world_source(),
+            instances=[
+                {"id": "V1-id", "name": "Supply", "type": "VoltageSource", "parameters": {"V": 10.0}, "ports": {"p": "node_1", "n": "ground"}},
+                {"id": "R1-id", "name": "Load", "type": "Resistor", "parameters": {"R": 100.0}, "ports": {"p": "node_1", "n": "ground"}},
+            ],
+            simulation={"analysis": "dc_sweep", "settings": {"source": "R1-id", "parameter": "R", "start": 100, "stop": 300, "step": 100}},
+        )
+        self.assertEqual(response.status, "completed")
+        payload = response.result.to_dict()
+        self.assertEqual(payload["datasets"][0]["values"], [100.0, 200.0, 300.0])
+        voltages = payload["datasets"][2]["values"]
+        self.assertAlmostEqual(voltages[0]["node_1"], 10.0, places=12)
+        self.assertAlmostEqual(voltages[1]["node_1"], 10.0, places=12)
+        self.assertAlmostEqual(voltages[2]["node_1"], 10.0, places=12)
+        self.assertEqual(payload["analysis_information"]["sweep"]["parameter"], "R")
 
     def test_static_ac_returns_generic_result_envelope(self):
         response = SimulationService().simulate(
