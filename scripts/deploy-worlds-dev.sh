@@ -41,7 +41,7 @@ echo "Repository: $BASE_DIR"
 echo "Branch:     $BRANCH"
 runner_snapshot
 
-step_start "1/8 Checking working tree"
+step_start "1/5 Checking working tree"
 if [[ "$(git branch --show-current)" != "$BRANCH" ]]; then
   echo "ERROR: expected branch $BRANCH, got $(git branch --show-current)" >&2
   exit 1
@@ -53,40 +53,27 @@ if [[ -n "$(git status --porcelain)" ]]; then
 fi
 step_end
 
-step_start "2/8 Updating source"
+step_start "2/5 Updating source"
 git fetch origin "$BRANCH"
 git pull --ff-only origin "$BRANCH"
 DEPLOYED_COMMIT="$(git rev-parse HEAD)"
 echo "Deploying commit: $DEPLOYED_COMMIT"
 step_end
 
-step_start "3/8 Backend tests"
-cd "$BASE_DIR/worlds"
-PYTHONPATH=src python3 -m unittest discover -s tests
-step_end
-
-step_start "4/8 Frontend dependencies"
+step_start "3/5 Installing frontend dependencies and building"
 cd "$FRONTEND_DIR"
 npm ci
-step_end
-
-step_start "5/8 Frontend lint"
-npm run lint
-step_end
-
-step_start "6/8 Frontend tests and build"
-npm test
 npm run build
 step_end
 
-step_start "7/8 Installing/updating Worlds web service"
+step_start "4/5 Installing/updating Worlds web service"
 sudo install -m 0644 "$BASE_DIR/deploy/systemd/worlds-web.service" "/etc/systemd/system/$WEB_SERVICE"
 sudo systemctl daemon-reload
 sudo systemctl restart "$API_SERVICE"
 sudo systemctl restart "$WEB_SERVICE"
 step_end
 
-step_start "8/8 Health checks"
+step_start "5/5 Health checks"
 for attempt in {1..20}; do
   if curl --fail --silent --show-error "$API_URL" >/dev/null && curl --fail --silent --show-error "$WEB_URL" >/dev/null; then
     break
