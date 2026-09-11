@@ -2,9 +2,21 @@ import { useMemo, useState } from "react";
 
 import { formatEngineeringTick, getEngineeringScale } from "../model/engineeringFormat.js";
 
+const WINDOW_PRESETS = [
+  { value: 0.000005, label: "5 µs" },
+  { value: 0.00005, label: "50 µs" },
+  { value: 0.0005, label: "500 µs" },
+  { value: 0.005, label: "5 ms" },
+  { value: 0.05, label: "50 ms" },
+  { value: 0.5, label: "500 ms" },
+  { value: 1, label: "1 s" },
+  { value: 10, label: "10 s" },
+];
+const MAX_TRACES = 4;
+
 function formatSignal(value) {
   if (typeof value !== "number" || !Number.isFinite(value)) return String(value);
-  return new Intl.NumberFormat("en-US", { maximumSignificantDigits: 8 }).format(value);
+  return new Intl.NumberFormat("en-US", { maximumSignificantDigits: 7 }).format(value);
 }
 
 function formatIdentifier(value) {
@@ -16,8 +28,8 @@ function formatIdentifier(value) {
 }
 
 function parseSignalName(name) {
-  if (name === "__live.time_s") return { label: "Sample time", family: "time", plotFamily: "time", unit: "s" };
-  if (name === "__live.frequency_hz") return { label: "Frequency", family: "frequency", plotFamily: "frequency", unit: "Hz" };
+  if (name === "__live.time_s") return { label: "Time", family: "time", unit: "s", kind: "value" };
+  if (name === "__live.frequency_hz") return { label: "Frequency", family: "frequency", unit: "Hz", kind: "value" };
 
   const suffixes = [
     [".instantaneous", "Instantaneous"],
@@ -27,22 +39,15 @@ function parseSignalName(name) {
   const suffix = suffixes.find(([value]) => name.endsWith(value));
   const base = suffix ? name.slice(0, -suffix[0].length) : name;
   const kind = suffix?.[1] ?? "Value";
-  const plotKind = kind === "Phase" ? "phase" : "value";
-
   const variableMatch = base.match(/^Variable\(name=['"]([^'"]+)['"]\)$/);
   if (variableMatch) {
     const variable = variableMatch[1];
-    if (variable.startsWith("V_")) return { label: `V(${formatIdentifier(variable.slice(2))}) · ${kind}`, family: "voltage", plotFamily: `voltage-${plotKind}`, unit: kind === "Phase" ? "°" : "V" };
-    if (variable.startsWith("I_")) return { label: `I(${formatIdentifier(variable.slice(2))}) · ${kind}`, family: "current", plotFamily: `current-${plotKind}`, unit: kind === "Phase" ? "°" : "A" };
-    return { label: `${formatIdentifier(variable)} · ${kind}`, family: "value", plotFamily: `value-${plotKind}`, unit: kind === "Phase" ? "°" : "" };
+    if (variable.startsWith("V_")) return { label: `V(${formatIdentifier(variable.slice(2))}) · ${kind}`, family: "voltage", unit: kind === "Phase" ? "°" : "V", kind: kind.toLowerCase() };
+    if (variable.startsWith("I_")) return { label: `I(${formatIdentifier(variable.slice(2))}) · ${kind}`, family: "current", unit: kind === "Phase" ? "°" : "A", kind: kind.toLowerCase() };
   }
-
   const branchMatch = base.match(/^BranchCurrent\(name=['"]?[^'",]+['"]?,\s*arguments=\((.*)\),\s*component=['"]?([^'")]+)['"]?\)$/);
-  if (branchMatch) {
-    return { label: `I(${formatIdentifier(branchMatch[2])}) · ${kind}`, family: "current", plotFamily: `current-${plotKind}`, unit: kind === "Phase" ? "°" : "A" };
-  }
-
-  return { label: `${formatIdentifier(base)} · ${kind}`, family: "value", plotFamily: `value-${plotKind}`, unit: kind === "Phase" ? "°" : "" };
+  if (branchMatch) return { label: `I(${formatIdentifier(branchMatch[2])}) · ${kind}`, family: "current", unit: kind === "Phase" ? "°" : "A", kind: kind.toLowerCase() };
+  return { label: `${formatIdentifier(base)} · ${kind}`, family: "value", unit: kind === "Phase" ? "°" : "", kind: kind.toLowerCase() };
 }
 
 function signalLabel(name) {
@@ -53,202 +58,175 @@ function signalUnit(name) {
   return parseSignalName(name).unit;
 }
 
-function isInstantaneousSignal(name) {
+function isAcInstantaneous(name) {
   return name.endsWith(".instantaneous");
 }
 
-function getAcInstantaneousValue(snapshot, name, time) {
-  if (!isInstantaneousSignal(name)) return Number(snapshot.signals[name]);
-  const magnitude = Number(snapshot.signals[`${name.slice(0, -".instantaneous".length)}.magnitude`]);
-  const phaseDegrees = Number(snapshot.signals[`${name.slice(0, -".instantaneous".length)}.phase_deg`]);
-  const frequency = Number(snapshot.signals["__live.frequency_hz"]);
-  if (!Number.isFinite(magnitude) || !Number.isFinite(phaseDegrees) || !Number.isFinite(frequency)) {
-    return Number(snapshot.signals[name]);
-  }
-  return magnitude * Math.cos(2 * Math.PI * frequency * time + (phaseDegrees * Math.PI) / 180);
+function getAcParameters(snapshot, name) {
+  const base = name.slice(0, -".instantaneous".length);
+  const magnitude = Number(snapshot?.signals?.[`${base}.magnitude`]);
+  const phaseDegrees = Number(snapshot?.signals?.[`${base}.phase_deg`]);
+  const frequency = Number(snapshot?.signals?.["__live.frequency_hz"]);
+  return { magnitude, phaseDegrees, frequency };
 }
 
-function buildPlotSamples(points, name) {
-  if (!isInstantaneousSignal(name) || points.length < 2) {
-    return points.map((snapshot) => ({
-      time: Number(snapshot.signals["__live.time_s"]),
-      value: Number(snapshot.signals[name]),
-    }));
-  }
+function buildAcWindowSamples(snapshot, name, windowSeconds) {
+  const { magnitude, phaseDegrees, frequency } = getAcParameters(snapshot, name);
+  const now = Number(snapshot?.signals?.["__live.time_s"]);
+  if (![magnitude, phaseDegrees, frequency, now].every(Number.isFinite) || frequency <= 0) return [];
 
+  const start = now - windowSeconds;
+  const cycles = windowSeconds * frequency;
+  const segments = Math.min(4096, Math.max(128, Math.ceil(cycles * 48)));
   const samples = [];
-  points.forEach((snapshot, index) => {
-    if (index === 0) {
-      samples.push({ time: Number(snapshot.signals["__live.time_s"]), value: getAcInstantaneousValue(snapshot, name, Number(snapshot.signals["__live.time_s"])) });
-      return;
-    }
-
-    const previous = points[index - 1];
-    const startTime = Number(previous.signals["__live.time_s"]);
-    const endTime = Number(snapshot.signals["__live.time_s"]);
-    const duration = endTime - startTime;
-    const frequency = Number(snapshot.signals["__live.frequency_hz"]);
-    const cycles = Number.isFinite(frequency) && frequency > 0 ? Math.abs(duration * frequency) : 0;
-    const segments = Math.min(256, Math.max(16, Math.ceil(cycles * 48)));
-
-    for (let segment = 1; segment <= segments; segment += 1) {
-      const ratio = segment / segments;
-      const time = startTime + duration * ratio;
-      const value = getAcInstantaneousValue(snapshot, name, time);
-      samples.push({ time, value });
-    }
-  });
-
+  for (let index = 0; index <= segments; index += 1) {
+    const time = start + (windowSeconds * index) / segments;
+    const value = magnitude * Math.cos(2 * Math.PI * frequency * time + (phaseDegrees * Math.PI) / 180);
+    samples.push({ time, value });
+  }
   return samples;
 }
 
-function PlotPanel({ points, selectedSignals, title, width = 720, height = 280 }) {
-  const margin = { top: 18, right: 22, bottom: 46, left: 64 };
+function buildHistorySamples(history, name, windowSeconds, now) {
+  const points = history
+    .filter((snapshot) => Number.isFinite(Number(snapshot?.signals?.__live?.time_s ?? snapshot?.signals?.["__live.time_s"])))
+    .map((snapshot) => ({
+      time: Number(snapshot.signals["__live.time_s"]),
+      value: Number(snapshot.signals[name]),
+    }))
+    .filter(({ time, value }) => Number.isFinite(time) && Number.isFinite(value));
+  const start = now - windowSeconds;
+  return points.filter(({ time }) => time >= start && time <= now);
+}
+
+function PlotPanel({ points, selectedSignals, title, windowSeconds, now }) {
+  const width = 760;
+  const height = 300;
+  const margin = { top: 18, right: 22, bottom: 46, left: 66 };
   const plotWidth = width - margin.left - margin.right;
   const plotHeight = height - margin.top - margin.bottom;
-  const xValues = points.map((snapshot) => Number(snapshot.signals["__live.time_s"]));
-  const xMin = Math.min(...xValues);
-  const xMax = Math.max(...xValues);
-  const xRange = xMax - xMin || 1;
-  const yValues = selectedSignals.flatMap((name) => buildPlotSamples(points, name).map(({ value }) => value).filter(Number.isFinite));
+  const xMin = now - windowSeconds;
+  const xMax = now;
+  const xRange = windowSeconds || 1;
+  const series = selectedSignals.map((name) => ({ name, samples: points[name] ?? [] }));
+  const yValues = series.flatMap(({ samples }) => samples.map(({ value }) => value)).filter(Number.isFinite);
   if (yValues.length < 2) return null;
 
   const yMin = Math.min(...yValues);
   const yMax = Math.max(...yValues);
-  const yRange = yMax - yMin || 1;
-  const yPad = yRange * 0.08 || 1;
+  const yRange = yMax - yMin || Math.max(Math.abs(yMax), 1) * 0.02;
+  const yPad = yRange * 0.1;
   const chartYMin = yMin - yPad;
   const chartYMax = yMax + yPad;
   const chartYRange = chartYMax - chartYMin || 1;
   const scaleX = (value) => margin.left + ((value - xMin) / xRange) * plotWidth;
   const scaleY = (value) => margin.top + (1 - (value - chartYMin) / chartYRange) * plotHeight;
-  const xTicks = xMin === xMax ? [xMin] : [xMin, xMin + xRange / 2, xMax];
+  const xTicks = [xMin, xMin + xRange / 2, xMax];
   const yTicks = [chartYMin, chartYMin + chartYRange / 2, chartYMax];
   const xScale = getEngineeringScale(xTicks, "s");
   const yScale = getEngineeringScale(yTicks, signalUnit(selectedSignals[0]));
 
-  const paths = selectedSignals.map((name) => {
-    const commands = [];
-    buildPlotSamples(points, name).forEach(({ time, value }) => {
-      if (!Number.isFinite(value) || !Number.isFinite(time)) return;
-      commands.push(`${commands.length === 0 ? "M" : "L"} ${scaleX(time).toFixed(2)} ${scaleY(value).toFixed(2)}`);
-    });
-    return { name, path: commands.join(" ") };
-  }).filter((item) => item.path);
-
   return (
-    <div className="border-t border-[#e4e7eb] first:border-t-0">
-      <div className="flex items-center justify-between px-4 pt-3">
+    <div className="overflow-hidden rounded-lg border border-[#e4e7eb] bg-white">
+      <div className="flex items-center justify-between border-b border-[#e4e7eb] px-4 py-2.5">
         <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#69717b]">{title}</div>
-        <div className="text-[10px] text-[#8a929c]">{signalUnit(selectedSignals[0]) || "value"}</div>
+        <div className="text-[10px] text-[#8a929c]">{formatSignal(windowSeconds)} {windowSeconds >= 1 ? "s window" : "s"}</div>
       </div>
       <div className="overflow-x-auto px-3 py-2">
-        <svg viewBox={`0 0 ${width} ${height}`} className="h-auto min-w-[560px] w-full" role="img" aria-label={`${title} live simulation plot`}>
+        <svg viewBox={`0 0 ${width} ${height}`} className="h-auto min-w-[560px] w-full" role="img" aria-label={`${title} live oscilloscope`}>
           {yTicks.map((tick) => { const y = scaleY(tick); return <g key={`y-${tick}`}><line x1={margin.left} x2={width - margin.right} y1={y} y2={y} stroke="#e4e7eb" strokeWidth="1" /><text x={margin.left - 9} y={y + 4} textAnchor="end" fontSize="10" fill="#69717b">{formatEngineeringTick(tick, signalUnit(selectedSignals[0]), yScale)}</text></g>; })}
           {xTicks.map((tick) => { const x = scaleX(tick); return <g key={`x-${tick}`}><line x1={x} x2={x} y1={margin.top} y2={height - margin.bottom} stroke="#f0f1f3" strokeWidth="1" /><text x={x} y={height - margin.bottom + 19} textAnchor="middle" fontSize="10" fill="#69717b">{formatEngineeringTick(tick, "s", xScale)}</text></g>; })}
           <line x1={margin.left} x2={width - margin.right} y1={height - margin.bottom} y2={height - margin.bottom} stroke="#cfd5dc" strokeWidth="1" />
           <line x1={margin.left} x2={margin.left} y1={margin.top} y2={height - margin.bottom} stroke="#cfd5dc" strokeWidth="1" />
-          {paths.map((item, index) => <path key={item.name} d={item.path} fill="none" stroke="currentColor" strokeWidth="2" className={index % 2 === 0 ? "text-[#26364d]" : "text-[#58718f]"} />)}
-          <text x={width / 2} y={height - 8} textAnchor="middle" fontSize="10" fill="#69717b">Sample time (s)</text>
-          <text x="14" y={height / 2} textAnchor="middle" fontSize="10" fill="#69717b" transform={`rotate(-90 14 ${height / 2})`}>{signalUnit(selectedSignals[0]) || "Signal value"}</text>
+          {series.map(({ name, samples }, index) => {
+            const path = samples.map(({ time, value }, pointIndex) => `${pointIndex === 0 ? "M" : "L"} ${scaleX(time).toFixed(2)} ${scaleY(value).toFixed(2)}`).join(" ");
+            return <path key={name} d={path} fill="none" stroke="currentColor" strokeWidth="2" className={index % 2 === 0 ? "text-[#26364d]" : "text-[#58718f]"} />;
+          })}
+          <text x={width / 2} y={height - 8} textAnchor="middle" fontSize="10" fill="#69717b">Circuit time</text>
         </svg>
       </div>
-      <div className="px-4 pb-3 text-[10px] text-[#69717b]">
-        {selectedSignals.map((name, index) => <span key={name} className="mr-4 inline-flex max-w-full items-center gap-1.5 align-top"><span className={`mt-0.5 inline-block h-2 w-2 shrink-0 rounded-full ${index % 2 === 0 ? "bg-[#26364d]" : "bg-[#58718f]"}`} /><span>{signalLabel(name)}</span></span>)}
+      <div className="flex flex-wrap gap-x-4 gap-y-1 px-4 pb-3 text-[10px] text-[#69717b]">
+        {selectedSignals.map((name, index) => <span key={name} className="inline-flex items-center gap-1.5"><span className={`inline-block h-2 w-2 rounded-full ${index % 2 === 0 ? "bg-[#26364d]" : "bg-[#58718f]"}`} /><span>{signalLabel(name)}</span></span>)}
       </div>
     </div>
   );
 }
 
-function LivePlot({ history, selectedSignals }) {
-  const points = history.filter((snapshot) => Number.isFinite(Number(snapshot?.signals?.["__live.time_s"])));
-  if (points.length < 2 || selectedSignals.length === 0) {
-    return <div className="flex h-56 items-center justify-center rounded-lg border border-dashed border-[#d9dde2] bg-[#fafbfc] px-4 text-center text-xs text-[#69717b]">Select at least one signal and wait for two live samples to plot it.</div>;
-  }
+function LivePlot({ snapshot, history, selectedSignals, windowSeconds }) {
+  const now = Number(snapshot?.signals?.["__live.time_s"]);
+  if (!Number.isFinite(now) || selectedSignals.length === 0) return null;
 
-  const groups = selectedSignals.reduce((result, name) => {
-    const key = parseSignalName(name).plotFamily;
+  const points = Object.fromEntries(selectedSignals.map((name) => {
+    if (isAcInstantaneous(name)) return [name, buildAcWindowSamples(snapshot, name, windowSeconds)];
+    return [name, buildHistorySamples(history, name, windowSeconds, now)];
+  }));
+  const families = selectedSignals.reduce((result, name) => {
+    const info = parseSignalName(name);
+    const key = info.family === "voltage" ? "Voltage" : info.family === "current" ? "Current" : "Signal";
     if (!result[key]) result[key] = [];
     result[key].push(name);
     return result;
   }, {});
 
-  const titles = {
-    "voltage-value": "Voltage",
-    "voltage-phase": "Voltage phase",
-    "current-value": "Current",
-    "current-phase": "Current phase",
-    "value-value": "Signal",
-    "value-phase": "Signal phase",
-    time: "Time",
-    frequency: "Frequency",
-  };
-
-  return (
-    <div className="overflow-hidden rounded-lg border border-[#e4e7eb] bg-white">
-      <div className="border-b border-[#e4e7eb] px-4 py-3">
-        <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#69717b]">Live plot</div>
-        <div className="mt-1 text-xs text-[#8a929c]">Selected signals versus sample time. Different signal types use separate scales.</div>
-        <div className="mt-1 text-[10px] text-[#69717b]">{points.length} samples</div>
-      </div>
-      {Object.entries(groups).map(([family, names]) => <PlotPanel key={family} points={points} selectedSignals={names} title={titles[family] ?? "Signal"} />)}
-    </div>
-  );
+  return <div className="space-y-2">{Object.entries(families).map(([title, names]) => <PlotPanel key={title} points={points} selectedSignals={names} title={title} windowSeconds={windowSeconds} now={now} />)}</div>;
 }
 
 export default function LiveSimulationView({ snapshot, history = [] }) {
-  const signals = useMemo(() => Object.entries(snapshot?.signals ?? {}), [snapshot]);
-  const signalNames = useMemo(() => signals.map(([name]) => name).filter((name) => name !== "__live.time_s" && name !== "__live.frequency_hz" && history.some((item) => Number.isFinite(Number(item?.signals?.[name])))), [signals, history]);
+  const signalNames = useMemo(() => Object.keys(snapshot?.signals ?? {})
+    .filter((name) => name !== "__live.time_s" && name !== "__live.frequency_hz")
+    .filter((name) => history.some((item) => Number.isFinite(Number(item?.signals?.[name]))) || isAcInstantaneous(name)), [snapshot, history]);
   const defaultSignals = useMemo(() => {
-    const instantaneous = signalNames.filter((name) => name.endsWith(".instantaneous")).slice(0, 2);
-    return instantaneous.length > 0 ? instantaneous : signalNames.slice(0, 2);
+    const instantaneous = signalNames.filter(isAcInstantaneous).slice(0, 2);
+    return instantaneous.length ? instantaneous : signalNames.slice(0, 2);
   }, [signalNames]);
-  const [selectedSignalState, setSelectedSignalState] = useState(null);
-  const selectedSignals = selectedSignalState === null
-    ? defaultSignals
-    : selectedSignalState.filter((name) => signalNames.includes(name));
+  const [selectedSignals, setSelectedSignals] = useState(null);
+  const [windowSeconds, setWindowSeconds] = useState(0.005);
+  const activeSignals = (selectedSignals ?? defaultSignals).filter((name) => signalNames.includes(name)).slice(0, MAX_TRACES);
+  const frequency = Number(snapshot?.signals?.["__live.frequency_hz"]);
+  const acCycles = Number.isFinite(frequency) && frequency > 0 ? frequency * windowSeconds : null;
 
-  const toggleSignal = (name) => setSelectedSignalState((current) => {
-    const selected = current === null ? defaultSignals : current;
-    return selected.includes(name) ? selected.filter((item) => item !== name) : [...selected, name];
+  const toggleSignal = (name) => setSelectedSignals((current) => {
+    const next = current ?? defaultSignals;
+    if (next.includes(name)) return next.filter((item) => item !== name);
+    if (next.length >= MAX_TRACES) return next;
+    return [...next, name];
   });
 
-  const groupedSignalNames = useMemo(() => signalNames.reduce((result, name) => {
-    const family = parseSignalName(name).family;
-    const key = family === "voltage" ? "Voltages" : family === "current" ? "Currents" : "Other";
-    if (!result[key]) result[key] = [];
-    result[key].push(name);
-    return result;
-  }, {}), [signalNames]);
-
   return (
-    <section aria-label="Live simulation state" className="rounded-xl border border-[#d9dde2] bg-white">
+    <section aria-label="Live oscilloscope" className="overflow-hidden rounded-xl border border-[#d9dde2] bg-white">
       <div className="border-b border-[#e4e7eb] px-4 py-3">
-        <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#69717b]">Live state</div>
-        <div className="mt-1 text-xs text-[#8a929c]">Current sampled values are available for inspection; select signals below to plot their live history.</div>
-      </div>
-      <div className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3">
-        {signals.length === 0 && <div className="text-xs text-[#69717b]">Waiting for the first simulation update.</div>}
-        {signals.map(([name, value]) => (
-          <div key={name} className="rounded-lg border border-[#e4e7eb] bg-[#fafbfc] px-3 py-3">
-            <div className="truncate text-[10px] font-medium text-[#69717b]" title={name}>{signalLabel(name)}</div>
-            <div className="mt-1 text-lg font-semibold tabular-nums text-[#17253a]">{formatSignal(value)}{signalUnit(name) && <span className="ml-1 text-[10px] font-medium text-[#8a929c]">{signalUnit(name)}</span>}</div>
-          </div>
-        ))}
-      </div>
-      {signalNames.length > 0 && <div className="border-t border-[#e4e7eb] px-4 py-3">
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#69717b]">Plot signals</div>
-            <div className="mt-1 text-[11px] text-[#8a929c]">Choose the measurements you want to see.</div>
+            <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#58718f]">Live oscilloscope</div>
+            <div className="mt-1 text-xs text-[#69717b]">The view follows the simulation clock and shows only the latest time window.</div>
           </div>
-          <div className="shrink-0 text-[10px] text-[#69717b]">{selectedSignals.length} selected</div>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-medium text-[#69717b]">Window</span>
+            <select aria-label="Oscilloscope time window" value={windowSeconds} onChange={(event) => setWindowSeconds(Number(event.target.value))} className="rounded-md border border-[#cfd5dc] bg-white px-2 py-1.5 text-[11px] font-medium text-[#26364d] outline-none focus:border-[#58718f]">
+              {WINDOW_PRESETS.map((preset) => <option key={preset.value} value={preset.value}>{preset.label}</option>)}
+            </select>
+          </div>
         </div>
-        <div className="mt-3 space-y-3">
-          {Object.entries(groupedSignalNames).map(([group, names]) => <div key={group}><div className="mb-1.5 text-[9px] font-semibold uppercase tracking-[0.12em] text-[#8a929c]">{group}</div><div className="grid gap-1 sm:grid-cols-2">{names.map((name) => <label key={name} className="flex min-w-0 items-start gap-2 rounded-md px-2 py-1.5 text-[11px] text-[#35445a] hover:bg-[#fafbfc]"><input type="checkbox" checked={selectedSignals.includes(name)} onChange={() => toggleSignal(name)} className="mt-0.5" /><span className="min-w-0 truncate" title={name}>{signalLabel(name)}</span></label>)}</div></div>)}
+        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-[#8a929c]">
+          <span>t = {formatSignal(Number(snapshot?.signals?.["__live.time_s"]))} s</span>
+          {Number.isFinite(frequency) && frequency > 0 && <span>f = {formatSignal(frequency)} Hz</span>}
+          {acCycles !== null && <span>{formatSignal(acCycles)} cycles visible</span>}
+          <span>{activeSignals.length}/{MAX_TRACES} traces</span>
+        </div>
+      </div>
+
+      {signalNames.length > 0 && <div className="border-b border-[#e4e7eb] px-4 py-2.5">
+        <div className="flex flex-wrap gap-1.5">
+          {signalNames.map((name) => {
+            const active = activeSignals.includes(name);
+            return <button key={name} type="button" onClick={() => toggleSignal(name)} aria-pressed={active} className={`max-w-full truncate rounded-full border px-2.5 py-1 text-[10px] font-medium transition ${active ? "border-[#58718f] bg-[#f1f5f9] text-[#26364d]" : "border-[#e4e7eb] bg-white text-[#69717b] hover:bg-[#fafbfc]"}`}>{signalLabel(name)}</button>;
+          })}
         </div>
       </div>}
-      {signalNames.length > 0 && <LivePlot history={history} selectedSignals={selectedSignals} />}
+
+      <div className="p-3">
+        {activeSignals.length > 0 ? <LivePlot snapshot={snapshot} history={history} selectedSignals={activeSignals} windowSeconds={windowSeconds} /> : <div className="flex h-48 items-center justify-center rounded-lg border border-dashed border-[#d9dde2] bg-[#fafbfc] px-4 text-center text-xs text-[#69717b]">Select a signal to add it to the oscilloscope.</div>}
+      </div>
     </section>
   );
 }
