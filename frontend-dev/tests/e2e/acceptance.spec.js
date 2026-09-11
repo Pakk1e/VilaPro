@@ -171,6 +171,7 @@ test.describe("Worlds acceptance suite", () => {
     await sourceProperties.scrollIntoViewIfNeeded();
     await expect(sourceProperties).toBeVisible();
     await sourceProperties.selectOption("sine");
+    await expect(voltage.getByText("Sine", { exact: true })).toBeVisible();
 
     const sourceInputs = page.locator('aside input[type="number"]');
     await expect(sourceInputs).toHaveCount(5);
@@ -192,6 +193,14 @@ test.describe("Worlds acceptance suite", () => {
     await expect(plot).toBeVisible();
     await expect(plot).toHaveAttribute("aria-label", /versus Time \(s\) result plot/);
     await expect(results).toBeVisible();
+    const path = plot.locator("path").first();
+    await expect.poll(async () => (await path.getAttribute("d"))?.match(/L/g)?.length ?? 0, { timeout: 15000 }).toBeGreaterThan(50);
+    const d = await path.getAttribute("d");
+    const points = [...(d.matchAll(/[ML]\s+([\d.]+)\s+([\d.]+)/g))].map((match) => ({ x: Number(match[1]), y: Number(match[2]) }));
+    const turns = points.slice(1).map((point, index) => Math.sign(point.y - points[index].y)).filter((value) => value !== 0);
+    const directionChanges = turns.slice(1).filter((value, index) => value !== turns[index]).length;
+    expect(directionChanges).toBeGreaterThanOrEqual(2);
+
     await captureVisual(page, testInfo, "T08-transient-sine-source");
     await captureElementVisual(plot, testInfo, "T08-transient-sine-source-plot");
     expect(errors).toEqual([]);
