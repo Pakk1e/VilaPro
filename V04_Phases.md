@@ -269,7 +269,7 @@ The Live architecture must support:
 
 The Live runtime is analysis-independent and layer-independent. Electrical DC/AC are initial consumers, but the architecture must be able to support future Thermal, Mechanical, Control, Fluid, and multi-layer Worlds simulations without creating a separate Live architecture for each layer.
 
-The UI direction is to expose Static and Live as distinct top-level simulation modes. Static uses the existing Result Explorer, plots, tables, measurements, and export workflow. Live will use a dedicated live workspace focused on running state, meters, waveforms, component state, controls, and streaming data.
+The UI direction is to expose Static and Live as distinct top-level simulation modes. Static uses the existing Result Explorer, plots, tables, measurements, and export workflow. Live uses a dedicated live workspace focused on running state, meters, waveforms, component state, controls, and streaming data.
 
 ### 5.10 — Live Simulation Runtime 🔄
 
@@ -438,10 +438,31 @@ Priority order:
 5. Add simulation speed/time-scale controls where the runtime supports them.
 6. Improve AC-specific frequency-domain interaction without duplicating the static result explorer.
 
-The acceptance loop remains:
+### 5.15 — Phase 5 Architecture and Long-Term Direction 🔜
+
+The simulation stack continues to separate component identity, layer-specific representation, analysis, execution mode, and visualization. Live must remain a runtime/state boundary rather than becoming a second static-result format.
 
 ```text
-Implement → CI → deploy → browser acceptance → screenshot review
-     ↑                                             │
-     └────────────── UX fixes / refinements ───────┘
+Component Entity
+       ↓
+Layer-specific Representation
+       ↓
+Analysis Model
+       ↓
+Execution Mode
+   ┌───┴────┐
+ Static    Live
+   │         │
+   ↓         ↓
+Results   Runtime State
+   │         │
+   └────┬────┘
+        ↓
+Visualization / API
+        ↓
+Worlds UI
 ```
+
+The same component may eventually have different valid representations at deeper Worlds layers. For example, a capacitor can be represented electrically by `i = C · dv/dt`, in AC by `Z = 1 / (jωC)`, in Laplace form with initial conditions, and later through physical/material representations. These deeper layers remain future Worlds work.
+
+Worlds should evolve toward a visual, interactive simulation environment rather than a form-driven analysis tool. EveryCircuit is the reference for interaction principles only: animated simulation in the schematic, direct node/component inspection, a compact interactive oscilloscope, and controls that encourage experimentation while simulation is running. This is not a requirement to reproduce EveryCircuit branding, source code, or exact visual design.
