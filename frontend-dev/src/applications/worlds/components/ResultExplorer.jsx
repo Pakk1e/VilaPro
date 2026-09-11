@@ -3,6 +3,7 @@ import { formatEngineeringValue } from "../model/engineeringFormat.js";
 import { createResultPlot } from "../model/resultPlot.js";
 import { RESULT_MEASUREMENTS } from "../model/sweepResults.js";
 import { getCircuitSummaryRows, getEntityMeasurementSeries, getMeasurementLabel, getResultSeries, getSummaryValue } from "../model/resultExplorer.js";
+import { getSweepInformation } from "../model/sweepResults.js";
 import ResultChart from "./ResultChart";
 
 const measurements = [RESULT_MEASUREMENTS.VOLTAGE, RESULT_MEASUREMENTS.CURRENT, RESULT_MEASUREMENTS.POWER];
@@ -69,10 +70,12 @@ function ACResultView({ result }) {
   const phasors = Array.isArray(datasets.phasors) ? datasets.phasors : [];
   return <section role="region" aria-label="AC phasor results" className="overflow-hidden rounded-xl border border-[#d9dde2] bg-white">
     <div className="border-b border-[#e4e7eb] px-4 py-4"><div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#69717b]">AC Phasors</div><div className="mt-1 text-xs text-[#8a929c]">Steady-state complex response at the selected frequency.</div></div>
-    <div className="grid gap-3 p-4 sm:grid-cols-3">
-      <div className="rounded-lg border border-[#e4e7eb] bg-[#fafbfc] px-3 py-3"><div className="text-[10px] text-[#69717b]">Frequency</div><div className="mt-1 text-lg font-semibold tabular-nums text-[#17253a]">{frequency ?? "—"}<span className="ml-1 text-[10px] font-medium text-[#8a929c]">Hz</span></div></div>
-      <div className="rounded-lg border border-[#e4e7eb] bg-[#fafbfc] px-3 py-3"><div className="text-[10px] text-[#69717b]">Excitation magnitude</div><div className="mt-1 text-lg font-semibold tabular-nums text-[#17253a]">{result?.result?.analysis_information?.excitation?.magnitude ?? "—"}</div></div>
-      <div className="rounded-lg border border-[#e4e7eb] bg-[#fafbfc] px-3 py-3"><div className="text-[10px] text-[#69717b]">Excitation phase</div><div className="mt-1 text-lg font-semibold tabular-nums text-[#17253a]">{result?.result?.analysis_information?.excitation?.phase_deg ?? "—"}<span className="ml-1 text-[10px] font-medium text-[#8a929c]">°</span></div></div>
+    <div className="grid gap-3 p-4">
+      <div className="grid gap-3 sm:grid-cols-3">
+        <div className="rounded-lg border border-[#e4e7eb] bg-[#fafbfc] px-3 py-3"><div className="text-[10px] text-[#69717b]">Frequency</div><div className="mt-1 text-lg font-semibold tabular-nums text-[#17253a]">{frequency ?? "—"}<span className="ml-1 text-[10px] font-medium text-[#8a929c]">Hz</span></div></div>
+        <div className="rounded-lg border border-[#e4e7eb] bg-[#fafbfc] px-3 py-3"><div className="text-[10px] text-[#69717b]">Excitation magnitude</div><div className="mt-1 text-lg font-semibold tabular-nums text-[#17253a]">{result?.result?.analysis_information?.excitation?.magnitude ?? "—"}</div></div>
+        <div className="rounded-lg border border-[#e4e7eb] bg-[#fafbfc] px-3 py-3"><div className="text-[10px] text-[#69717b]">Excitation phase</div><div className="mt-1 text-lg font-semibold tabular-nums text-[#17253a]">{result?.result?.analysis_information?.excitation?.phase_deg ?? "—"}<span className="ml-1 text-[10px] font-medium text-[#8a929c]">°</span></div></div>
+      </div>
     </div>
     <div className="border-t border-[#e4e7eb]">
       <div className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#69717b]">Phasor values</div>
@@ -96,9 +99,13 @@ export default function ResultExplorer({ result }) {
   const isSweep = result?.analysis === "dc_sweep";
   const isTransient = result?.analysis === "transient";
   const isAC = result?.analysis === "ac";
+  const sweepInformation = isSweep ? getSweepInformation(result) : null;
   const [selectedKey, setSelectedKey] = useState(null);
   const [measurement, setMeasurement] = useState(null);
-  const selectedRow = rows.find((row) => row.key === selectedKey) ?? componentRows[0] ?? branchRows[0] ?? nodeRows.find((row) => row.entityId !== "ground") ?? nodeRows[0] ?? null;
+  const preferredSweepRow = sweepInformation?.source
+    ? rows.find((row) => row.entityId === sweepInformation.source && row.entityType === "component")
+    : null;
+  const selectedRow = rows.find((row) => row.key === selectedKey) ?? preferredSweepRow ?? componentRows[0] ?? branchRows[0] ?? nodeRows.find((row) => row.entityId !== "ground") ?? nodeRows[0] ?? null;
   const availableMeasurements = selectedRow ? measurements.filter((item) => Boolean(selectedRow.values[item])) : [];
   const defaultMeasurement = isSweep && availableMeasurements.includes(RESULT_MEASUREMENTS.CURRENT)
     ? RESULT_MEASUREMENTS.CURRENT
