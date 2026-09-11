@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { formatEngineeringValue } from "../model/engineeringFormat.js";
 import { createResultPlot } from "../model/resultPlot.js";
-import { RESULT_MEASUREMENTS } from "../model/sweepResults.js";
+import { RESULT_MEASUREMENTS, getSweepInformation } from "../model/sweepResults.js";
 import { getCircuitSummaryRows, getEntityMeasurementSeries, getMeasurementLabel, getResultSeries, getSummaryValue } from "../model/resultExplorer.js";
-import { getSweepInformation } from "../model/sweepResults.js";
 import ResultChart from "./ResultChart";
 
 const measurements = [RESULT_MEASUREMENTS.VOLTAGE, RESULT_MEASUREMENTS.CURRENT, RESULT_MEASUREMENTS.POWER];
