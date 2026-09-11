@@ -176,7 +176,7 @@ test.describe("Worlds acceptance suite", () => {
     const results = await waitForResults(page);
     const plot = page.getByRole("img", { name: /result plot/i });
     await expect(plot).toBeVisible();
-    await expect(plot).toHaveAttribute("aria-label", /V\(Voltage Source 1\)/);
+    await expect(plot).toHaveAttribute("aria-label", /V\(Resistor 1\)/);
     await expect(results).toBeVisible();
     await captureVisual(page, testInfo, "T08-transient-response");
     await captureElementVisual(plot, testInfo, "T08-transient-response-plot");
