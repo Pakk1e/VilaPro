@@ -1,7 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { rcCircuitFixture, sineSourceFixture, seriesCircuitFixture } from "./__fixtures__/worldGraphFixtures.js";
+import {
+  acCircuitFixture,
+  currentSourceFixture,
+  parallelResistorFixture,
+  rcCircuitFixture,
+  sineSourceFixture,
+  seriesCircuitFixture,
+} from "./__fixtures__/worldGraphFixtures.js";
 import { buildCircuitDescription, serializeWorldGraph, validateWorldGraph } from "./worldGraphSerializer.js";
 
 function instancesFor(graph) {
@@ -48,6 +55,20 @@ test("sine source fixture preserves waveform semantics at the serializer boundar
   });
 });
 
+test("AC fixture preserves periodic source semantics including phase", () => {
+  const graph = acCircuitFixture();
+  const voltage = instancesFor(graph).find((instance) => instance.id === "V1");
+
+  assert.deepEqual(voltage.parameters.V, {
+    waveform: "sine",
+    amplitude: 5,
+    offset: 0,
+    frequency: 1000,
+    phase: Math.PI / 2,
+    delay: 0,
+  });
+});
+
 test("RC fixture preserves capacitor identity and electrical topology", () => {
   const graph = rcCircuitFixture();
   const instances = instancesFor(graph);
@@ -61,6 +82,32 @@ test("RC fixture preserves capacitor identity and electrical topology", () => {
     parameters: { C: 0.001 },
     ports: { p: "node_3", n: "ground" },
   });
+});
+
+test("current source fixture maps current into the backend source parameter", () => {
+  const graph = currentSourceFixture();
+  const source = instancesFor(graph).find((instance) => instance.id === "I1");
+
+  assert.deepEqual(source, {
+    id: "I1",
+    name: "Current Source 1",
+    type: "CurrentSource",
+    parameters: { I: 0.01 },
+    ports: { n: "ground", p: "node_2" },
+  });
+});
+
+test("parallel resistor fixture preserves junction connectivity", () => {
+  const graph = parallelResistorFixture();
+  assert.equal(validateWorldGraph(graph.nodes, graph.edges), undefined);
+
+  const instances = instancesFor(graph);
+  const resistorA = instances.find((instance) => instance.id === "R1");
+  const resistorB = instances.find((instance) => instance.id === "R2");
+
+  assert.equal(resistorA.ports.p, resistorB.ports.p);
+  assert.equal(resistorA.ports.n, "ground");
+  assert.equal(resistorB.ports.n, "ground");
 });
 
 test("invalid wire endpoints are rejected before simulation serialization", () => {
