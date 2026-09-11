@@ -1,17 +1,20 @@
 name: Worlds Acceptance Tests
 
 on:
+  workflow_call:
+    inputs:
+      branch:
+        description: Branch/ref to test when called from the Worlds DEV deployment workflow
+        required: false
+        default: v0.4/workspace-architecture
+        type: string
   workflow_dispatch:
     inputs:
       branch:
         description: Branch/ref to test
         required: false
         default: v0.4/workspace-architecture
-  workflow_run:
-    workflows:
-      - Deploy Worlds DEV
-    types:
-      - completed
+        type: string
 
 concurrency:
   group: worlds-acceptance
@@ -20,7 +23,6 @@ concurrency:
 jobs:
   acceptance:
     name: Worlds browser acceptance
-    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'v0.4/workspace-architecture') }}
     runs-on: [self-hosted, worlds-dev]
     environment: worlds-dev
     timeout-minutes: 30
@@ -32,7 +34,7 @@ jobs:
       - name: Checkout deployed revision
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.branch || github.event.workflow_run.head_sha }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.branch || github.sha }}
           clean: true
 
       - name: Setup Node.js
@@ -52,23 +54,26 @@ jobs:
         working-directory: frontend-dev
         run: npm install --no-save --package-lock=false @playwright/test@1.63.0
 
-      # The persistent worlds-dev runner normally already has Chromium from the
-      # deploy workflow. Without --with-deps this is fast when cached and does
-      # not require OS package privileges.
+      # The persistent worlds-dev runner normally already has Chromium. This is
+      # idempotent and should be a no-op when the requested browser revision exists.
       - name: Ensure Playwright Chromium
         working-directory: frontend-dev
         run: npx playwright install chromium
 
-      - name: Run acceptance tests
+      - name: Run complete acceptance suite
         working-directory: frontend-dev
         shell: bash
         run: |
-          set +e
-          # Fail fast while iterating: a failing test makes the run non-green,
-          # so there is no value in spending another 10–20 minutes on the
-          # remaining tests. A fully green run still executes the entire suite.
-          npx playwright test tests/e2e/acceptance.spec.js --reporter=list,html --retries=0 --max-failures=1 2>&1 | tee ../acceptance-run.log
+          set -o pipefail
+          started=$(date +%s%3N)
+          echo "=== Worlds browser acceptance ==="
+          echo "Revision: $GITHUB_SHA"
+          echo "Started:  $(date -Is)"
+          npx playwright test tests/e2e/acceptance.spec.js --reporter=list,html --retries=0 2>&1 | tee ../acceptance-run.log
           status=${PIPESTATUS[0]}
+          ended=$(date +%s%3N)
+          echo "Finished: $(date -Is)"
+          echo "Duration: $((ended - started))ms"
           exit "$status"
 
       - name: Upload Playwright report
