@@ -5,6 +5,7 @@ async function addComponent(page, name, label) { await page.getByRole("button", 
 async function moveNode(page, node, x, y) { const box = await node.boundingBox(); if (!box) throw new Error("Unable to locate ReactFlow node."); await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2); await page.mouse.down(); await page.mouse.move(x, y, { steps: 10 }); await page.mouse.up(); }
 function handle(node, id) { return node.locator(`.react-flow__handle[data-handleid="${id}"]`); }
 function inspectorInputs(page) { return page.getByTestId("component-inspector").locator('input[type="number"]'); }
+async function assertNodesClearOfPalette(nodes, palette) { const paletteBox = await palette.boundingBox(); if (!paletteBox) throw new Error("Unable to locate component palette."); for (const node of nodes) { const box = await node.boundingBox(); if (!box) throw new Error("Unable to locate circuit component."); expect(box.x + box.width).toBeLessThan(paletteBox.x - 8); } }
 async function createSeriesCircuit(page) {
   const canvas = page.getByTestId("worlds-canvas").locator(".react-flow"); const canvasBox = await canvas.boundingBox(); if (!canvasBox) throw new Error("Unable to locate Worlds canvas.");
   const seed = await addComponent(page, "Resistor", "Resistor 1"); const zoomOut = page.locator(".react-flow__controls-zoomout"); for (let i = 0; i < 20; i += 1) { if (await zoomOut.isDisabled()) break; await zoomOut.click(); }
@@ -12,7 +13,7 @@ async function createSeriesCircuit(page) {
   const voltage = await addComponent(page, "Voltage Source", "Voltage Source 1"); const resistor = await addComponent(page, "Resistor", "Resistor 1"); const ground = await addComponent(page, "Ground", "Ground 1");
   const palette = page.getByTestId("component-palette"); const paletteBox = await palette.boundingBox(); if (!paletteBox) throw new Error("Unable to locate component palette.");
   const left = canvasBox.x + 80; const right = paletteBox.x - 80; const width = right - left; if (width < 300) throw new Error("Insufficient canvas width for acceptance circuit."); const top = canvasBox.y + canvasBox.height * 0.34; const bottom = canvasBox.y + canvasBox.height * 0.68;
-  await moveNode(page, voltage, left + width * 0.30, top); await moveNode(page, resistor, left + width * 0.70, top); await moveNode(page, ground, left + width * 0.50, bottom); await handle(voltage, "p").dragTo(handle(resistor, "p")); await handle(resistor, "n").dragTo(handle(ground, "g")); await handle(voltage, "n").dragTo(handle(ground, "g")); await expect.poll(async () => page.locator(".react-flow__edge").count()).toBeGreaterThanOrEqual(3); return { voltage, resistor };
+  await moveNode(page, voltage, left + width * 0.30, top); await moveNode(page, resistor, left + width * 0.70, top); await moveNode(page, ground, left + width * 0.50, bottom); await assertNodesClearOfPalette([voltage, resistor, ground], palette); await handle(voltage, "p").dragTo(handle(resistor, "p")); await handle(resistor, "n").dragTo(handle(ground, "g")); await handle(voltage, "n").dragTo(handle(ground, "g")); await expect.poll(async () => page.locator(".react-flow__edge").count()).toBeGreaterThanOrEqual(3); return { voltage, resistor };
 }
 async function waitForResults(page) { const results = page.getByRole("region", { name: "Simulation results" }); const error = page.locator('[role="alert"]').filter({ hasText: "Simulation error" }).first(); await expect.poll(async () => { if (await results.isVisible().catch(() => false)) return "results"; if (await error.isVisible().catch(() => false)) return "error"; return "pending"; }, { timeout: 15000 }).not.toBe("pending"); if (await error.isVisible().catch(() => false)) throw new Error(await error.innerText()); return results; }
 async function captureVisual(page, testInfo, name) { await page.screenshot({ path: testInfo.outputPath(`${name}.png`), fullPage: true }); }
@@ -22,11 +23,7 @@ function browserErrors(page) { const errors = []; page.on("console", (message) =
 test.describe("Worlds acceptance suite", () => {
   test.afterEach(async ({ page }, testInfo) => {
     if (testInfo.status === testInfo.expectedStatus) return;
-    const diagnostics = await page.evaluate(() => ({
-      url: window.location.href,
-      viewport: { width: window.innerWidth, height: window.innerHeight },
-      worlds: window.__WORLDS_DEBUG__ ?? null,
-    })).catch((error) => ({ error: error.message }));
+    const diagnostics = await page.evaluate(() => ({ url: window.location.href, viewport: { width: window.innerWidth, height: window.innerHeight }, worlds: window.__WORLDS_DEBUG__ ?? null })).catch((error) => ({ error: error.message }));
     await writeFile(testInfo.outputPath("worlds-debug.json"), JSON.stringify(diagnostics, null, 2));
   });
 
