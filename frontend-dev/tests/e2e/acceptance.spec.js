@@ -1,7 +1,7 @@
 import test, { expect } from "@playwright/test";
 import { writeFile } from "node:fs/promises";
 
-async function addComponent(page, name, label) { await page.getByRole("button", { name, exact: false }).click(); const node = page.locator(".react-flow__node").filter({ hasText: label }); await expect(node).toBeVisible(); return node; }
+async function addComponent(page, name, label) { await page.getByTestId("component-palette").getByRole("button", { name: new RegExp(`^${name} Add to canvas$`) }).click(); const node = page.locator(".react-flow__node").filter({ hasText: label }); await expect(node).toBeVisible(); return node; }
 async function moveNode(page, node, x, y) { const box = await node.boundingBox(); if (!box) throw new Error("Unable to locate ReactFlow node."); await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2); await page.mouse.down(); await page.mouse.move(x, y, { steps: 10 }); await page.mouse.up(); }
 function handle(node, id) { return node.locator(`.react-flow__handle[data-handleid="${id}"]`); }
 function inspectorInputs(page) { return page.getByTestId("component-inspector").locator('input[type="number"]'); }
