@@ -314,7 +314,7 @@ Static AC frequency sweep/Bode analysis is a separate capability that can reuse 
 
 The next Worlds phase shifts the Live experience from a telemetry/debug view toward an interactive circuit-simulator workspace inspired by the interaction model of EveryCircuit. The goal is not to copy its visual implementation, but to adopt the principles that make circuit behavior immediately understandable: simulation is visible on the schematic, controls stay close to the circuit, and the oscilloscope is an interactive analysis surface rather than an ever-growing log.
 
-EveryCircuit's documented UX provides the reference principles for this phase: simulation starts/resumes directly from the schematic, animated voltages/currents are visualized over the circuit, selected nodes/components can be plotted in an oscilloscope, transient traces are measured interactively, and AC uses an interactive frequency-response plot. citehttps://everycircuit.com/help
+EveryCircuit's documented UX provides the reference principles for this phase: simulation starts/resumes directly from the schematic, animated voltages/currents are visualized over the circuit, selected nodes/components can be plotted in an oscilloscope, transient traces are measured interactively, and AC uses an interactive frequency-response plot.
 
 #### 5.13A — Remove Debug Telemetry from the Primary Live UI
 
@@ -361,18 +361,23 @@ simulation time →
                          ↑ now
 ```
 
-The window width is user-controlled. Initial presets should cover common scales such as:
+The window width is user-controlled. Presets cover both high-frequency and slow signals, including:
 
+- 1 µs
+- 2 µs
 - 5 µs
+- 10 µs
 - 50 µs
+- 100 µs
 - 500 µs
+- 1 ms
 - 5 ms
 - 50 ms
 - 500 ms
 - 1 s
 - 10 s
 
-The UI should also allow a custom value where practical.
+The UI should allow a custom value in a later increment where practical.
 
 Behavior requirements:
 
@@ -381,8 +386,10 @@ Behavior requirements:
 - High-frequency signals such as 5 MHz must remain visually useful instead of compressing thousands of cycles into an ever-growing chart
 - Low-frequency signals must remain useful with larger windows such as 1 s
 - Sampling/display density is independent from solver step size
-- Changing the visible window should not restart the simulation
+- Changing the visible window must not restart the simulation
 - The chart automatically chooses sensible grid/tick spacing for the selected window
+- The initial window should adapt to the selected frequency, targeting roughly five visible cycles when a useful frequency is available
+- The displayed waveform should continue moving smoothly between backend samples rather than appearing to jump at the transport update rate
 
 #### 5.13E — Simulation Controls as a Simulator, Not a Job Runner
 
@@ -418,117 +425,23 @@ Live AC should use the same interactive workspace principles while respecting AC
 
 Every interactive simulation change must be verified through the Worlds acceptance workflow, including visual inspection of the resulting screenshots.
 
-Minimum scenarios:
+### 5.14 — Next Interactive Simulator Increments 🔜
 
-- Live DC shows meaningful circuit-context values without the debug telemetry wall
-- Live transient shows a bounded moving time window
-- 5 MHz sine remains visibly inspectable with a microsecond-scale window
-- 1 Hz / slow transient remains inspectable with a second-scale window
-- Changing window size does not restart or corrupt the live session
-- Selecting a node/component creates a readable trace
-- Pause/stop/resume remain reliable
-- Static DC / sweep / transient / AC result views do not regress
-- No raw component UUIDs or backend signal identifiers are visible in the primary user experience
+After the moving oscilloscope is stable, the next UX increments should be evaluated from actual Worlds screenshots and interaction tests rather than implemented as a fixed checklist.
 
-### 5.14 — Future Interactive Physics Visualization 🔜
+Priority order:
 
-After the Live workspace is mature, extend the same interaction model into deeper Worlds layers without coupling the UI to electrical solver internals.
+1. Click a schematic component/node to drive the selected oscilloscope trace.
+2. Add lightweight animated voltage/current overlays to the schematic.
+3. Add oscilloscope pause/cursor inspection and a precise readout at the cursor.
+4. Collapse/expand simulation setup so the circuit can become the dominant surface.
+5. Add simulation speed/time-scale controls where the runtime supports them.
+6. Improve AC-specific frequency-domain interaction without duplicating the static result explorer.
 
-Potential future layers include:
-
-- Thermal
-- Mechanical
-- Control
-- Fluid
-- Physical/material
-- Microscopic
-
-The same principle applies: simulation state should be visualized in the context of the thing being simulated, while numerical/runtime details remain behind the visualization boundary.
-
----
-
-## Phase 5 Current Architecture
-
-The simulation stack now follows:
+The acceptance loop remains:
 
 ```text
-Component Entity
-       ↓
-Layer-specific Representation
-       ↓
-Analysis Model
-       ↓
-Execution Mode
-   ┌───┴────┐
- Static    Live
-   │         │
-   ↓         ↓
-Numerical  Simulation
-Method     Runtime / State
-   │         │
-   └────┬────┘
-        ↓
- Result / Live State Model
-        ↓
- Dataset / Stream
-        ↓
- Series / Live Views
-        ↓
- Plot / Live Visualization
-        ↓
- Existing Worlds Frontend
+Implement → CI → deploy → browser acceptance → screenshot review
+     ↑                                             │
+     └────────────── UX fixes / refinements ───────┘
 ```
-
-Static results continue to use the generic Dataset → Series → Plot architecture. Live execution introduces a separate current-state/stream boundary rather than forcing a running simulation into a static result table.
-
-The same component can therefore have different valid representations at different Worlds layers.
-
-For example, a capacitor may eventually be represented as:
-
-```text
-Circuit / electrical → i = C · dv/dt
-AC electrical       → Z = 1 / (jωC)
-Laplace              → I(s) = sC V(s) - C v(0⁻)
-Physical             → Q = C V, electric field, stored energy
-Material             → dielectric / polarization behavior
-Microscopic          → charge carriers and interactions
-```
-
-The deeper physical/material/microscopic layers remain future Worlds work.
-
----
-
-# Long-Term Vision
-
-The same underlying component/entity should remain explorable through progressively deeper layers without coupling the visual model to a particular simulation implementation.
-
-Static and Live are execution modes available across those layers rather than properties of one particular analysis:
-
-```text
-World / Visual Layer
-        ↓
-Shared Circuit / Component Entity
-        ↓
-Layer-specific Representation
-        ↓
-Analysis Model
-        ↓
-Execution Mode
-   ┌────┴────┐
- Static     Live
-   │          │
-   ↓          ↓
-Results    Runtime State
-   │          │
-   └────┬─────┘
-        ↓
-Visualization / API
-        ↓
-Worlds UI
-```
-
-## UX Direction
-
-Worlds should evolve toward a visual, interactive simulation environment rather than a form-driven analysis tool. EveryCircuit is the reference for the interaction principles in this phase: animated simulation directly on the schematic, direct selection of nodes/components for measurement, a compact interactive oscilloscope, and controls that let users experiment while the simulation is running. citehttps://everycircuit.com/
-
-These are product/UX principles, not a requirement to reproduce EveryCircuit's branding, source code, or exact visual design.
