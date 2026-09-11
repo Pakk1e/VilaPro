@@ -99,7 +99,7 @@ test("duplicate node identities are rejected at the graph boundary", () => {
 
   assert.throws(
     () => validateWorldGraph(graph.nodes, graph.edges),
-    /duplicate or missing node ids/
+    /duplicates node id/
   );
 });
 
@@ -109,6 +109,6 @@ test("wires referencing deleted nodes are rejected at the graph boundary", () =>
 
   assert.throws(
     () => validateWorldGraph(graph.nodes, graph.edges),
-    /missing node/
+    /references missing node/
   );
 });
