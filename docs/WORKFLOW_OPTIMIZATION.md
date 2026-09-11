@@ -2,7 +2,7 @@
 
 This document defines the engineering workflow for the Worlds development loop. The goal is not only lower feedback time, but a development system that makes changes safer, more deterministic, easier to diagnose, and easier for an AI coding agent to reason about.
 
-The optimization work is intentionally separated from Worlds application behavior. It may change GitHub Actions workflows, deployment scripts used only by Worlds DEV, runner/tooling configuration, test infrastructure, and engineering documentation. The production `deploy.sh` remains untouched.
+The optimization work is intentionally separated from Worlds application behavior. It may change GitHub Actions workflows, deployment scripts used only for Worlds DEV, runner/tooling configuration, test infrastructure, and engineering documentation. The production `deploy.sh` remains untouched.
 
 ## Optimization principles
 
@@ -240,24 +240,24 @@ The human should not need to manually coordinate every implementation step.
 - W2 duplicate deployment validation: implemented for the Worlds DEV path.
 - W3 persistent Playwright tooling: implemented on the `worlds-dev` runner; Chromium remains idempotently ensured.
 - W4 complete acceptance: implemented with zero retries and no early-failure limit.
-- W5 deployment/acceptance contract: implemented through the reusable acceptance workflow and deployed-branch checkout.
+- W5 deployment/acceptance contract: implemented; acceptance checks out the exact deployed revision passed by the deployment workflow.
 - W6 worker tuning: 3 workers retained based on measured runner performance; 4 workers did not provide a meaningful improvement.
 - W7 measurement: ongoing; do not claim a benchmark unless the run was actually observed.
 - W8 architecture source of truth: implemented in `ARCHITECTURE.md`.
-- W9 deterministic fixtures/contracts: initial serializer fixtures and contract tests implemented.
+- W9 deterministic fixtures/contracts: implemented with canonical circuit fixtures and serializer/model contract coverage.
 - W10 stable browser boundaries: initial canvas/palette/inspector/simulation selectors implemented and acceptance tests updated.
-- W11 failure diagnostics: trace-on-failure and richer failure artifact retention implemented.
-- W12 runtime/schema validation: planned next; existing serializer validation is the first boundary to formalize.
-- W13 selective visual regression: partially represented by existing visual acceptance captures; targeted assertions remain to be expanded.
-- W14 AI-effective development loop: architecture and workflow contracts are now documented; final completion requires the remaining validation/diagnostic work and a stable operating process.
+- W11 failure diagnostics: trace-on-failure, graph-state context, console/page errors, and richer failure artifact retention implemented.
+- W12 runtime/schema validation: **initial implementation complete at the World Graph boundary** through `worldGraphSchema.js` and serializer integration; simulation request/model/result validation remains for later increments.
+- W13 selective visual regression: initial placement/palette-overlap protection exists; targeted visual assertions remain to be expanded only where they add deterministic value.
+- W14 AI-effective development loop: foundation is implemented; final completion requires the remaining validation/diagnostic work and a stable operating process.
 
 ## Priority after the current CI work
 
-1. Strengthen graph/schema validation at the serializer boundary.
-2. Expand deterministic fixtures to RC/AC and reuse them in model tests.
-3. Add graph-state diagnostics to browser failures where safe.
+1. Expand schema validation into the simulation request/model boundaries without duplicating backend contracts.
+2. Expand deterministic fixtures to all important electrical analyses and reuse them in model tests.
+3. Strengthen browser failure diagnostics with safe, bounded state capture.
 4. Add selective visual geometry assertions for known layout regressions.
-5. Improve static/model test reporting so a failure identifies its architectural boundary.
+5. Improve static/model test reporting so failures identify their architectural boundary.
 6. Re-measure the complete loop after these changes.
 7. Only then consider additional CI micro-optimization.
 
