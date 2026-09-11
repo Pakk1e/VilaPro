@@ -466,3 +466,81 @@ Worlds UI
 The same component may eventually have different valid representations at deeper Worlds layers. For example, a capacitor can be represented electrically by `i = C · dv/dt`, in AC by `Z = 1 / (jωC)`, in Laplace form with initial conditions, and later through physical/material representations. These deeper layers remain future Worlds work.
 
 Worlds should evolve toward a visual, interactive simulation environment rather than a form-driven analysis tool. EveryCircuit is the reference for interaction principles only: animated simulation in the schematic, direct node/component inspection, a compact interactive oscilloscope, and controls that encourage experimentation while simulation is running. This is not a requirement to reproduce EveryCircuit branding, source code, or exact visual design.
+
+### 5.16 — Engineering Foundation for AI-Effective Development 🔄
+
+This phase establishes the engineering structure needed for the project to be operated primarily from architecture, product intent, and priorities while implementation, testing, deployment, and diagnosis are handled systematically.
+
+#### 5.16A — Architecture Source of Truth
+
+- `ARCHITECTURE.md` is the canonical engineering boundary document.
+- Product vision and engineering architecture remain separate.
+- Component definition, instance, graph, serialization, simulation, runtime, result, visualization, and renderer boundaries are explicit.
+
+#### 5.16B — Graph Contracts and Invariants
+
+The World Graph is the canonical visual model and must have explicit, testable invariants:
+
+- stable unique node identities
+- valid component types and ports
+- valid connection endpoints
+- no dangling connections after deletion
+- topology independent of viewport/position
+- ground represented semantically
+- renderer cannot silently change simulation topology
+- serializer produces deterministic backend descriptions
+
+#### 5.16C — Deterministic Fixtures and Contract Tests
+
+- canonical semantic circuit fixtures
+- fast serializer/topology tests without a browser
+- waveform/source contract coverage
+- invalid graph rejection coverage
+- deterministic serialization checks
+- future runtime/schema validation coverage
+
+#### 5.16D — Stable Browser Boundaries
+
+- Prefer accessible roles and labels for Playwright.
+- Add stable test IDs only to important integration boundaries.
+- Avoid generic selectors such as the first number input when a semantic selector is available.
+- Keep browser tests focused on user-visible behavior rather than React implementation details.
+
+#### 5.16E — Failure Diagnostics
+
+Acceptance failures should preserve enough evidence to classify the failure boundary quickly:
+
+- screenshot
+- Playwright trace
+- console/page errors
+- current URL and viewport
+- graph/fixture context where safe
+- selected node and simulation context where useful
+
+#### 5.16F — Runtime and Schema Boundaries
+
+Introduce validation progressively at graph, simulation request, simulation model, and result/runtime-state boundaries. Errors should identify the affected object and boundary.
+
+#### 5.16G — Selective Visual Regression
+
+Use screenshot and geometry assertions only where visual behavior is the requirement: insertion/viewport behavior, palette overlap, wire alignment, simulation workspace layout, and oscilloscope readability.
+
+#### 5.16H — Human/AI Development Contract
+
+The preferred project workflow is:
+
+```text
+Human
+  ↓
+Architecture / product intent / priorities
+  ↓
+Implementation agent
+  ↓
+Inspect → design → implement → test → deploy → accept → diagnose
+  ↓
+Verified result
+```
+
+The user should not need to manually coordinate low-level implementation steps. The repository must contain enough architecture, invariants, fixtures, diagnostics, and automated gates for the implementation agent to operate safely from high-level direction.
+
+**Completion criterion:** routine implementation work can be executed and verified without requiring the user to supply low-level coding instructions.
