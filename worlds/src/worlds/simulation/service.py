@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from worlds.semantics.component import ComponentSemanticAnalyzer
 from worlds.semantics import WorldSemanticAnalyzer
 from worlds.simulation.ac import ACResult
-from worlds.simulation.analysis import DCSweepResult, SimulationConfiguration, get_simulation_analysis
+from worlds.simulation.analysis import DCSweepResult, FrequencySweepResult, SimulationConfiguration, get_simulation_analysis
 from worlds.simulation.analysis import TransientResult
 from worlds.simulation.builder import build_simulation_component
 from worlds.simulation.model import SimulationModel
@@ -73,6 +73,9 @@ class SimulationService:
             if isinstance(result, DCSweepResult):
                 session.complete()
                 return self._build_sweep_response(result, configuration, circuit_context)
+            if isinstance(result, FrequencySweepResult):
+                session.complete()
+                return self._build_frequency_sweep_response(result, configuration, circuit_context, model)
             if isinstance(result, TransientResult):
                 session.complete()
                 return self._build_transient_response(result, configuration, circuit_context)
@@ -94,7 +97,7 @@ class SimulationService:
 
     @staticmethod
     def _expected_point_count(configuration: SimulationConfiguration) -> int | None:
-        if configuration.analysis == "dc_sweep":
+        if configuration.analysis in {"dc_sweep", "frequency_sweep"}:
             start, stop, step = configuration.settings["start"], configuration.settings["stop"], configuration.settings["step"]
             values = [float(start)]
             current, target, increment = float(start), float(stop), float(step)
@@ -118,6 +121,43 @@ class SimulationService:
         result_status = "completed_with_failures" if any(item["status"] == "failed" for item in point_statuses) else "completed"
         generic_result = SimulationResultModel.from_dc_sweep(status=result_status, settings=configuration.settings, outputs=configuration.outputs, sweep_source=sweep.source_id, sweep_parameter=sweep.parameter, points=[float(point) for point in sweep.points], point_statuses=point_statuses, node_voltages=[item.node_voltages if item is not None else None for item in point_responses], branch_currents=[item.branch_currents if item is not None else None for item in point_responses], components=[item.components if item is not None else None for item in point_responses], circuit_context=circuit_context)
         return SimulationResponse(configuration.analysis, result_status, last.node_voltages, last.branch_currents, last.components, generic_result)
+
+    def _build_frequency_sweep_response(self, sweep, configuration, circuit_context, model):
+        point_responses = [self._build_ac_point_response(result, model) if result is not None else None for result in sweep.results]
+        successful_responses = [response for response in point_responses if response is not None]
+        last = successful_responses[-1] if successful_responses else _LegacySimulationResponse({}, {}, [])
+        point_statuses = [{"status": "completed"} if error is None else {"status": "failed", "error": error} for error in sweep.errors]
+        result_status = "completed_with_failures" if any(item["status"] == "failed" for item in point_statuses) else "completed"
+        generic_result = SimulationResultModel.from_frequency_sweep(
+            status=result_status,
+            settings=configuration.settings,
+            outputs=configuration.outputs,
+            points=[float(point) for point in sweep.points],
+            point_statuses=point_statuses,
+            node_voltages=[item.node_voltages if item is not None else None for item in point_responses],
+            branch_currents=[item.branch_currents if item is not None else None for item in point_responses],
+            components=[item.components if item is not None else None for item in point_responses],
+            circuit_context=circuit_context,
+        )
+        return SimulationResponse(configuration.analysis, result_status, last.node_voltages, last.branch_currents, last.components, generic_result)
+
+    @staticmethod
+    def _build_ac_point_response(ac_result: ACResult, model):
+        simulation_result = SimulationResult(values=dict(ac_result.values), instances={component.name: component for component in model.components})
+        node_voltages = {node: abs(value) for node, value in simulation_result.node_voltages.items()}
+        branch_currents = {f"{first_node}->{second_node}": abs(value) for (first_node, second_node), value in simulation_result.branch_currents.items()}
+        components = []
+        for name, component in simulation_result.instances.items():
+            ports = component.ports
+            if "p" not in ports or "n" not in ports:
+                continue
+            voltage = simulation_result.node_voltage(ports["p"]) - simulation_result.node_voltage(ports["n"])
+            try:
+                current = simulation_result.component_current(name, ports["p"], ports["n"])
+            except Exception:
+                current = None
+            components.append({"id": component.component_id, "name": component.display_name, "type": component.component_type, "voltage": abs(voltage), "current": abs(current) if current is not None else None})
+        return _LegacySimulationResponse(node_voltages, branch_currents, components)
 
     def _build_transient_response(self, transient, configuration, circuit_context):
         point_responses = [self._build_response(result) if result is not None else None for result in transient.results]
