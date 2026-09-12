@@ -38,47 +38,21 @@ class SimulationValidator:
 
             for port, node in component.ports.items():
                 if not node:
-                    issues.append(
-                        ValidationIssue(
-                            "EMPTY_NODE",
-                            f"Component '{prefix}' terminal '{port}' is unconnected.",
-                        )
-                    )
+                    issues.append(ValidationIssue("EMPTY_NODE", f"Component '{prefix}' terminal '{port}' is unconnected."))
 
             for parameter, value in component.parameters.items():
-                if (
-                    component.component_type in {"VoltageSource", "CurrentSource"}
-                    and parameter in {"V", "I"}
-                    and isinstance(value, Mapping)
-                ):
+                if component.component_type in {"VoltageSource", "CurrentSource"} and parameter in {"V", "I"} and isinstance(value, Mapping):
                     try:
                         TimeVaryingSource.from_dict(value)
                     except TimeVaryingSourceError as exc:
-                        issues.append(
-                            ValidationIssue(
-                                "INVALID_WAVEFORM",
-                                f"Component '{prefix}' parameter '{parameter}' has an invalid waveform: {exc}",
-                            )
-                        )
+                        issues.append(ValidationIssue("INVALID_WAVEFORM", f"Component '{prefix}' parameter '{parameter}' has an invalid waveform: {exc}"))
                     continue
 
                 if not isinstance(value, (int, float)) or isinstance(value, bool) or not math.isfinite(value):
-                    issues.append(
-                        ValidationIssue(
-                            "INVALID_PARAMETER",
-                            f"Component '{prefix}' parameter '{parameter}' must be a finite number.",
-                        )
-                    )
-                elif value <= 0:
-                    issues.append(
-                        ValidationIssue(
-                            "INVALID_PARAMETER",
-                            f"Component '{prefix}' parameter '{parameter}' must be greater than zero.",
-                        )
-                    )
+                    issues.append(ValidationIssue("INVALID_PARAMETER", f"Component '{prefix}' parameter '{parameter}' must be a finite number."))
+                elif value < 0 or (value == 0 and component.component_type not in {"VoltageSource", "CurrentSource"}):
+                    issues.append(ValidationIssue("INVALID_PARAMETER", f"Component '{prefix}' parameter '{parameter}' must be greater than zero."))
 
         if issues:
-            message = "\n".join(
-                f"[{issue.code}] {issue.message}" for issue in issues
-            )
+            message = "\n".join(f"[{issue.code}] {issue.message}" for issue in issues)
             raise SimulationValidationError(message)
