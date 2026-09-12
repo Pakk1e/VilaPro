@@ -37,7 +37,9 @@ test("result plot point selection exposes the selected transient sample", async 
   const points = plot.locator("circle");
   await expect(points).toHaveCount(501);
 
-  await points.nth(250).click();
+  const plotBox = await plot.boundingBox();
+  expect(plotBox).not.toBeNull();
+  await plot.click({ position: { x: plotBox.width / 2, y: plotBox.height / 2 } });
 
   const plotPanel = plot.locator("xpath=..").locator("xpath=..");
   await expect(plotPanel.getByText(/Time:/)).toBeVisible();
