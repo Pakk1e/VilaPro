@@ -35,7 +35,8 @@ test("diode example renders and solves forward conduction", async ({ page }) => 
 
   const results = page.getByRole("region", { name: "Simulation results" });
   await expect(results).toBeVisible({ timeout: 15000 });
-  const diodeRow = results.getByRole("button", { name: "Diode 1" });
+  const componentResults = results.getByRole("table", { name: "Components result summary" });
+  const diodeRow = componentResults.getByRole("button", { name: "Diode 1" });
   await expect(diodeRow).toBeVisible();
   const row = diodeRow.locator("xpath=ancestor::tr");
   await expect(row).toContainText(/0\.704/);
