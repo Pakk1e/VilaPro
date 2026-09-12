@@ -39,7 +39,7 @@ test("diode example renders and solves forward conduction", async ({ page }) => 
   const diodeRow = componentResults.getByRole("button", { name: "Diode 1" });
   await expect(diodeRow).toBeVisible();
   const row = diodeRow.locator("xpath=ancestor::tr");
-  await expect(row).toContainText(/0\.704/);
-  await expect(row).toContainText(/4\.3/);
+  await expect(row).toContainText(/704\.3\s*mV/);
+  await expect(row).toContainText(/4\.3\s*mA/);
   expect(errors).toEqual([]);
 });
