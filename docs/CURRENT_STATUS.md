@@ -30,7 +30,7 @@ The frontend supports both static and live simulation concepts. The Live workspa
 
 The current Electrical workspace carries an explicit, minimal context identity (`universeId`, `worldId`, `layerId`, `representationId`) without coupling that context to the World Graph or changing the Electrical simulation model. This is an extension point for future Worlds/Layers, not a multi-world implementation.
 
-The Electrical workspace has deterministic pre-created examples represented as editable World Graph templates. Current examples are Voltage divider, RC low-pass, Parallel resistors, RL transient, RLC transient, and Diode rectifier. Examples are graph templates, not separate simulation engines; they exercise the same editor, serializer, backend, and analysis paths as user-built circuits.
+The Electrical workspace has deterministic pre-created examples represented as editable World Graph templates. Current examples are Voltage divider, RC low-pass, Parallel resistors, RL transient, RLC transient, Diode rectifier, and NPN transistor bias. Examples are graph templates, not separate simulation engines; they exercise the same editor, serializer, backend, and analysis paths as user-built circuits.
 
 Electrical examples also carry explicit simulation presets in the example model. Static examples declare DC operating point; dynamic examples declare transient analysis with bounded, example-specific time ranges. The palette exposes the intended analysis, and loading an example applies that preset to the Simulation workspace through a tested configuration boundary.
 
@@ -46,7 +46,7 @@ The static analysis set now includes:
 
 Frequency Sweep is a dedicated analysis rather than a special case of DC sweep. It runs the existing AC solver at each requested frequency and stores a generic result with a frequency axis, point status, node-voltage magnitudes, branch-current magnitudes, and component V/I magnitudes. The frontend exposes start/stop/step frequency plus excitation amplitude and phase. The result plot uses Frequency (Hz) as its independent axis and is intended for RLC resonance/filter response work.
 
-The first semiconductor component is now a Diode. Its canonical component definition exposes forward voltage (`Vf`) and on-resistance (`Ron`) parameters. The numerical implementation uses an explicit piecewise-linear active-set model:
+The first semiconductor component is a Diode. Its canonical component definition exposes forward voltage (`Vf`) and on-resistance (`Ron`) parameters. The numerical implementation uses an explicit piecewise-linear active-set model:
 
 ```text
 OFF: i = 0
@@ -54,6 +54,8 @@ ON:  v = Vf + i · Ron
 ```
 
 The diode state is resolved iteratively using the existing linear network solver. This keeps the diode entity/definition separate from the numerical analysis method while providing deterministic forward conduction, reverse blocking, DC sweep threshold behavior, and transient algebraic switching. The initial diode model is intentionally simpler than a full Shockley/SPICE model; a more detailed semiconductor representation can be added later without changing the World Graph contract.
+
+The Electrical World now also supports an NPN transistor as a three-terminal component. Its canonical parameters are `Vbe`, `VceSat`, and `Beta`, with B/C/E ports. The numerical model is deliberately educational and piecewise-linear: cutoff (`Ib=Ic=0`), forward-active (`Vbe=Vbe_on`, `Ic=Beta·Ib`), and saturation (`Vbe=Vbe_on`, `Vce=VceSat`). The network assembly was extended so multiterminal devices can expose multiple internal current branches while preserving the established MNA behavior for two-terminal components. AC/frequency-domain operation currently rejects NPN transistors explicitly because a small-signal model has not yet been introduced.
 
 ## Important architectural rules
 
@@ -87,14 +89,13 @@ The diode state is resolved iteratively using the existing linear network solver
 
 ## Immediate engineering priority
 
-Continue the Electrical World implementation from concrete user-facing capabilities. The main simulation foundation now covers DC, transient, AC, DC parameter sweep, and frequency sweep, with the first diode component added on top of the same graph/semantic/simulation pipeline.
+Continue the Electrical World implementation from concrete user-facing capabilities. The main simulation foundation now covers DC, transient, AC, DC parameter sweep, and frequency sweep, with diode and NPN transistor semiconductor components using the same graph/semantic/simulation pipeline.
 
 Useful next areas are:
 
-- validate the clean schematic presentation across representative circuits
 - improve frequency-sweep result interaction, including frequency-domain measurements and cursor inspection
 - extend diode validation to transient rectification and more boundary cases
-- add richer semiconductor models only when required by concrete circuits
+- extend NPN modeling when concrete amplifier/switch circuits require it, including a future small-signal AC representation
 - strengthen safe, bounded browser failure diagnostics
 - add selective geometry assertions for known layout regressions
 - improve architectural-boundary test reporting
@@ -107,13 +108,13 @@ The pre-created Electrical examples have real-backend browser acceptance coverag
 
 Live AC oscilloscope pacing uses the actual simulation-time rate reported by successive live snapshots instead of assuming one simulated second per wall-clock second. The clock is interpolated between backend snapshots so the rolling window remains continuously moving while respecting the simulation's slower live execution pace.
 
-The live schematic preview no longer overlays persistent live voltage/current boxes or current-direction arrows. The preview is kept as a schematic/context surface, while the Live oscilloscope and result explorer remain the measurement surfaces. The diode symbol is rendered as a proper diode rather than a generic component box.
+The live schematic preview no longer overlays persistent live voltage/current boxes or current-direction arrows. The preview is kept as a schematic/context surface, while the Live oscilloscope and result explorer remain the measurement surfaces. The diode and NPN transistor symbols are rendered as actual schematic symbols rather than generic component boxes.
 
-The deployed Worlds acceptance workflow executes every `*acceptance.spec.js` file, so dedicated example and result-selection/inspection acceptance specs are included in exact-deployed-revision validation rather than only being present in the repository.
+The deployed Worlds acceptance workflow executes every `*acceptance.spec.js` file, so dedicated example and result-selection/inspection acceptance specs are included in exact-deployed-revision validation. The current acceptance suite includes the diode and NPN transistor examples in addition to the established DC, transient, AC, sweep, live, and result-selection coverage.
 
 ## Latest handoff point
 
-The current branch has clean schematic presentation, a dedicated static Frequency Sweep analysis for RLC response, and the first Diode component with deterministic piecewise-linear DC/transient support. The repository also contains backend and frontend regression coverage plus dedicated browser acceptance for frequency sweep and diode behavior. The latest branch ref must be validated end-to-end before this handoff is considered complete.
+The current branch has clean schematic presentation, a dedicated static Frequency Sweep analysis for RLC response, and semiconductor coverage for Diode plus NPN transistor. The NPN example is a real two-supply forward-active bias circuit and acceptance checks the rendered schematic and backend result path. The latest validated revision must remain the handoff point until a later change is fully validated end-to-end.
 
 ## Future-session handoff
 
