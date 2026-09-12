@@ -66,7 +66,7 @@ test("AC live oscilloscope follows the simulation clock instead of wall-clock ti
 
   const oscilloscope = page.getByRole("region", { name: "Live oscilloscope" });
   await expect(oscilloscope).toBeVisible();
-  await expect(oscilloscope.getByText(/f = 1000 Hz/)).toBeVisible({ timeout: 10000 });
+  await expect(oscilloscope.getByText(/f = 1,?000 Hz/)).toBeVisible({ timeout: 10000 });
   const timeReadout = oscilloscope.getByText(/^t = /);
   await expect(timeReadout).toBeVisible({ timeout: 10000 });
   const firstTime = readSimulationTime(await timeReadout.textContent());
