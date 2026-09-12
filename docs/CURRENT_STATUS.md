@@ -10,7 +10,7 @@ Lab OS is a learning-focused interactive sandbox. The current implementation is 
 
 The long-term architecture supports multiple Worlds and multiple meaningful abstraction Layers. A future Layer may replace the current UI entirely and may use an independent simulation model.
 
-The current frontend is now planned for a deliberate UI rework. The rework is a presentation/interaction replacement, not a replacement of the World Graph, serializer, simulation backend, or simulation transport. The target direction is documented in `docs/UI_REWORK.md` and the current visual iteration in `docs/UI_REWORK_V2.md`.
+The current frontend is in a deliberate UI rework. The rework is a presentation/interaction replacement, not a replacement of the World Graph, serializer, simulation backend, or simulation transport. The target direction is documented in `docs/UI_REWORK.md` and the current visual iteration in `docs/UI_REWORK_V2.md`.
 
 ## Established engineering foundation
 
@@ -50,7 +50,7 @@ Frequency Sweep is a dedicated analysis rather than a special case of DC sweep. 
 
 The semiconductor component set now includes a Diode, NPN BJT, PNP BJT, NMOS, and PMOS. The Diode uses forward voltage (`Vf`) and on-resistance (`Ron`) in a piecewise-linear active-set model. BJTs use `Vbe`, `VceSat`, and `Beta` with cutoff, forward-active, and saturation regions. The NPN/PNP network implementation supports three terminals with independent base/collector branches and derives emitter current from KCL.
 
-NMOS and PMOS are represented as three-terminal enhancement MOSFET switch models with G/D/S ports and `Vth` plus `RdsOn` parameters. Their large-signal model is intentionally useful and bounded: gate current is idealized as zero; below threshold the channel is open, while above threshold it behaves as `RdsOn`. NMOS uses `Vgs` to control the switch and PMOS uses `Vsg`. The network layer therefore supports multiple MOSFETs simultaneously, which enables complementary circuits.
+NMOS and PMOS are represented as three-terminal enhancement MOSFET switch models with G/D/S ports and `Vth` plus `RdsOn` parameters. Their large-signal model is intentionally useful and bounded: gate current is idealized as zero; below threshold the channel is open, while above threshold it behaves as `RdsOn`. The network layer therefore supports multiple MOSFETs simultaneously, which enables complementary circuits.
 
 A CMOS inverter is now a real editable example built from one PMOS and one NMOS sharing the input gate and output drain node. CMOS is deliberately modeled as a circuit/technology example rather than as a separate transistor type. The current MOSFET model does not yet include body effect, capacitances, channel-length modulation, detailed saturation equations, or a small-signal AC representation; AC/frequency-domain operation explicitly rejects nonlinear BJT/MOSFET models until those representations are introduced.
 
@@ -65,9 +65,7 @@ The first UI rework established four contextual surfaces:
 3. Inspector
 4. Instrument Panel
 
-The V2 visual direction now explicitly rejects a dashboard composition in which these surfaces permanently occupy equal-weight regions. The schematic must own the screen; secondary tools orbit it and appear contextually.
-
-The V2 target is documented in `docs/UI_REWORK_V2.md`. Its central principle is: **the circuit owns the screen; tools orbit the circuit.** The default workspace should already feel close to focus mode. Library, Inspector, and Instruments should be closed when they have no immediate purpose, with compact contextual overlays/docks when opened.
+The V2 visual direction explicitly rejects a dashboard composition in which these surfaces permanently occupy equal-weight regions. The schematic must own the screen; secondary tools orbit it and appear contextually.
 
 The target interaction model remains probe/context driven: selecting a component, terminal, wire/net, or result exposes relevant information. Build and Simulate remain distinct workspace modes while sharing the same shell. Results remain in contextual instruments rather than replacing the schematic.
 
@@ -107,9 +105,9 @@ The target visual language is technical, calm, and restrained rather than card-h
 
 ## Immediate engineering priority
 
-Continue `docs/UI_REWORK_V2.md` as the active frontend presentation direction. Do not merely polish the first dashboard-like composition. The next work should make the canvas-first experience the normal state: compact top bar, large schematic, contextual Library, contextual Inspector, and contextual Instruments.
+Continue `docs/UI_REWORK_V2.md` as the active frontend presentation direction. Do not merely polish the first dashboard-like composition. The current implementation has the canvas-first shell, compact searchable Component Library, contextual Inspector, schematic symbols, Simulation/Instrument Panel, probe mapping, focus mode, and focused UI acceptance coverage. The latest refinement also removed a non-functional canvas control and tightened schematic component presentation.
 
-The dedicated branch `v0.4/electrical-ui-rework` contains the first implementation stages: the workspace shell, searchable Component Library, contextual Inspector, graph-to-workspace state bridge, schematic symbols, Simulation/Instrument Panel, probe mapping, focus mode, and acceptance coverage. The current shell has been reframed so secondary surfaces are closed by default and overlay the canvas only when requested.
+The dedicated branch `v0.4/electrical-ui-rework` contains these presentation stages. Secondary surfaces are closed by default and overlay the canvas only when requested.
 
 Simulation-model work should continue independently when concrete electrical examples require it, including future semiconductor behavior and small-signal representations.
 
@@ -127,9 +125,9 @@ The branch CI validates the frontend lint/test/build pipeline and backend suite.
 
 ## Latest handoff point
 
-The latest validated application revision before the UI rework is `606b7becd297866521919cb47b0cea9970a7f0ad`; its complete deployed browser acceptance suite passed 23/23 tests. The current UI rework branch has additional frontend-only changes validated by CI and has a dedicated deployment ref for exact-deployed-revision acceptance.
+The latest validated application revision before the UI rework is `606b7becd297866521919cb47b0cea9970a7f0ad`; its complete deployed browser acceptance suite passed 23/23 tests. The current UI rework branch has additional frontend-only changes and an acceptance-alignment pass; the exact current revision still requires the final CI/deployment/acceptance loop before being declared a validated milestone.
 
-The current branch contains the approved Electrical UI rework specification in `docs/UI_REWORK.md`, the V2 visual direction in `docs/UI_REWORK_V2.md`, and the first implementation stages described above. Continue the migration toward the canvas-first workbench, then remove obsolete simulation/editor UI only after equivalent acceptance coverage exists.
+The branch contains the approved Electrical UI rework specification in `docs/UI_REWORK.md`, the V2 visual direction in `docs/UI_REWORK_V2.md`, and the implementation stages described above. Continue the migration toward the canvas-first workbench, then remove obsolete simulation/editor UI only after equivalent acceptance coverage exists.
 
 ## Future-session handoff
 
