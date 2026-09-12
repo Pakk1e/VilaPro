@@ -31,21 +31,32 @@ function getValueLabel(instance) {
   }
   return "";
 }
-function liveSignalKey(name, family, suffix = "") {
-  const identifier = String(name ?? "").replace(/\s+/g, "_");
-  return `Variable(name='${family}_${identifier}')${suffix}`;
+function escapeRegExp(value) { return String(value ?? "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
+function getLiveSignalValue(signals, variable, suffix = "") {
+  const value = Number(signals[`Variable(name='${variable}')${suffix}`]);
+  return Number.isFinite(value) ? value : null;
+}
+function getLiveBranchCurrent(signals, instance, suffix = "") {
+  const identifier = String(instance?.name ?? "").replace(/\s+/g, "_");
+  const direct = getLiveSignalValue(signals, `I_${identifier}`, suffix);
+  if (direct !== null) return direct;
+  const componentPattern = new RegExp(`component=['\"]?${escapeRegExp(instance?.name)}['\"]?`);
+  const entry = Object.entries(signals).find(([name, value]) => name.startsWith("BranchCurrent(") && componentPattern.test(name) && (suffix ? name.endsWith(suffix) : !name.endsWith(".instantaneous") && !name.endsWith(".magnitude") && !name.endsWith(".phase_deg")) && Number.isFinite(Number(value)));
+  return entry ? Number(entry[1]) : null;
 }
 function getLiveComponentMeasurements(liveSnapshot, instance) {
   if (!liveSnapshot || !instance?.name) return null;
   const signals = liveSnapshot.signals ?? {};
   const isAC = liveSnapshot.analysis === "ac";
   const suffix = isAC ? ".instantaneous" : "";
-  const voltage = Number(signals[liveSignalKey(instance.name, "V", suffix)]);
-  const current = Number(signals[liveSignalKey(instance.name, "I", suffix)]);
-  const hasVoltage = Number.isFinite(voltage);
-  const hasCurrent = Number.isFinite(current);
-  if (!hasVoltage && !hasCurrent) return null;
-  return { voltage: hasVoltage ? voltage : null, current: hasCurrent ? current : null };
+  const pNet = instance.ports?.p;
+  const nNet = instance.ports?.n;
+  const pVoltage = pNet === "ground" ? 0 : getLiveSignalValue(signals, `V_${pNet}`, suffix);
+  const nVoltage = nNet === "ground" ? 0 : getLiveSignalValue(signals, `V_${nNet}`, suffix);
+  const current = getLiveBranchCurrent(signals, instance, suffix);
+  const voltage = pVoltage !== null && nVoltage !== null ? pVoltage - nVoltage : null;
+  if (voltage === null && current === null) return null;
+  return { voltage, current };
 }
 function formatLiveValue(value, unit) {
   if (!Number.isFinite(value)) return "—";
