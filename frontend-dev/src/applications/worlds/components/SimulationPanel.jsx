@@ -3,7 +3,7 @@ import { serializeWorldGraph } from "../model/worldGraphSerializer";
 import { createSimulationConfig, createSimulationConfigFromPreset, getSimulationConfigValidationError, getSimulationModeLabel, SIMULATION_MODES } from "../model/simulationConfig";
 import { buildLiveSimulationRequest, buildSimulationRequest, normalizeLiveSnapshot, normalizeSimulationResponse } from "../model/simulationTransport";
 import { getSimulationStatus, getSimulationStatusLabel } from "../model/simulationState";
-import { getProbeResultSeries } from "../model/resultExplorer.js";
+import { getProbeResultSeries, getResultSeries } from "../model/resultExplorer.js";
 import { createResultPlot } from "../model/resultPlot.js";
 import SimulationSetup from "./SimulationSetup";
 import ResultExplorer from "./ResultExplorer";
@@ -12,10 +12,10 @@ import LiveSimulationView from "./LiveSimulationView";
 
 function getSimulationSignature(nodes, edges, config) { return JSON.stringify({ circuit: { nodes: nodes.map(node => ({ id: node.id, type: node.type, data: node.type === "world" ? { componentType: node.data?.componentType, definitionKey: node.data?.definitionKey, properties: node.data?.properties ?? {}, ports: node.data?.ports ?? [] } : { portKind: node.data?.portKind } })), edges: edges.map(edge => ({ id: edge.id, source: edge.source, sourceHandle: edge.sourceHandle, target: edge.target, targetHandle: edge.targetHandle })) }, simulation: config }); }
 function publishLiveSnapshot(snapshot) { window.dispatchEvent(new CustomEvent("worlds:live-snapshot", { detail: snapshot })); }
-
 function ProbeResults({ result, probes }) {
   const [selectedKey, setSelectedKey] = useState(null);
-  const resolved = useMemo(() => (probes ?? []).map(probe => ({ probe, series: getProbeResultSeries(getResultSeriesForProbe(result), result, probe) })).filter(item => item.series), [result, probes]);
+  const resultSeries = useMemo(() => getResultSeries(result), [result]);
+  const resolved = useMemo(() => (probes ?? []).map(probe => ({ probe, series: getProbeResultSeries(resultSeries, result, probe) })).filter(item => item.series), [resultSeries, result, probes]);
   useEffect(() => { if (!resolved.some(item => `${item.probe.entityId}:${item.probe.measurement}` === selectedKey)) setSelectedKey(resolved[0] ? `${resolved[0].probe.entityId}:${resolved[0].probe.measurement}` : null); }, [resolved, selectedKey]);
   if (!result || !probes?.length) return null;
   const selected = resolved.find(item => `${item.probe.entityId}:${item.probe.measurement}` === selectedKey) ?? resolved[0];
@@ -23,8 +23,6 @@ function ProbeResults({ result, probes }) {
   const plot = selectedSeries && Array.isArray(selectedSeries.xValues) && selectedSeries.xValues.length > 1 ? createResultPlot({ xKey: selectedSeries.xKey, xLabel: selectedSeries.xLabel || "Time", xUnit: selectedSeries.xUnit || "s", xValues: selectedSeries.xValues, series: [selectedSeries] }) : null;
   return <section data-testid="probe-results" className="mt-4 overflow-hidden border border-[#d9dde2] bg-white"><div className="border-b border-[#e4e7eb] px-4 py-3"><div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#69717b]">Instrument probes</div><div className="mt-1 text-xs text-[#8a929c]">Probes are mapped to the returned simulation series.</div></div><div className="flex flex-wrap gap-1.5 border-b border-[#e4e7eb] bg-[#fafbfc] px-4 py-2">{probes.map(probe => { const key = `${probe.entityId}:${probe.measurement}`; const active = key === (selected?.probe ? `${selected.probe.entityId}:${selected.probe.measurement}` : selectedKey); const available = resolved.some(item => `${item.probe.entityId}:${item.probe.measurement}` === key); return <button key={key} type="button" disabled={!available} aria-pressed={active} onClick={() => setSelectedKey(key)} className={`border px-2.5 py-1.5 text-[9px] font-medium ${active ? "border-[#58718f] bg-[#eef2f6] text-[#17253a]" : "border-[#d9dde2] bg-white text-[#69717b]"} disabled:cursor-not-allowed disabled:opacity-40`}>{probe.label} · {probe.measurement}</button>; })}</div>{selectedSeries&&plot?<div className="p-3"><ResultChart plot={plot} series={selectedSeries}/></div>:<div className="px-4 py-4 text-xs text-[#69717b]">{resolved.length ? "The selected probe has no plottable series for this analysis." : "No active probe can be mapped to the returned result."}</div>}</section>;
 }
-
-function getResultSeriesForProbe(result) { if (!result) return []; if (result?.visualization) return result; return result; }
 
 export default function SimulationPanel({ nodes, edges, sweepTargets = [], selectedNodeId = null, exampleSimulationPreset = null }) {
   const [result, setResult] = useState(null); const [error, setError] = useState(null); const [running, setRunning] = useState(false); const [liveSnapshot, setLiveSnapshot] = useState(null); const [liveHistory, setLiveHistory] = useState([]); const [simulationConfig, setSimulationConfig] = useState(() => createSimulationConfig()); const [lastSimulationSignature, setLastSimulationSignature] = useState(null); const [probes, setProbes] = useState([]); const abortControllerRef = useRef(null); const liveStreamRef = useRef(null); const mountedRef = useRef(true);
