@@ -55,10 +55,8 @@ def _build_kcl_equation(model: SimulationModel, node: str):
         for current in _component_current_branches(component):
             first_node = current.arguments[0].name
             second_node = current.arguments[1].name
-            if node == first_node:
-                terms.append(current)
-            elif node == second_node:
-                terms.append(Binary(left=Number(-1.0), operator="*", right=current))
+            if node == first_node: terms.append(current)
+            elif node == second_node: terms.append(Binary(left=Number(-1.0), operator="*", right=current))
     if not terms: return Number(0.0)
     expression = terms[0]
     for term in terms[1:]: expression = Binary(left=expression, operator="+", right=term)
@@ -66,23 +64,26 @@ def _build_kcl_equation(model: SimulationModel, node: str):
 
 
 def _component_current_branches(component):
-    # Preserve the established MNA convention: every two-terminal component
-    # owns one branch-current unknown even when its constitutive equation is
-    # voltage-defined (for example an ideal voltage source or inductor).
     if len(component.ports) == 2 and "p" in component.ports and "n" in component.ports:
         return [BranchCurrent(name="current", arguments=(Variable(component.ports["p"]), Variable(component.ports["n"])), component=component.name)]
 
-    # Multiterminal devices expose the independent internal branches they use
-    # in their constitutive equations. An NPN BJT, for example, exposes I_B
-    # (b→e) and I_C (c→e); emitter current follows from KCL.
+    # NPN BJT uses two independent internal current branches: base→emitter
+    # and collector→emitter. Emitter current is their KCL sum.
+    if component.component_type == "NPNTransistor":
+        base, collector, emitter = component.ports.get("b"), component.ports.get("c"), component.ports.get("e")
+        if not base or not collector or not emitter: raise NetworkError(f"Component '{component.name}' must define b/c/e ports")
+        return [
+            BranchCurrent(name="current", arguments=(Variable(base), Variable(emitter)), component=component.name),
+            BranchCurrent(name="current", arguments=(Variable(collector), Variable(emitter)), component=component.name),
+        ]
+
     branches = []
     seen = set()
     for bound in bind_component_equations(component):
         for expression in (bound.equation.left, bound.equation.right):
             for current in _find_current_calls(expression, component.name):
                 if current not in seen:
-                    seen.add(current)
-                    branches.append(current)
+                    seen.add(current); branches.append(current)
     if not branches: raise NetworkError(f"Component '{component.name}' does not expose any independent current branches")
     return branches
 
