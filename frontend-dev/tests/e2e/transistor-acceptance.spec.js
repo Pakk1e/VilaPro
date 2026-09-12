@@ -39,7 +39,7 @@ test("NPN transistor bias example renders and solves forward-active operation", 
   const transistorRow = componentResults.getByRole("button", { name: "NPN Transistor 1" });
   await expect(transistorRow).toBeVisible();
   const row = transistorRow.locator("xpath=ancestor::tr");
-  await expect(row).toContainText(/2\.0/);
-  await expect(row).toContainText(/10/);
+  await expect(row).toContainText(/2\s*V/);
+  await expect(row).toContainText(/10\.0\s*mA/);
   expect(errors).toEqual([]);
 });
