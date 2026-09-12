@@ -28,7 +28,9 @@ The current World Graph and public simulation transport boundaries have runtime 
 
 The frontend supports both static and live simulation concepts. The live workspace includes oscilloscope-oriented visualization for sampled signals.
 
-The current Electrical workspace now carries an explicit, minimal context identity (`universeId`, `worldId`, `layerId`, `representationId`) without coupling that context to the World Graph or changing the Electrical simulation model. This is an extension point for future Worlds/Layers, not a multi-world implementation.
+The current Electrical workspace carries an explicit, minimal context identity (`universeId`, `worldId`, `layerId`, `representationId`) without coupling that context to the World Graph or changing the Electrical simulation model. This is an extension point for future Worlds/Layers, not a multi-world implementation.
+
+The Electrical workspace also has deterministic pre-created examples represented as editable World Graph templates. Current examples are Voltage divider, RC low-pass, Parallel resistors, RL transient, and RLC transient. Examples are graph templates, not separate simulation engines; they exercise the same editor, serializer, backend, and analysis paths as user-built circuits.
 
 Browser acceptance uses stable interaction boundaries and failure diagnostics. Deployment acceptance verifies the exact deployed revision.
 
@@ -64,18 +66,26 @@ Browser acceptance uses stable interaction boundaries and failure diagnostics. D
 
 ## Immediate engineering priority
 
-The first minimal World/Layer extension point is now established without speculative multi-world behavior. Continue strengthening the engineering foundation only where it provides a concrete benefit to the current Electrical World, then continue the Electrical World implementation.
+The minimal World/Layer extension point is established without speculative multi-world behavior. Continue strengthening the engineering foundation only where it provides a concrete benefit to the current Electrical World, then continue the Electrical World implementation.
 
 Current useful next areas are:
 
-- safe, bounded browser failure diagnostics
-- selective geometry assertions for known layout regressions
-- architectural-boundary test reporting
+- finish and validate the pre-created Electrical example set against the real backend where useful
+- improve example metadata/foundation semantics without turning examples into a separate simulation path
+- strengthen safe, bounded browser failure diagnostics
+- add selective geometry assertions for known layout regressions
+- improve architectural-boundary test reporting
 - complete-loop measurement after foundation changes
-- continued Electrical World implementation
+- continue Electrical World implementation
 - later, when requirements become concrete, real navigation between established Layers
 
+Do not invent a speculative multi-world registry, persistent user-layer system, or cross-world architecture merely to fill an extension point.
+
 Before starting a new feature, inspect `VISION.md`, `docs/CONCEPTS.md`, `docs/LAYER_MODEL.md`, `ARCHITECTURE.md`, and `ROADMAP.md`.
+
+## Latest handoff point
+
+The latest implementation work added the RLC transient pre-created example and deterministic coverage for its resistor/inductor/capacitor topology and initial-state parameters. The last committed revision at handoff is `c087322dc90f71ca5adf399e9f372295e51a890c`. CI and Worlds deployment workflows were triggered for that revision; a new session must verify their final state and, if deployment succeeded, verify the complete browser acceptance suite against the exact deployed revision before treating the change as complete.
 
 ## Future-session handoff
 
@@ -83,8 +93,9 @@ A new engineering session should begin by:
 
 1. reading this document and the canonical vision/architecture documents
 2. inspecting the current branch and recent commits
-3. checking existing tests before changing behavior
-4. identifying the architectural boundary affected by the task
-5. implementing the smallest coherent change
-6. running the complete relevant validation/deployment/acceptance loop
-7. only then reporting completion
+3. verifying the final CI/deployment state for the latest revision before making assumptions
+4. checking existing tests before changing behavior
+5. identifying the architectural boundary affected by the task
+6. implementing the smallest coherent change
+7. running the complete relevant validation/deployment/acceptance loop
+8. only then reporting completion
