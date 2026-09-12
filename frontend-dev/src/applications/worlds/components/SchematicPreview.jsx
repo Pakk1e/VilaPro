@@ -85,15 +85,16 @@ function getLiveCurrentArrow(instance, liveMeasurements, schematic) {
   const offset = 30;
   const px = -uy;
   const py = ux;
+  const origin = direction > 0 ? p : n;
   const start = {
-    x: (direction > 0 ? p.x : n.x) + ux * startDistance + px * offset,
-    y: (direction > 0 ? p.y : n.y) + uy * startDistance + py * offset,
+    x: origin.x + ux * startDistance + px * offset,
+    y: origin.y + uy * startDistance + py * offset,
   };
   const end = {
-    x: (direction > 0 ? p.x : n.x) + ux * endDistance + px * offset,
-    y: (direction > 0 ? p.y : n.y) + uy * endDistance + py * offset,
+    x: origin.x + ux * endDistance + px * offset,
+    y: origin.y + uy * endDistance + py * offset,
   };
-  return { ...start, ...{ x2: end.x, y2: end.y } };
+  return { x1: start.x, y1: start.y, x2: end.x, y2: end.y };
 }
 
 function formatLiveValue(value, unit) {
