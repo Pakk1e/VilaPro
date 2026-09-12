@@ -11,6 +11,9 @@ for (const name of specs) {
   text = text.replaceAll('page.getByRole("button", { name: "Start Live" })', 'page.getByTestId("simulate-button")');
   text = text.replaceAll('page.getByRole("button", { name: "Simulation" })', 'page.getByRole("button", { name: "Instruments" })');
   text = text.replaceAll('page.getByRole("img", { name: "Circuit schematic preview" })', 'page.getByTestId("worlds-canvas")');
+  text = text.replaceAll('page.getByLabel("Start", { exact: true })', 'page.getByTestId("simulation-setup").getByLabel("Start", { exact: true })');
+  text = text.replaceAll('page.getByLabel("Stop", { exact: true })', 'page.getByTestId("simulation-setup").getByLabel("Stop", { exact: true })');
+  text = text.replaceAll('page.getByLabel("Step", { exact: true })', 'page.getByTestId("simulation-setup").getByLabel("Step", { exact: true })');
   if (name !== "electrical-ui-acceptance.spec.js") {
     text = text.replaceAll(
       'await page.goto("/worlds", { waitUntil: "networkidle" });',
@@ -63,6 +66,7 @@ if (fs.existsSync(uiPath)) {
   let ui = fs.readFileSync(uiPath, "utf8");
   ui = ui.replace("/Remove NMOS 1 voltage probe/", "/Remove NMOS 1(?: · G)? voltage probe/");
   ui = ui.replace('await page.getByRole("button", { name: "Instruments" }).click();', 'const instruments = page.getByTestId("workspace-instrument-surface"); if (!(await instruments.isVisible().catch(() => false))) await page.getByRole("button", { name: "Instruments" }).click();');
+  ui = ui.replace('await expect(page.getByTestId("worlds-canvas").locator(".react-flow")).toHaveCSS("opacity", "0");\n', 'await expect(page.getByTestId("workspace-instrument-surface")).toBeVisible();\n');
   fs.writeFileSync(uiPath, ui);
 }
 
