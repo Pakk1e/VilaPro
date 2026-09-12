@@ -107,7 +107,9 @@ The detailed implementation plan, interaction rules, migration phases, validatio
 
 ## Immediate engineering priority
 
-The next major frontend work should follow `docs/UI_REWORK.md` rather than adding more UI to the existing panel structure. The intended sequence is: new workspace shell, schematic editor presentation, contextual Inspector, contextual simulation controls, Instrument Panel, Live integration, examples entry point, and finally removal of obsolete UI.
+The next major frontend work should follow `docs/UI_REWORK.md` rather than adding more UI to the old panel structure. The intended sequence is: new workspace shell, schematic editor presentation, contextual Inspector, contextual simulation controls, Instrument Panel, Live integration, examples entry point, and finally removal of obsolete UI.
+
+The dedicated branch `v0.4/electrical-ui-rework` now contains the first implementation stages: the new shell, searchable Component Library, contextual Inspector, graph-to-workspace state bridge, and Simulation/Instrument Panel. The Instrument Panel is mounted outside the schematic canvas and has a user-resizable bottom surface. The existing World Graph remains inside `WorldCanvas`; the page receives only a derived workspace snapshot for the simulation surface.
 
 Simulation-model work should continue independently when concrete electrical examples require it, including future semiconductor behavior and small-signal representations.
 
@@ -119,13 +121,15 @@ Live AC oscilloscope pacing uses the actual simulation-time rate reported by suc
 
 The live schematic preview no longer overlays persistent live voltage/current boxes or current-direction arrows. The preview is kept as a schematic/context surface, while the Live oscilloscope and result explorer remain the measurement surfaces. The diode, NPN/PNP BJT, and NMOS/PMOS symbols are rendered as actual schematic symbols rather than generic component boxes.
 
-The deployed Worlds acceptance workflow executes every `*acceptance.spec.js` file, so dedicated example and result-selection/inspection acceptance specs are included in exact-deployed-revision validation. The current acceptance suite includes the diode, NPN/PNP BJT, NMOS/PMOS, and CMOS inverter examples in addition to the established DC, transient, AC, sweep, live, and result-selection coverage.
+The deployed Worlds acceptance workflow executes every `*acceptance.spec.js` file, so dedicated example and result-selection/inspection acceptance specs are included in exact-deployed-revision validation. The current acceptance suite includes the diode, NPN/PNP BJT, NMOS/PMOS, and CMOS inverter examples in addition to the established DC, transient, AC, sweep, live, and result-selection coverage. The UI rework branch also adds a focused Electrical workspace acceptance spec covering contextual surfaces, component search/add, Inspector wiring, instrument-panel migration, resizing, and focus mode.
+
+The latest branch CI run for the UI rework passes the full frontend lint/test/build pipeline and the backend suite. The branch has not been deployed to Worlds DEV because the deployment workflow intentionally auto-deploys only `v0.4/workspace-architecture`; deployment of this isolated UI branch requires an explicit deployment workflow dispatch.
 
 ## Latest handoff point
 
-The latest validated application revision is `606b7becd297866521919cb47b0cea9970a7f0ad`; its complete deployed browser acceptance suite passed 23/23 tests. Documentation-only revisions after that application revision should not be treated as application behavior changes until the next deployment pipeline completes.
+The latest validated application revision before the UI rework is `606b7becd297866521919cb47b0cea9970a7f0ad`; its complete deployed browser acceptance suite passed 23/23 tests. The current UI rework branch has additional frontend-only changes validated by CI, but those changes are not yet an exact-deployed-revision acceptance result.
 
-The current branch also contains the approved Electrical UI rework specification in `docs/UI_REWORK.md`. No new UI implementation has started yet; the next implementation session should begin from that specification and preserve the established backend/World Graph boundaries.
+The current branch contains the approved Electrical UI rework specification in `docs/UI_REWORK.md` and the first implementation stages described above. Continue the migration from the instrument/context surfaces into the schematic presentation, then remove obsolete simulation/editor UI only after equivalent acceptance coverage exists.
 
 ## Future-session handoff
 
