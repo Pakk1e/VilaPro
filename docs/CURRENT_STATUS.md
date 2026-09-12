@@ -32,7 +32,7 @@ The current Electrical workspace carries an explicit, minimal context identity (
 
 The Electrical workspace has deterministic pre-created examples represented as editable World Graph templates. Current examples are Voltage divider, RC low-pass, Parallel resistors, RL transient, and RLC transient. Examples are graph templates, not separate simulation engines; they exercise the same editor, serializer, backend, and analysis paths as user-built circuits.
 
-Electrical examples now also carry explicit simulation presets in the example model. Static examples declare DC operating point; dynamic examples declare transient analysis with bounded, example-specific time ranges. The palette exposes that intended analysis so an example's simulation intent is visible without coupling the example to a separate simulation path.
+Electrical examples also carry explicit simulation presets in the example model. Static examples declare DC operating point; dynamic examples declare transient analysis with bounded, example-specific time ranges. The palette exposes the intended analysis, and loading an example applies that preset to the Simulation workspace through a tested configuration boundary.
 
 Browser acceptance uses stable interaction boundaries and failure diagnostics. Deployment acceptance verifies the exact deployed revision.
 
@@ -72,7 +72,6 @@ The minimal World/Layer extension point is established without speculative multi
 
 Current useful next areas are:
 
-- consume the explicit simulation presets when loading pre-created Electrical examples, keeping the preset as configuration rather than simulation logic
 - add real-backend browser acceptance for the remaining pre-created dynamic examples where it provides coverage value
 - strengthen safe, bounded browser failure diagnostics
 - add selective geometry assertions for known layout regressions
@@ -87,7 +86,7 @@ Before starting a new feature, inspect `VISION.md`, `docs/CONCEPTS.md`, `docs/LA
 
 ## Latest handoff point
 
-The latest implementation work added explicit simulation presets to all five pre-created Electrical examples and exposed the intended analysis in the component palette. The current branch revision is `533512c5fbda537ba478669208345c7e34383821`. CI passed for the revision, Worlds DEV deployment passed, and the complete browser acceptance suite passed against the exact deployed revision. The preset metadata is intentionally not yet consumed to automatically configure the Simulation workspace; that is the next coherent implementation step.
+The latest implementation work formalized simulation presets for the five pre-created Electrical examples, exposed their intended analyses in the palette, and made loading an example apply its preset to the Simulation workspace. The current branch revision is `ebe73b7640f8aa2b05e7fbb25564b3678b2c3e09`. The preset-to-configuration boundary is covered by deterministic tests. The final CI, Worlds DEV deployment, and exact-deployed-revision browser acceptance must be verified for this revision before treating this handoff as complete.
 
 ## Future-session handoff
 
