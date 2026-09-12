@@ -1,6 +1,7 @@
 import ComponentPropertiesPanel from "./ComponentPropertiesPanel";
 import { worldDefinitions } from "../model/worldDefinitions";
 import { WORLD_EXAMPLES } from "../model/worldExamples";
+import { getSimulationAnalysisLabel } from "../model/simulationConfig";
 
 export default function ComponentSidebar({
   nodes,
@@ -41,8 +42,13 @@ export default function ComponentSidebar({
               onClick={() => onLoadExample(example)}
               className="w-full rounded-lg border border-[#e4e7eb] bg-[#fafbfc] px-3 py-2 text-left transition hover:border-[#cfd5dc] hover:bg-white"
             >
-              <div className="text-xs font-medium text-[#26364d]">
-                {example.label}
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0 truncate text-xs font-medium text-[#26364d]">
+                  {example.label}
+                </div>
+                <div className="shrink-0 text-[9px] font-medium uppercase tracking-[0.08em] text-[#58718f]">
+                  {getSimulationAnalysisLabel(example.simulationPreset.analysis)}
+                </div>
               </div>
               <div className="mt-0.5 text-[9px] text-[#8a929c]">
                 {example.description}
