@@ -6,7 +6,7 @@ import { validateWorldGraphSchema } from "./worldGraphSchema.js";
 import { buildCircuitDescription } from "./worldGraphSerializer.js";
 
 test("electrical examples expose stable, complete graphs", () => {
-  assert.deepEqual(WORLD_EXAMPLES.map((example) => example.id), ["voltage-divider", "rc-low-pass", "parallel-resistors", "rl-transient", "rlc-transient", "diode-rectifier", "npn-bias"]);
+  assert.deepEqual(WORLD_EXAMPLES.map((example) => example.id), ["voltage-divider", "rc-low-pass", "parallel-resistors", "rl-transient", "rlc-transient", "diode-rectifier", "npn-bias", "npn-low-side-switch"]);
   for (const example of WORLD_EXAMPLES) {
     const graph = example.createGraph();
     assert.deepEqual(validateWorldGraphSchema(graph.nodes, graph.edges), true);
@@ -35,6 +35,7 @@ test("electrical examples expose an explicit simulation preset", () => {
     { id: "rlc-transient", analysis: "transient", settings: { start: 0, stop: 0.005, step: 0.000005 } },
     { id: "diode-rectifier", analysis: "dc_operating_point", settings: {} },
     { id: "npn-bias", analysis: "dc_operating_point", settings: {} },
+    { id: "npn-low-side-switch", analysis: "transient", settings: { start: 0, stop: 0.002, step: 0.000001 } },
   ]);
   for (const example of WORLD_EXAMPLES) {
     assert.ok(Object.isFrozen(example.simulationPreset));
@@ -110,4 +111,22 @@ test("NPN transistor example exposes three terminals and bias parameters", () =>
   assert.notEqual(instance.ports.b, "ground");
   assert.notEqual(instance.ports.c, "ground");
   assert.deepEqual(instance.parameters, { Vbe: 0.7, VceSat: 0.2, Beta: 100 });
+});
+
+test("NPN low-side switch example exposes square-wave drive, load and transistor topology", () => {
+  const example = WORLD_EXAMPLES.find((candidate) => candidate.id === "npn-low-side-switch");
+  assert.ok(example);
+  const graph = example.createGraph();
+  const source = graph.nodes.find((node) => node.id === "VIN");
+  const load = graph.nodes.find((node) => node.id === "RLOAD");
+  const transistor = graph.nodes.find((node) => node.id === "Q1");
+  assert.deepEqual(source.data.properties, { waveform: "square", amplitude: 2.5, offset: 2.5, frequency: 1000, phase: 0, delay: 0 });
+  assert.equal(load.data.properties.resistance, 1000);
+  assert.deepEqual(transistor.data.properties, { vbeOn: 0.7, vceSat: 0.2, beta: 100 });
+  assert.equal(graph.edges.some((edge) => edge.source === "RLOAD" && edge.target === "Q1" && edge.targetHandle === "c"), true);
+  assert.equal(graph.edges.some((edge) => edge.source === "RB" && edge.target === "Q1" && edge.targetHandle === "b"), true);
+  assert.equal(graph.edges.some((edge) => edge.source === "Q1" && edge.target === "GND1" && edge.sourceHandle === "e"), true);
+  const description = buildCircuitDescription(graph.nodes, graph.edges);
+  const input = description.instances.find((item) => item.id === "VIN");
+  assert.deepEqual(input.parameters.V, { waveform: "square", amplitude: 2.5, offset: 2.5, frequency: 1000, phase: 0, delay: 0 });
 });
