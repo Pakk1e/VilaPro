@@ -23,8 +23,9 @@ export default function WorldNode({ id, data, selected }) {
   const handlePortClick = (event, port) => { event.stopPropagation(); window.dispatchEvent(new CustomEvent("worlds:terminal-select", { detail: { nodeId: id, port } })); };
   const reference = data?.reference ?? data?.label ?? "Unnamed";
   const value = formatValue(data?.properties?.value ?? data?.properties?.resistance ?? data?.properties?.capacitance ?? data?.properties?.inductance);
-  return <div className={["relative h-[124px] w-[180px] overflow-visible bg-transparent", selected ? "ring-1 ring-[#58718f]" : ""].join(" ")}>
-    {ports.map(port => <Handle key={port.id} id={port.id} type="source" position={POSITION_MAP[port.position] ?? Position.Right} isConnectable className="!h-2.5 !w-2.5 !border-0 !bg-[#26364d]" onClick={event => handlePortClick(event, port)} title={`${port.label ?? port.id} — ${port.kind}`} />)}
+  return <div className="relative h-[124px] w-[180px] overflow-visible">
+    {selected && <div className="pointer-events-none absolute left-[12px] top-[5px] h-[100px] w-[156px] rounded-xl bg-[#e9eef3]/70 ring-1 ring-[#91a3b5]/45" aria-hidden="true" />}
+    {ports.map(port => <Handle key={port.id} id={port.id} type="source" position={POSITION_MAP[port.position] ?? Position.Right} isConnectable className={`!h-2.5 !w-2.5 !border-0 ${selected ? "!bg-[#3c5d7d]" : "!bg-[#26364d]"}`} onClick={event => handlePortClick(event, port)} title={`${port.label ?? port.id} — ${port.kind}`} />)}
     <svg viewBox="0 0 150 110" className="absolute left-[15px] top-0 h-[110px] w-[150px] overflow-visible" aria-hidden="true"><Symbol type={data?.componentType}/><text x="75" y="98" textAnchor="middle" fontSize="10" fontWeight="600" fill="#17253a">{reference}</text>{value&&<text x="75" y="109" textAnchor="middle" fontSize="9" fill={MUTED}>{value}</text>}</svg>
   </div>;
 }
