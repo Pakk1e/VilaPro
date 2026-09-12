@@ -57,4 +57,5 @@ if (fs.existsSync(uiPath)) {
   fs.writeFileSync(uiPath, ui);
 }
 
+// Keep this adapter intentionally test-only: production workspace remains canvas-first.
 console.log(`Prepared ${specs.length} acceptance spec files for the schematic-first workspace.`);
