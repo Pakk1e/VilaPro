@@ -15,6 +15,7 @@ from worlds.simulation.solver import SimulationResult
 from worlds.simulation.validation import SimulationValidator
 from worlds.simulation.visualization import plot_to_visualization, plots_to_visualization
 from worlds.vdl import Parser
+from worlds.math import Variable
 
 
 class SimulationServiceError(Exception):
@@ -151,9 +152,14 @@ class SimulationService:
             ports = component.ports
             if "p" not in ports or "n" not in ports:
                 continue
-            voltage = simulation_result.node_voltage(ports["p"]) - simulation_result.node_voltage(ports["n"])
+            p_node, n_node = ports["p"], ports["n"]
+            p_voltage = 0j if p_node == "ground" else simulation_result.values.get(Variable(f"V_{p_node}"))
+            n_voltage = 0j if n_node == "ground" else simulation_result.values.get(Variable(f"V_{n_node}"))
+            if p_voltage is None or n_voltage is None:
+                continue
+            voltage = p_voltage - n_voltage
             try:
-                current = simulation_result.component_current(name, ports["p"], ports["n"])
+                current = simulation_result.component_current(name, p_node, n_node)
             except Exception:
                 current = None
             components.append({"id": component.component_id, "name": component.display_name, "type": component.component_type, "voltage": abs(voltage), "current": abs(current) if current is not None else None})
