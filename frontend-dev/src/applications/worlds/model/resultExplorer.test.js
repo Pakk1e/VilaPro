@@ -69,6 +69,16 @@ test("missing transient samples remain failed instead of being dropped", () => {
   assert.equal(series[0].values[1].value, null);
 });
 
+test("non-finite transient samples are failed and normalized", () => {
+  const series = getVisualizationSeries({ visualization: { plots: [{ independent_variable: { key: "time", label: "Time", unit: "s", values: [0, 1, 2, 3] }, series: [{ id: "v", quantity: "voltage", unit: "V", source: "node:n1", y: [1, Number.NaN, Number.POSITIVE_INFINITY, 4] }] }] } });
+  assert.deepEqual(series[0].values, [
+    { value: 1, failed: false, error: null },
+    { value: null, failed: true, error: "Result value is not finite." },
+    { value: null, failed: true, error: "Result value is not finite." },
+    { value: 4, failed: false, error: null },
+  ]);
+});
+
 test("result plot uses canonical time axis for transient response", () => {
   const plot = createResultPlot({ independentVariable: { key: "time", label: "Time", unit: "s", values: [0, 0.5, 1] }, series: [{ key: "v", label: "V(out)", quantity: "voltage", unit: "V", values: [{ value: 0 }, { value: 2 }, { value: 1 }] }] });
   assert.deepEqual(plot.x, { key: "time", label: "Time", unit: "s", values: [0, 0.5, 1] });
