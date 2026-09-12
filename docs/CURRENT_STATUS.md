@@ -113,7 +113,7 @@ The deployed Worlds acceptance workflow executes every `*acceptance.spec.js` fil
 
 ## Latest handoff point
 
-The current branch has clean schematic presentation, a dedicated static Frequency Sweep analysis for RLC response, and the first Diode component with deterministic piecewise-linear DC/transient support. The repository also contains backend and frontend regression coverage plus dedicated browser acceptance for frequency sweep and diode behavior. Final CI/deployment/acceptance state must be verified for the latest revision before treating these changes as complete.
+The current branch has clean schematic presentation, a dedicated static Frequency Sweep analysis for RLC response, and the first Diode component with deterministic piecewise-linear DC/transient support. The repository also contains backend and frontend regression coverage plus dedicated browser acceptance for frequency sweep and diode behavior. The latest branch ref must be validated end-to-end before this handoff is considered complete.
 
 ## Future-session handoff
 
