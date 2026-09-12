@@ -29,9 +29,10 @@ def build_network_equation_system(
     Voltage is represented by node potentials:
         voltage(a, b) = V(a) - V(b)
 
-    Current is a component-specific branch-current unknown. The
-    public representation remains current(a, b), but the internal
-    unknown also carries the component identity.
+    Current is a component-specific branch-current unknown. A two-terminal
+    component normally contributes one branch current; multiterminal devices
+    may expose multiple independent internal branches and their terminal KCL
+    is assembled from those branch currents.
 
     Ground has a fixed potential of zero.
     """
@@ -50,19 +51,13 @@ def build_network_equation_system(
                 right=_normalize_expression(equation.right, component),
             )
 
-            system.add(
-                SimulationEquation(expression=expression)
-            )
+            system.add(SimulationEquation(expression=expression))
 
     for node in sorted(model.nodes):
         if node == "ground":
             continue
 
-        system.add(
-            SimulationEquation(
-                expression=_build_kcl_equation(model, node)
-            )
-        )
+        system.add(SimulationEquation(expression=_build_kcl_equation(model, node)))
 
     return system
 
@@ -79,11 +74,7 @@ def _normalize_expression(expression, component):
             first = _normalize_node(expression.arguments[0])
             second = _normalize_node(expression.arguments[1])
 
-            return Binary(
-                left=first,
-                operator="-",
-                right=second,
-            )
+            return Binary(left=first, operator="-", right=second)
 
         if expression.name == "current" and len(expression.arguments) == 2:
             first = _normalize_current_node(expression.arguments[0])
@@ -95,9 +86,7 @@ def _normalize_expression(expression, component):
                 component=component.name,
             )
 
-        raise NetworkError(
-            f"Unsupported physical function: {expression.name}"
-        )
+        raise NetworkError(f"Unsupported physical function: {expression.name}")
 
     if isinstance(expression, Binary):
         return Binary(
@@ -106,16 +95,12 @@ def _normalize_expression(expression, component):
             right=_normalize_expression(expression.right, component),
         )
 
-    raise NetworkError(
-        f"Unsupported network expression: {expression!r}"
-    )
+    raise NetworkError(f"Unsupported network expression: {expression!r}")
 
 
 def _normalize_node(expression):
     if not isinstance(expression, Variable):
-        raise NetworkError(
-            f"Expected node variable, got: {expression!r}"
-        )
+        raise NetworkError(f"Expected node variable, got: {expression!r}")
 
     if expression.name == "ground":
         return Number(0.0)
@@ -125,9 +110,7 @@ def _normalize_node(expression):
 
 def _normalize_current_node(expression):
     if not isinstance(expression, Variable):
-        raise NetworkError(
-            f"Expected node variable, got: {expression!r}"
-        )
+        raise NetworkError(f"Expected node variable, got: {expression!r}")
 
     return Variable(expression.name)
 
@@ -136,50 +119,53 @@ def _build_kcl_equation(model: SimulationModel, node: str):
     terms = []
 
     for component in model.components:
-        if len(component.ports) != 2:
-            raise NetworkError(
-                "KCL currently supports two-port components only"
-            )
-
-        if "p" not in component.ports or "n" not in component.ports:
-            raise NetworkError(
-                f"Component '{component.name}' must define p/n ports"
-            )
-
-        first_node = component.ports["p"]
-        second_node = component.ports["n"]
-
-        current = BranchCurrent(
-            name="current",
-            arguments=(
-                Variable(first_node),
-                Variable(second_node),
-            ),
-            component=component.name,
-        )
-
-        if node == first_node:
-            terms.append(current)
-
-        elif node == second_node:
-            terms.append(
-                Binary(
-                    left=Number(-1.0),
-                    operator="*",
-                    right=current,
-                )
-            )
+        current_branches = _component_current_branches(component)
+        for current in current_branches:
+            first_node = getattr(current.arguments[0], "name", None)
+            second_node = getattr(current.arguments[1], "name", None)
+            if first_node == node:
+                terms.append(current)
+            elif second_node == node:
+                terms.append(Binary(left=Number(-1.0), operator="*", right=current))
 
     if not terms:
         return Number(0.0)
 
     expression = terms[0]
-
     for term in terms[1:]:
-        expression = Binary(
-            left=expression,
-            operator="+",
-            right=term,
-        )
+        expression = Binary(left=expression, operator="+", right=term)
 
     return expression
+
+
+def _component_current_branches(component):
+    """Return each independent current branch exposed by a component's equations."""
+    branches = []
+    seen = set()
+    for bound in bind_component_equations(component):
+        for current in _find_current_calls(bound.equation.left):
+            if current not in seen:
+                seen.add(current)
+                branches.append(current)
+        for current in _find_current_calls(bound.equation.right):
+            if current not in seen:
+                seen.add(current)
+                branches.append(current)
+    return branches
+
+
+def _find_current_calls(expression):
+    if isinstance(expression, FunctionCall):
+        if expression.name == "current" and len(expression.arguments) == 2:
+            first, second = expression.arguments
+            if isinstance(first, Variable) and isinstance(second, Variable):
+                yield BranchCurrent(
+                    name="current",
+                    arguments=(Variable(first.name), Variable(second.name)),
+                    component=None,
+                )
+            return
+        return
+    if isinstance(expression, Binary):
+        yield from _find_current_calls(expression.left)
+        yield from _find_current_calls(expression.right)
