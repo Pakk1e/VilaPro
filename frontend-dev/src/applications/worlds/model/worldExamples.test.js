@@ -11,6 +11,7 @@ test("electrical examples expose stable, complete graphs", () => {
     "voltage-divider",
     "rc-low-pass",
     "parallel-resistors",
+    "rl-transient",
   ]);
 
   for (const example of WORLD_EXAMPLES) {
@@ -32,4 +33,25 @@ test("electrical examples create independent graph instances", () => {
 
   assert.equal(second.nodes[0].position.x, 80);
   assert.equal(second.nodes[0].data.properties.voltage, 10);
+});
+
+
+test("RL transient example exposes the canonical dynamic component parameters", () => {
+  const example = WORLD_EXAMPLES.find((candidate) => candidate.id === "rl-transient");
+  assert.ok(example);
+  const graph = example.createGraph();
+  const inductor = graph.nodes.find((node) => node.data?.componentType === "Inductor");
+
+  assert.ok(inductor);
+  assert.deepEqual(inductor.data.properties, {
+    inductance: 0.01,
+    initialCurrent: 0,
+  });
+  assert.equal(
+    graph.edges.some(
+      (edge) => edge.source === "R1" && edge.target === "L1" && edge.sourceHandle === "n" && edge.targetHandle === "p"
+    ),
+    true
+  );
+  assert.doesNotThrow(() => buildCircuitDescription(graph.nodes, graph.edges));
 });
