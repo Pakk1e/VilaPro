@@ -33,80 +33,73 @@ world Electronics {
     }
 
     component Resistor {
-
         parameter R : Resistance;
-
         interface {
             p : ElectricalNode;
             n : ElectricalNode;
         }
-
         representation ideal {
-
             equation:
                 voltage(p, n) = current(p, n) * R;
         }
     }
 
-    component VoltageSource {
-
-        parameter V : Voltage;
-
+    component Diode {
+        parameter Vf : Voltage;
+        parameter Ron : Resistance;
         interface {
             p : ElectricalNode;
             n : ElectricalNode;
         }
+        representation piecewise_linear {
+            equation:
+                voltage(p, n) = current(p, n) * Ron + Vf;
+        }
+    }
 
+    component VoltageSource {
+        parameter V : Voltage;
+        interface {
+            p : ElectricalNode;
+            n : ElectricalNode;
+        }
         representation ideal {
-
             equation:
                 voltage(p, n) = V;
         }
     }
 
     component CurrentSource {
-
         parameter I : Current;
-
         interface {
             p : ElectricalNode;
             n : ElectricalNode;
         }
-
         representation ideal {
-
             equation:
                 current(p, n) = I;
         }
     }
 
     component Capacitor {
-
         parameter C : Capacitance;
-
         interface {
             p : ElectricalNode;
             n : ElectricalNode;
         }
-
         representation ideal {
-
             equation:
                 current(p, n) = C * derivative(voltage(p, n), time);
         }
     }
 
     component Inductor {
-
         parameter L : Inductance;
-
         interface {
             p : ElectricalNode;
             n : ElectricalNode;
         }
-
         representation ideal {
-
             equation:
                 voltage(p, n) = L * derivative(current(p, n), time);
         }
