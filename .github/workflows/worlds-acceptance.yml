@@ -140,7 +140,7 @@ jobs:
           echo "Checked out commit: $(git rev-parse HEAD)"
           echo "Workers:  $workers"
           echo "Started:  $(date -Is)"
-          npx playwright test tests/e2e/acceptance.spec.js --workers="$workers" --reporter=list,html --retries=0 --trace=retain-on-failure 2>&1 | tee ../acceptance-run.log
+          npx playwright test tests/e2e/*acceptance.spec.js --workers="$workers" --reporter=list,html --retries=0 --trace=retain-on-failure 2>&1 | tee ../acceptance-run.log
           status=${PIPESTATUS[0]}
           ended=$(date +%s%3N)
           echo "Finished: $(date -Is)"
