@@ -34,6 +34,5 @@ export default function ElectricalWorkspaceShell({ children, library, inspector,
         {!focusMode&&inspectorOpen&&<aside data-testid="workspace-inspector-surface" className="flex w-[280px] shrink-0 flex-col overflow-hidden border-l border-[#d9dde2] bg-[#fafbfc]">{inspector}</aside>}
       </div>
       {!focusMode&&instrumentOpen&&<><div data-testid="instrument-resize-handle" role="separator" aria-label="Resize instrument panel" aria-orientation="horizontal" onPointerDown={beginResize} className="h-1.5 shrink-0 cursor-ns-resize border-t border-[#d9dde2] bg-[#f4f6f8] hover:bg-[#e9edf1]"/><section data-testid="workspace-instrument-surface" style={{height:instrumentHeight}} className="shrink-0 overflow-hidden bg-white">{instrument}</section></>}
-    </div></div>
-  </div>;
+    </div></div>;
 }
