@@ -40,7 +40,7 @@ test.describe("Electrical workspace UI rework", () => {
     await expect(page.getByTestId("instrument-probes")).toContainText("NMOS 1");
     await expect(page.getByTestId("instrument-probes")).toContainText("voltage");
     await expect(page.getByTestId("workspace-instrument-surface")).toBeVisible();
-    await page.getByTestId("instrument-probes").getByRole("button", { name: /Remove NMOS 1 voltage probe/ }).click();
+    await page.getByTestId("instrument-probes").getByRole("button", { name: /Remove NMOS 1 .* voltage probe/ }).click();
     await expect(page.getByTestId("instrument-probes")).toHaveCount(0);
 
     await page.getByRole("button", { name: "Library" }).click();
@@ -48,7 +48,7 @@ test.describe("Electrical workspace UI rework", () => {
     const divider = page.getByTestId("world-examples").getByRole("button", { name: /Voltage divider/ });
     await expect(divider).toBeVisible();
     await divider.click();
-    await expect(page.locator(".react-flow__node").filter({ hasText: "V1" })).toBeVisible();
+    await expect(page.locator(".react-flow__node").filter({ hasText: "Voltage Source 1" })).toBeVisible();
     await expect(page.getByTestId("workspace-library-surface")).toHaveCount(0);
 
     await page.getByRole("button", { name: "Simulation" }).click();
