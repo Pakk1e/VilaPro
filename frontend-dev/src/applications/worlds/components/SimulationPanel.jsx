@@ -9,11 +9,26 @@ import LiveSimulationView from "./LiveSimulationView";
 
 function getSimulationSignature(nodes, edges, config) { return JSON.stringify({ circuit: { nodes: nodes.map((node) => ({ id: node.id, type: node.type, data: node.type === "world" ? { componentType: node.data?.componentType, definitionKey: node.data?.definitionKey, properties: node.data?.properties ?? {}, ports: node.data?.ports ?? [] } : { portKind: node.data?.portKind } })), edges: edges.map((edge) => ({ id: edge.id, source: edge.source, sourceHandle: edge.sourceHandle, target: edge.target, targetHandle: edge.targetHandle })) }, simulation: config }); }
 
-export default function SimulationPanel({ nodes, edges, sweepTargets = [], selectedNodeId = null }) {
+export default function SimulationPanel({ nodes, edges, sweepTargets = [], selectedNodeId = null, exampleSimulationPreset = null }) {
   const [result, setResult] = useState(null); const [error, setError] = useState(null); const [running, setRunning] = useState(false); const [liveSnapshot, setLiveSnapshot] = useState(null); const [liveHistory, setLiveHistory] = useState([]); const [simulationConfig, setSimulationConfig] = useState(() => createSimulationConfig()); const [lastSimulationSignature, setLastSimulationSignature] = useState(null); const abortControllerRef = useRef(null); const liveStreamRef = useRef(null); const mountedRef = useRef(true);
   const simulationSignature = useMemo(() => getSimulationSignature(nodes, edges, simulationConfig), [nodes, edges, simulationConfig]); const simulationIsStale = result !== null && lastSimulationSignature !== null && lastSimulationSignature !== simulationSignature; const configurationError = getSimulationConfigValidationError(simulationConfig, sweepTargets); const status = getSimulationStatus({ result, running, error, simulationIsStale }); const selectedComponentLabel = nodes.find((node) => node.id === selectedNodeId)?.data?.label ?? null;
   const appendLiveSnapshot = (snapshot) => setLiveHistory((current) => [...current, snapshot].slice(-240));
   useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; abortControllerRef.current?.abort(); abortControllerRef.current = null; liveStreamRef.current?.close(); liveStreamRef.current = null; }; }, []);
+  useEffect(() => {
+    const preset = exampleSimulationPreset?.preset;
+    if (!preset) return;
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = null;
+    liveStreamRef.current?.close();
+    liveStreamRef.current = null;
+    setRunning(false);
+    setResult(null);
+    setError(null);
+    setLiveSnapshot(null);
+    setLiveHistory([]);
+    setLastSimulationSignature(null);
+    setSimulationConfig(createSimulationConfig({ mode: SIMULATION_MODES.STATIC, analysis: preset.analysis, settings: preset.settings }));
+  }, [exampleSimulationPreset]);
   const updateSimulationConfig = (changes) => { setSimulationConfig((current) => ({ ...current, ...changes, settings: { ...current.settings, ...(changes.settings ?? {}) } })); if (changes.mode && changes.mode !== SIMULATION_MODES.LIVE) { liveStreamRef.current?.close(); liveStreamRef.current = null; setLiveSnapshot(null); setLiveHistory([]); } };
   const liveRequest = async (path, method = "POST") => { const response = await fetch(path, { method, headers: { "Content-Type": "application/json" } }); const data = await response.json(); if (!response.ok || !data.ok) throw new Error(data.error ?? `Live simulation request failed (${response.status})`); return normalizeLiveSnapshot(data); };
   const openLiveStream = (sessionId) => { if (!mountedRef.current || !sessionId) return; liveStreamRef.current?.close(); const stream = new EventSource(`/simulate/live/${sessionId}/stream`); liveStreamRef.current = stream; stream.onmessage = (event) => { try { const snapshot = normalizeLiveSnapshot(JSON.parse(event.data)); if (!mountedRef.current) return; setLiveSnapshot(snapshot); appendLiveSnapshot(snapshot); setRunning(snapshot.status === "running"); if (["completed", "cancelled", "failed"].includes(snapshot.status)) stream.close(); } catch (streamError) { if (mountedRef.current) setError(streamError?.message ?? "Invalid live simulation update"); } }; stream.onerror = () => { if (!mountedRef.current || stream.readyState !== EventSource.CLOSED) return; setRunning(false); setError("Live simulation update stream closed unexpectedly"); }; };
