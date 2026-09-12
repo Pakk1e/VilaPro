@@ -42,6 +42,10 @@ acceptance = acceptance.replace(
   'const paletteRight = paletteBox.x + paletteBox.width; for (const node of nodes) { const box = await node.boundingBox(); if (!box) throw new Error("Unable to locate circuit component."); expect(box.x).toBeGreaterThan(paletteRight + 8); }',
 );
 acceptance = acceptance.replace(
+  'const palette = page.getByTestId("component-palette"); const paletteBox = await palette.boundingBox();',
+  'const palette = page.getByTestId("component-palette"); if (!(await palette.isVisible().catch(() => false))) await page.getByRole("button", { name: "Library" }).click(); const paletteBox = await palette.boundingBox();',
+);
+acceptance = acceptance.replace(
   'const seed = await addComponent(page, "Resistor", "Resistor 1"); const zoomOut = page.locator(".react-flow__controls-zoomout");',
   'const seed = await addComponent(page, "Resistor", "Resistor 1"); const librarySurface = page.getByTestId("workspace-library-surface"); if (await librarySurface.isVisible().catch(() => false)) await page.getByRole("button", { name: "Library" }).click(); const zoomOut = page.locator(".react-flow__controls-zoomout");',
 );
