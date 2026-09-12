@@ -18,6 +18,8 @@ class SimulationPlotFactory:
     @staticmethod
     def _axis_for_result(result: SimulationResultModel) -> tuple[str, str]:
         analysis = str(result.analysis_information.get("analysis", "simulation"))
+        if analysis == "frequency_sweep":
+            return "Frequency", "Hz"
         return ("Sweep", "") if analysis == "dc_sweep" else ("Time", "s")
 
     def from_series(
@@ -59,6 +61,7 @@ class SimulationPlotFactory:
             series,
             plot_id=plot_id,
             title=title,
+            series=series,
             x_label=x_label,
             x_unit=x_unit,
         )
