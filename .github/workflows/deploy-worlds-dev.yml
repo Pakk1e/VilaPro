@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - v0.4/workspace-architecture
+      - v0.4/electrical-ui-rework
   workflow_dispatch:
     inputs:
       branch:
