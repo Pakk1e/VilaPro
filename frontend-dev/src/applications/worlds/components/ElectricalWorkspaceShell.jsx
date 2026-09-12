@@ -15,17 +15,48 @@ export default function ElectricalWorkspaceShell({ children, library, inspector,
   const [instrumentOpen, setInstrumentOpen] = useState(false);
   const [instrumentHeight, setInstrumentHeight] = useState(280);
   const resizingRef = useRef(false);
+
   useEffect(() => {
-    const onPointerMove = event => { if (!resizingRef.current) return; const shell = document.querySelector('[data-testid="electrical-workspace"]'); if (!shell) return; const rect = shell.getBoundingClientRect(); setInstrumentHeight(Math.min(460, Math.max(180, rect.bottom - event.clientY - 28))); };
+    const onPointerMove = event => {
+      if (!resizingRef.current) return;
+      const shell = document.querySelector('[data-testid="electrical-workspace"]');
+      if (!shell) return;
+      const rect = shell.getBoundingClientRect();
+      setInstrumentHeight(Math.min(460, Math.max(180, rect.bottom - event.clientY - 28)));
+    };
     const onPointerUp = () => { resizingRef.current = false; document.body.style.removeProperty("cursor"); document.body.style.removeProperty("user-select"); };
     const onSelection = event => { if (event.detail?.selectedNode || event.detail?.selectedEdgeId || event.detail?.selectedTerminal || event.detail?.selectedResultEntity) setInspectorOpen(true); };
     const onComponentAdded = () => setLibraryOpen(false);
-    const onProbeAdded = () => { setInstrumentOpen(true); setInspectorOpen(true); };
+    const onProbeAdded = event => {
+      setInstrumentOpen(true);
+      setInspectorOpen(true);
+      requestAnimationFrame(() => window.dispatchEvent(new CustomEvent("worlds:add-probe", { detail: event.detail })));
+    };
     const onLibraryClose = () => setLibraryOpen(false);
-    window.addEventListener("pointermove", onPointerMove); window.addEventListener("pointerup", onPointerUp); window.addEventListener("worlds:selection-change", onSelection); window.addEventListener("worlds:add-component", onComponentAdded); window.addEventListener("worlds:add-probe", onProbeAdded); window.addEventListener("worlds:close-library", onLibraryClose);
-    return () => { window.removeEventListener("pointermove", onPointerMove); window.removeEventListener("pointerup", onPointerUp); window.removeEventListener("worlds:selection-change", onSelection); window.removeEventListener("worlds:add-component", onComponentAdded); window.removeEventListener("worlds:add-probe", onProbeAdded); window.removeEventListener("worlds:close-library", onLibraryClose); };
+    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("pointerup", onPointerUp);
+    window.addEventListener("worlds:selection-change", onSelection);
+    window.addEventListener("worlds:add-component", onComponentAdded);
+    window.addEventListener("worlds:add-probe", onProbeAdded);
+    window.addEventListener("worlds:close-library", onLibraryClose);
+    return () => {
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", onPointerUp);
+      window.removeEventListener("worlds:selection-change", onSelection);
+      window.removeEventListener("worlds:add-component", onComponentAdded);
+      window.removeEventListener("worlds:add-probe", onProbeAdded);
+      window.removeEventListener("worlds:close-library", onLibraryClose);
+    };
   }, []);
-  const beginResize = event => { if (!instrumentOpen || focusMode) return; event.preventDefault(); resizingRef.current = true; document.body.style.cursor = "ns-resize"; document.body.style.userSelect = "none"; };
+
+  const beginResize = event => {
+    if (!instrumentOpen || focusMode) return;
+    event.preventDefault();
+    resizingRef.current = true;
+    document.body.style.cursor = "ns-resize";
+    document.body.style.userSelect = "none";
+  };
+
   return <div data-testid="electrical-workspace" data-focus-mode={focusMode ? "true" : "false"} className="flex h-full min-h-0 flex-col overflow-hidden bg-[#eef1f3] text-[#17253a]">
     <header className="relative z-50 flex h-11 shrink-0 items-center border-b border-[#d9dfe4] bg-[#f7f8f9] px-3">
       <div className="flex w-[220px] shrink-0 items-center gap-2"><div className="flex h-6 w-6 items-center justify-center rounded bg-[#26384e] text-[7px] font-bold tracking-[0.08em] text-white">LO</div><div className="flex items-baseline gap-2"><div className="text-[9px] font-bold uppercase tracking-[0.18em] text-[#617083]">Lab OS</div><div className="text-[11px] font-semibold text-[#26374d]">Electrical</div></div></div>
