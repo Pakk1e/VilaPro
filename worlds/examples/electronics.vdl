@@ -32,6 +32,10 @@ world Electronics {
         unit: H;
     }
 
+    quantity Gain {
+        dimension: Current / Current;
+    }
+
     component Resistor {
         parameter R : Resistance;
         interface {
@@ -54,6 +58,23 @@ world Electronics {
         representation piecewise_linear {
             equation:
                 voltage(p, n) = current(p, n) * Ron + Vf;
+        }
+    }
+
+    component NPNTransistor {
+        parameter Vbe : Voltage;
+        parameter VceSat : Voltage;
+        parameter Beta : Gain;
+        interface {
+            b : ElectricalNode;
+            c : ElectricalNode;
+            e : ElectricalNode;
+        }
+        representation piecewise_linear {
+            equation:
+                voltage(b, e) = Vbe;
+            equation:
+                current(c, e) = Beta * current(b, e);
         }
     }
 
