@@ -51,11 +51,19 @@ function makeEdge(id, source, sourceHandle, target, targetHandle) {
   return { id, source, sourceHandle, target, targetHandle, type: "circuit" };
 }
 
+function simulationPreset(analysis, settings = {}) {
+  return Object.freeze({
+    analysis,
+    settings: Object.freeze({ ...settings }),
+  });
+}
+
 export const WORLD_EXAMPLES = Object.freeze([
   Object.freeze({
     id: "voltage-divider",
     label: "Voltage divider",
     description: "10 V source with two resistors in series.",
+    simulationPreset: simulationPreset("dc_operating_point"),
     createGraph: () => ({
       nodes: [
         makeNode("V1", "voltageSource", "Voltage Source 1", { waveform: "dc", voltage: 10 }, 80, 120),
@@ -75,6 +83,7 @@ export const WORLD_EXAMPLES = Object.freeze([
     id: "rc-low-pass",
     label: "RC low-pass",
     description: "Sine source driving a resistor-capacitor network.",
+    simulationPreset: simulationPreset("transient", { start: 0, stop: 0.005, step: 0.00001 }),
     createGraph: () => ({
       nodes: [
         makeNode("V1", "voltageSource", "Voltage Source 1", { waveform: "sine", amplitude: 5, offset: 0, frequency: 1000, phase: 0, delay: 0 }, 60, 120),
@@ -94,6 +103,7 @@ export const WORLD_EXAMPLES = Object.freeze([
     id: "parallel-resistors",
     label: "Parallel resistors",
     description: "Two resistor branches across a 10 V source.",
+    simulationPreset: simulationPreset("dc_operating_point"),
     createGraph: () => ({
       nodes: [
         makeNode("V1", "voltageSource", "Voltage Source 1", { waveform: "dc", voltage: 10 }, 60, 150),
@@ -116,6 +126,7 @@ export const WORLD_EXAMPLES = Object.freeze([
     id: "rl-transient",
     label: "RL transient",
     description: "10 V source driving a resistor-inductor transient response.",
+    simulationPreset: simulationPreset("transient", { start: 0, stop: 0.00005, step: 0.0000001 }),
     createGraph: () => ({
       nodes: [
         makeNode("V1", "voltageSource", "Voltage Source 1", { waveform: "dc", voltage: 10 }, 70, 140),
@@ -135,6 +146,7 @@ export const WORLD_EXAMPLES = Object.freeze([
     id: "rlc-transient",
     label: "RLC transient",
     description: "10 V source driving a resistor-inductor-capacitor transient response.",
+    simulationPreset: simulationPreset("transient", { start: 0, stop: 0.005, step: 0.000005 }),
     createGraph: () => ({
       nodes: [
         makeNode("V1", "voltageSource", "Voltage Source 1", { waveform: "dc", voltage: 10 }, 50, 140),
