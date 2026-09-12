@@ -9,10 +9,15 @@ for (const name of specs) {
   let text = fs.readFileSync(file, "utf8");
   text = text.replaceAll('page.getByRole("button", { name: /Simulate/ })', 'page.getByTestId("simulate-button")');
   text = text.replaceAll('page.getByRole("button", { name: "Start Live" })', 'page.getByTestId("simulate-button")');
+  text = text.replaceAll('page.getByRole("button", { name: "Simulation" })', 'page.getByRole("button", { name: "Instruments" })');
   if (name !== "electrical-ui-acceptance.spec.js") {
     text = text.replaceAll(
       'await page.goto("/worlds", { waitUntil: "networkidle" });',
       'await page.goto("/worlds", { waitUntil: "networkidle" }); await page.getByRole("button", { name: "Library" }).click();',
+    );
+    text = text.replaceAll(
+      'await page.getByTestId("component-palette").getByRole("button", { name: new RegExp(`^${name} Add to canvas$`) }).click();',
+      'const palette = page.getByTestId("component-palette"); if (!(await palette.isVisible().catch(() => false))) await page.getByRole("button", { name: "Library" }).click(); await palette.getByRole("button", { name: new RegExp(`^${name} Add to canvas$`) }).click();',
     );
   }
   fs.writeFileSync(file, text);
@@ -58,5 +63,4 @@ if (fs.existsSync(uiPath)) {
 }
 
 // Keep this adapter intentionally test-only: production workspace remains canvas-first.
-// Deployment validation trigger commit; no production behavior is changed here.
 console.log(`Prepared ${specs.length} acceptance spec files for the schematic-first workspace.`);
