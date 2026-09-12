@@ -6,6 +6,7 @@ const E2E_PASSWORD = globalThis.process?.env.WORLDS_E2E_PASSWORD;
 async function signIn(page) {
   if (!E2E_EMAIL || !E2E_PASSWORD) throw new Error("WORLDS_E2E_EMAIL and WORLDS_E2E_PASSWORD must be configured for authenticated Worlds E2E tests.");
   await page.goto("/login", { waitUntil: "networkidle" });
+  if (/\/hub$/.test(page.url())) return;
   await page.getByLabel("Email").fill(E2E_EMAIL);
   await page.getByLabel("Password").fill(E2E_PASSWORD);
   await page.getByRole("button", { name: "Sign in" }).click();
