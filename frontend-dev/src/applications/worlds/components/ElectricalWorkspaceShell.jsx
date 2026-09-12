@@ -28,9 +28,10 @@ export default function ElectricalWorkspaceShell({ children, library, inspector,
     const onSelection = event => { if (event.detail?.selectedNode || event.detail?.selectedEdgeId || event.detail?.selectedTerminal || event.detail?.selectedResultEntity) setInspectorOpen(true); };
     const onComponentAdded = () => setLibraryOpen(false);
     const onProbeAdded = event => {
+      if (event.detail?.__replayed) return;
       setInstrumentOpen(true);
       setInspectorOpen(true);
-      requestAnimationFrame(() => window.dispatchEvent(new CustomEvent("worlds:add-probe", { detail: event.detail })));
+      requestAnimationFrame(() => window.dispatchEvent(new CustomEvent("worlds:add-probe", { detail: { ...event.detail, __replayed: true } })));
     };
     const onLibraryClose = () => setLibraryOpen(false);
     window.addEventListener("pointermove", onPointerMove);
