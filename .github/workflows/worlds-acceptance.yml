@@ -79,6 +79,8 @@ jobs:
           done
           perl -0pi -e 's/const left = canvasBox\.x \+ 80; const right = paletteBox\.x - 80; const width = right - left; if \(width < 300\) throw new Error\("Insufficient canvas width for acceptance circuit\."\);/const paletteRight = paletteBox.x + paletteBox.width; const left = Math.max(canvasBox.x + 40, paletteRight + 40); const right = canvasBox.x + canvasBox.width - 80; const width = right - left; if (width < 300) throw new Error("Insufficient canvas width for acceptance circuit.");/g' frontend-dev/tests/e2e/acceptance.spec.js
           perl -0pi -e 's/for \(const node of nodes\) \{ const box = await node\.boundingBox\(\); if \(!box\) throw new Error\("Unable to locate circuit component\."\); expect\(box\.x \+ box\.width\)\.toBeLessThan\(paletteBox\.x - 8\); \}/const paletteRight = paletteBox.x + paletteBox.width; for (const node of nodes) { const box = await node.boundingBox(); if (!box) throw new Error("Unable to locate circuit component."); expect(box.x).toBeGreaterThan(paletteRight + 8); }/g' frontend-dev/tests/e2e/acceptance.spec.js
+          perl -0pi -e 's/function handle\(node, id\) \{ return node\.locator\(`\.react-flow__handle\[data-handleid="\$\{id\}"\]`\); \}/function handle(node, id) { return node.locator(`.react-flow__handle[data-handleid="${id}"]`); }\nasync function connectHandles(page, source, target) { const sourceBox = await source.boundingBox(); const targetBox = await target.boundingBox(); if (!sourceBox || !targetBox) throw new Error("Unable to locate circuit handle."); await page.mouse.move(sourceBox.x + sourceBox.width \/ 2, sourceBox.y + sourceBox.height \/ 2); await page.mouse.down(); await page.waitForTimeout(50); await page.mouse.move(targetBox.x + targetBox.width \/ 2, targetBox.y + targetBox.height \/ 2, { steps: 12 }); await page.waitForTimeout(50); await page.mouse.up(); }/g' frontend-dev/tests/e2e/acceptance.spec.js
+          perl -0pi -e 's/await handle\(voltage, "p"\)\.dragTo\(handle\(resistor, "p"\)\); await handle\(resistor, "n"\)\.dragTo\(handle\(ground, "g"\)\); await handle\(voltage, "n"\)\.dragTo\(handle\(ground, "g"\)\);/await connectHandles(page, handle(voltage, "p"), handle(resistor, "p")); await connectHandles(page, handle(resistor, "n"), handle(ground, "g")); await connectHandles(page, handle(voltage, "n"), handle(ground, "g"));/g' frontend-dev/tests/e2e/acceptance.spec.js
 
       - name: Install frontend dependencies
         working-directory: frontend-dev
@@ -90,9 +92,6 @@ jobs:
           ended=$(date +%s%3N)
           echo "npm ci duration=$((ended - started))ms"
 
-      # Keep the Playwright toolchain outside the checkout. actions/checkout
-      # cleans node_modules on every run, while this cache survives between
-      # runs on the persistent worlds-dev self-hosted runner.
       - name: Ensure persistent Playwright test runner
         working-directory: frontend-dev
         shell: bash
@@ -102,22 +101,13 @@ jobs:
           cache_root="$HOME/.cache/vilapro-playwright/$version"
           package_root="$cache_root/node_modules/@playwright/test"
           started=$(date +%s%3N)
-
           if [ ! -f "$package_root/package.json" ]; then
             echo "Playwright $version not present on runner; installing once..."
             mkdir -p "$cache_root"
-            npm install \
-              --prefix "$cache_root" \
-              --no-save \
-              --package-lock=false \
-              --prefer-offline \
-              --no-audit \
-              --no-fund \
-              "@playwright/test@$version"
+            npm install --prefix "$cache_root" --no-save --package-lock=false --prefer-offline --no-audit --no-fund "@playwright/test@$version"
           else
             echo "Playwright $version already present on runner; reusing persistent install."
           fi
-
           rm -rf node_modules/@playwright/test node_modules/playwright node_modules/playwright-core
           mkdir -p node_modules/@playwright node_modules/.bin
           ln -s "$package_root" node_modules/@playwright/test
@@ -126,7 +116,6 @@ jobs:
           rm -f node_modules/.bin/playwright node_modules/.bin/playwright-core
           ln -s "$cache_root/node_modules/.bin/playwright" node_modules/.bin/playwright
           ln -s "$cache_root/node_modules/.bin/playwright-core" node_modules/.bin/playwright-core
-
           ended=$(date +%s%3N)
           echo "Playwright runner setup duration=$((ended - started))ms"
           node -e "console.log('Playwright version:', require('@playwright/test/package.json').version)"
