@@ -16,6 +16,7 @@ from .session import SimulationSession
 from .solver import SimulationResult, SimulationSolver, SolverError
 from .state import DynamicState, DynamicStateSnapshot, TransientStateHandler, TransientStepContext
 from .transient import TransientConfiguration, TransientConfigurationError
+from .transistor import has_transistors, solve_transistor_network
 
 DC_OPERATING_POINT = "dc_operating_point"
 DC_SWEEP = "dc_sweep"
@@ -166,6 +167,7 @@ class FrequencySweepAnalysis:
     key = FREQUENCY_SWEEP
     def run(self, model, *, known=None, configuration=None, session=None):
         if configuration is None: raise SimulationAnalysisError("frequency_sweep requires a simulation configuration")
+        if has_transistors(model): raise SimulationAnalysisError("frequency_sweep does not yet support NPN transistor small-signal modeling")
         start = _parse_finite_decimal(configuration.settings.get("start"), "start", "frequency_sweep"); stop = _parse_finite_decimal(configuration.settings.get("stop"), "stop", "frequency_sweep"); step = _parse_finite_decimal(configuration.settings.get("step"), "step", "frequency_sweep")
         amplitude = float(configuration.settings.get("amplitude", 1.0)); phase = float(configuration.settings.get("phase", 0.0)); points = _build_sweep_points(start, stop, step); results, errors = [], []
         for point in points:
@@ -208,6 +210,7 @@ class ACAnalysis:
     key = AC
     def run(self, model, *, known=None, configuration=None, session=None):
         if configuration is None: raise SimulationAnalysisError("ac requires a simulation configuration")
+        if has_transistors(model): raise SimulationAnalysisError("ac does not yet support NPN transistor small-signal modeling")
         result = solve_ac(model, ACConfiguration.from_dict(configuration.settings))
         if session is not None: session.record_point(result, time=0.0)
         return result
@@ -222,7 +225,10 @@ def _build_transient_execution_points(configuration: TransientConfiguration) -> 
 
 def _solve(model, known, *, dc_mode: bool = False):
     if dc_mode: model = _apply_dc_equivalents(model)
+    if has_diodes(model) and has_transistors(model):
+        raise SimulationAnalysisError("Circuits containing both diodes and NPN transistors are not yet supported by the combined nonlinear solver")
     if has_diodes(model): return solve_diode_network(model, known=known)
+    if has_transistors(model): return solve_transistor_network(model, known=known)
     equation_system = build_network_equation_system(model); solved = SimulationSolver().solve(equation_system, known=known)
     return SimulationResult(values=solved.values, instances={component.name: component for component in model.components})
 
@@ -260,21 +266,21 @@ def _count_sweep_points(start, stop, step):
 def _build_sweep_points(start, stop, step):
     points=[]; current=start
     if start == stop: return [start]
-    while (step > 0 and current <= stop) or (step < 0 and current >= stop): points.append(current); current += step
+    while (step > 0 and current <= stop) or (step < 0 and current >= stop):
+        points.append(current); current += step
     return points
 
 
 def _override_component_parameter(model, *, source_id, parameter, value):
-    components=[]; found=False
+    components=[]
     for component in model.components:
-        if component.component_id != source_id: components.append(component); continue
-        components.append(replace(component, parameters={**component.parameters, parameter:value})); found=True
-    if not found: raise SimulationAnalysisError(f"dc_sweep target '{source_id}' does not exist in the circuit")
+        if component.component_id != source_id:
+            components.append(component); continue
+        parameters=dict(component.parameters); parameters[parameter]=value; components.append(replace(component, parameters=parameters))
     return SimulationModel(components=components, nodes=set(model.nodes))
-
-_ANALYSES = {DC_OPERATING_POINT: DCOperatingPointAnalysis(), DC_SWEEP: DCSweepAnalysis(), TRANSIENT: TransientAnalysis(), AC: ACAnalysis(), FREQUENCY_SWEEP: FrequencySweepAnalysis()}
 
 
 def get_simulation_analysis(key):
-    try: return _ANALYSES[key]
-    except KeyError: raise SimulationAnalysisError(f"Unsupported simulation analysis '{key}'. Supported analyses: {', '.join(SUPPORTED_ANALYSES)}") from None
+    analyses = {DC_OPERATING_POINT: DCOperatingPointAnalysis, DC_SWEEP: DCSweepAnalysis, TRANSIENT: TransientAnalysis, AC: ACAnalysis, FREQUENCY_SWEEP: FrequencySweepAnalysis}
+    try: return analyses[key]()
+    except KeyError: raise SimulationAnalysisError(f"Unsupported simulation analysis '{key}'") from None
