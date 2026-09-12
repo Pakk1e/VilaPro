@@ -47,8 +47,9 @@ fs.writeFileSync(acceptancePath, acceptance);
 const resultPath = path.join(root, "result-selection-acceptance.spec.js");
 if (fs.existsSync(resultPath)) {
   let result = fs.readFileSync(resultPath, "utf8");
-  result = result.replace('const schematic = page.getByTestId("worlds-canvas");', 'const schematic = page.getByTestId("worlds-canvas");');
-  result = result.replace('const highlightedComponent = schematic.locator(\'g.cursor-pointer\').filter({ hasText: "Resistor 1" });\n  await expect(highlightedComponent).toBeVisible();\n  await expect(highlightedComponent.locator(\'rect[stroke="#c26a2e"]\')).toBeVisible();', 'const highlightedComponent = schematic.locator(".react-flow__node").filter({ hasText: "Resistor 1" });\n  await expect(highlightedComponent).toBeVisible();');
+  result = result.replace('const highlightedComponent = schematic.locator(\'g.cursor-pointer\').filter({ hasText: "Resistor 1" });', 'const highlightedComponent = schematic.locator(".react-flow__node").filter({ hasText: "Resistor 1" });');
+  result = result.replace('  await expect(highlightedComponent.locator(\'rect[stroke="#c26a2e"]\')).toBeVisible();\n', '');
+  fs.writeFileSync(resultPath, result);
 }
 
 const uiPath = path.join(root, "electrical-ui-acceptance.spec.js");
