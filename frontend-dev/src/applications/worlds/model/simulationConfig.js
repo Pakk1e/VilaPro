@@ -8,6 +8,7 @@ export const SIMULATION_ANALYSES = {
   DC_SWEEP: "dc_sweep",
   TRANSIENT: "transient",
   AC: "ac",
+  FREQUENCY_SWEEP: "frequency_sweep",
 };
 
 export const DEFAULT_SIMULATION_CONFIG = {
@@ -23,6 +24,14 @@ export const DEFAULT_DC_SWEEP_SETTINGS = {
   start: 0,
   stop: 10,
   step: 1,
+};
+
+export const DEFAULT_FREQUENCY_SWEEP_SETTINGS = {
+  start: 10,
+  stop: 100000,
+  step: 1000,
+  amplitude: 1,
+  phase: 0,
 };
 
 export const DEFAULT_TRANSIENT_SETTINGS = {
@@ -72,6 +81,7 @@ export function getSimulationAnalysisLabel(analysis) {
     case SIMULATION_ANALYSES.DC_SWEEP: return "Parameter Sweep";
     case SIMULATION_ANALYSES.TRANSIENT: return "Transient";
     case SIMULATION_ANALYSES.AC: return "AC Analysis";
+    case SIMULATION_ANALYSES.FREQUENCY_SWEEP: return "Frequency Sweep";
     default: return "Unknown analysis";
   }
 }
@@ -99,6 +109,20 @@ export function getDcSweepValidationError(settings, sweepTargets = []) {
   return null;
 }
 
+export function getFrequencySweepValidationError(settings) {
+  const start = Number(settings?.start), stop = Number(settings?.stop), step = Number(settings?.step);
+  const amplitude = Number(settings?.amplitude), phase = Number(settings?.phase);
+  if (![start, stop, step, amplitude, phase].every(Number.isFinite)) return "Frequency range, amplitude and phase must be finite numbers.";
+  if (start <= 0 || stop <= 0) return "Frequency start and stop must be greater than zero.";
+  if (step === 0) return "Frequency step cannot be zero.";
+  if (start < stop && step < 0) return "Frequency step must be positive when start is below stop.";
+  if (start > stop && step > 0) return "Frequency step must be negative when start is above stop.";
+  if (amplitude < 0) return "AC amplitude must not be negative.";
+  const points = Math.floor(Math.abs(stop - start) / Math.abs(step) + 1e-12) + 1;
+  if (points > 10000) return "Frequency sweep configuration exceeds the 10,000-point limit.";
+  return null;
+}
+
 export function getTransientValidationError(settings) {
   const start = Number(settings?.start), stop = Number(settings?.stop), step = Number(settings?.step);
   if (![start, stop, step].every(Number.isFinite)) return "Start, stop and step must be finite numbers.";
@@ -122,6 +146,7 @@ export function getSimulationConfigValidationError(config, sweepTargets = []) {
   if (!Object.values(SIMULATION_ANALYSES).includes(config.analysis)) return "Select a supported simulation analysis.";
   if (config.mode === SIMULATION_MODES.LIVE && ![SIMULATION_ANALYSES.DC_OPERATING_POINT, SIMULATION_ANALYSES.AC].includes(config.analysis)) return "Live mode currently supports DC Operating Point and AC Analysis.";
   if (config.analysis === SIMULATION_ANALYSES.DC_SWEEP) return getDcSweepValidationError(config.settings, sweepTargets);
+  if (config.analysis === SIMULATION_ANALYSES.FREQUENCY_SWEEP) return getFrequencySweepValidationError(config.settings);
   if (config.analysis === SIMULATION_ANALYSES.TRANSIENT) return getTransientValidationError(config.settings);
   if (config.analysis === SIMULATION_ANALYSES.AC) return getAcValidationError(config.settings);
   return null;
