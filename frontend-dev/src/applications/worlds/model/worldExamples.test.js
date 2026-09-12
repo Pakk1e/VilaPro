@@ -56,6 +56,40 @@ test("electrical examples expose an explicit simulation preset", () => {
 });
 
 
+test("RC low-pass example exposes the canonical source, resistor and capacitor parameters", () => {
+  const example = WORLD_EXAMPLES.find((candidate) => candidate.id === "rc-low-pass");
+  assert.ok(example);
+  const graph = example.createGraph();
+  const source = graph.nodes.find((node) => node.data?.componentType === "Voltage Source");
+  const resistor = graph.nodes.find((node) => node.data?.componentType === "Resistor");
+  const capacitor = graph.nodes.find((node) => node.data?.componentType === "Capacitor");
+
+  assert.ok(source);
+  assert.ok(resistor);
+  assert.ok(capacitor);
+  assert.deepEqual(source.data.properties, {
+    waveform: "sine",
+    amplitude: 5,
+    offset: 0,
+    frequency: 1000,
+    phase: 0,
+    delay: 0,
+  });
+  assert.equal(resistor.data.properties.resistance, 1000);
+  assert.deepEqual(capacitor.data.properties, {
+    capacitance: 0.000001,
+    initialVoltage: 0,
+  });
+  assert.equal(
+    graph.edges.some(
+      (edge) => edge.source === "R1" && edge.target === "C1" && edge.sourceHandle === "n" && edge.targetHandle === "p"
+    ),
+    true
+  );
+  assert.doesNotThrow(() => buildCircuitDescription(graph.nodes, graph.edges));
+});
+
+
 test("RL transient example exposes the canonical dynamic component parameters", () => {
   const example = WORLD_EXAMPLES.find((candidate) => candidate.id === "rl-transient");
   assert.ok(example);
