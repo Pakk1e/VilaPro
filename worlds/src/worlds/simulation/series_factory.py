@@ -64,9 +64,6 @@ class SimulationSeriesFactory:
             if row is None:
                 continue
             if not isinstance(row, (list, tuple)):
-                # Component datasets are optional and historically allowed arbitrary
-                # shapes. Ignore unsupported rows rather than turning them into a
-                # hard failure for otherwise valid node/branch result series.
                 continue
             for component in row:
                 if not isinstance(component, Mapping):
@@ -99,8 +96,8 @@ class SimulationSeriesFactory:
     def _axis_name(result: SimulationResultModel) -> str:
         analysis = result.analysis_information.get("analysis")
         if analysis == "transient": return "time"
-        if analysis == "dc_sweep": return "sweep"
-        if result.datasets and result.datasets[0].name in {"time", "sweep"}: return result.datasets[0].name
+        if analysis in {"dc_sweep", "frequency_sweep"}: return "sweep" if analysis == "dc_sweep" else "frequency"
+        if result.datasets and result.datasets[0].name in {"time", "sweep", "frequency"}: return result.datasets[0].name
         raise SimulationSeriesError("Result does not expose a supported independent-variable dataset")
 
     @staticmethod
