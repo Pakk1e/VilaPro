@@ -1,11 +1,14 @@
 const WORKSPACES = [
   { id: "design", label: "Design", description: "Build and edit the circuit topology and component values." },
-  { id: "simulation", label: "Simulation", description: "Configure an analysis, run the circuit, and inspect results." },
+  { id: "simulation", label: "Simulate", description: "Configure an analysis, run the circuit, and inspect results." },
 ];
 
 export default function WorkspaceTabs({ value, onChange }) {
-  return <div data-testid="workspace-tabs" className="flex items-center gap-0 border border-[#cfd5dc] bg-white">
-    {WORKSPACES.map(workspace=>{const active=workspace.id===value;return <button key={workspace.id} type="button" onClick={()=>onChange(workspace.id)} aria-current={active?"page":undefined} className={["border-r border-[#e1e5e9] px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] last:border-r-0",active?"bg-[#eef2f6] text-[#17253a]":"bg-white text-[#69717b] hover:bg-[#f8fafc]"].join(" ")}>{workspace.label}</button>;})}
+  return <div data-testid="workspace-tabs" className="inline-flex items-center rounded-lg border border-[#d7dde3] bg-white/75 p-0.5 shadow-[0_1px_2px_rgba(24,37,58,0.035)]">
+    {WORKSPACES.map(workspace => {
+      const active = workspace.id === value;
+      return <button key={workspace.id} type="button" onClick={() => onChange(workspace.id)} aria-current={active ? "page" : undefined} className={["rounded-md px-3 py-1.5 text-[10px] font-semibold transition", active ? "bg-[#eef2f5] text-[#26384e] shadow-[0_1px_2px_rgba(24,37,58,0.06)]" : "text-[#738195] hover:bg-[#f4f6f8] hover:text-[#40536a]"].join(" ")}>{workspace.label}</button>;
+    })}
   </div>;
 }
 
