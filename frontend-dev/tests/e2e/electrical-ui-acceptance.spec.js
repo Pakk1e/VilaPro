@@ -60,7 +60,6 @@ test.describe("Electrical workspace UI rework", () => {
     await expect(componentRow).toBeVisible();
     await componentRow.click();
     await expect(page.getByRole("region", { name: "Simulation results" })).toContainText("Selected");
-    await page.getByTestId("workspace-inspector-surface").getByRole("button", { name: "Instruments" }).click().catch(() => {});
 
     const handle = page.getByTestId("instrument-resize-handle");
     const box = await handle.boundingBox();
