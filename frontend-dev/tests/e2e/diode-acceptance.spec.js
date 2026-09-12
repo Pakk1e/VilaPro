@@ -26,7 +26,7 @@ test("diode example renders and solves forward conduction", async ({ page }) => 
   await page.goto("/worlds", { waitUntil: "networkidle" });
   await page.getByTestId("world-examples").getByRole("button", { name: /Diode rectifier/ }).click();
   await expect(page.locator(".react-flow__node").filter({ hasText: "Diode 1" })).toBeVisible();
-  await expect(page.getByRole("img", { name: "Circuit schematic preview" }).locator("text").filter({ hasText: "Diode 1" })).toBeVisible();
+  await expect(page.locator('svg[aria-label="Circuit schematic preview"] text').filter({ hasText: "Diode 1" })).toBeVisible();
 
   await page.getByRole("button", { name: "Simulation" }).click();
   await expect(page.getByLabel("Analysis")).toHaveValue("dc_operating_point");
