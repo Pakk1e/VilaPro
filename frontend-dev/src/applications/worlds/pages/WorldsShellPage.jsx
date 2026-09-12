@@ -1,5 +1,6 @@
 import { useState } from "react";
 
+import ElectricalWorkspaceShell from "../components/ElectricalWorkspaceShell";
 import WorldCanvas from "../components/WorldCanvas";
 import WorkspaceTabs, { WORKSPACES } from "../components/WorkspaceTabs";
 import { DEFAULT_WORLD_CONTEXT } from "../model/worldContext";
@@ -10,28 +11,21 @@ export default function WorldsShellPage() {
     WORKSPACES.find((item) => item.id === workspace) ?? WORKSPACES[0];
 
   return (
-    <div className="h-screen w-full overflow-hidden bg-[#f6f6f4] p-4">
-      <section className="flex h-full min-h-0 flex-col overflow-hidden rounded-md border border-[#dedfdf] bg-white">
-        <div className="flex shrink-0 items-center justify-between gap-4 border-b border-[#dedfdf] px-4 py-3">
-          <div className="min-w-0">
-            <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#69717b]">
-              VilaPro World
-            </div>
-            <div className="mt-1 text-sm font-semibold text-[#17253a]">
-              {activeWorkspace.label}
-            </div>
-            <div className="mt-0.5 text-[10px] text-[#9aa0a7]">
-              {activeWorkspace.description}
-            </div>
-          </div>
-
+    <div className="h-screen w-full overflow-hidden bg-[#f3f5f7]">
+      <ElectricalWorkspaceShell>
+        <WorldCanvas workspace={workspace} worldContext={DEFAULT_WORLD_CONTEXT} />
+        <div className="absolute left-3 top-3 z-20">
           <WorkspaceTabs value={workspace} onChange={setWorkspace} />
         </div>
-
-        <div className="min-h-0 flex-1">
-          <WorldCanvas workspace={workspace} worldContext={DEFAULT_WORLD_CONTEXT} />
+        <div className="pointer-events-none absolute right-3 top-3 z-20 max-w-[260px] text-right">
+          <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#667382]">
+            {activeWorkspace.label}
+          </div>
+          <div className="mt-0.5 text-[9px] text-[#8a929c]">
+            {activeWorkspace.description}
+          </div>
         </div>
-      </section>
+      </ElectricalWorkspaceShell>
     </div>
   );
 }
