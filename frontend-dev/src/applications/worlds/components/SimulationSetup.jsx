@@ -38,16 +38,14 @@ export default function SimulationSetup({ config, onChange, sweepTargets = [], v
 
   return (
     <div className="px-4 py-4">
-      <label className="block">
-        <span className="text-[10px] font-medium text-[#69717b]">Analysis</span>
-        <select value={config.analysis} onChange={(event) => changeAnalysis(event.target.value)} className="mt-1 w-full rounded-md border border-[#d9dde2] bg-white px-2.5 py-2 text-xs text-[#26364d] outline-none focus:border-[#58718f]">
-          <option value={SIMULATION_ANALYSES.DC_OPERATING_POINT}>{getSimulationAnalysisLabel(SIMULATION_ANALYSES.DC_OPERATING_POINT)}</option>
-          <option value={SIMULATION_ANALYSES.DC_SWEEP}>{getSimulationAnalysisLabel(SIMULATION_ANALYSES.DC_SWEEP)}</option>
-          <option value={SIMULATION_ANALYSES.FREQUENCY_SWEEP}>{getSimulationAnalysisLabel(SIMULATION_ANALYSES.FREQUENCY_SWEEP)}</option>
-          <option value={SIMULATION_ANALYSES.TRANSIENT}>{getSimulationAnalysisLabel(SIMULATION_ANALYSES.TRANSIENT)}</option>
-          <option value={SIMULATION_ANALYSES.AC}>{getSimulationAnalysisLabel(SIMULATION_ANALYSES.AC)}</option>
-        </select>
-      </label>
+      <label className="block text-[10px] font-medium text-[#69717b]" htmlFor="simulation-analysis">Analysis</label>
+      <select id="simulation-analysis" value={config.analysis} onChange={(event) => changeAnalysis(event.target.value)} className="mt-1 w-full rounded-md border border-[#d9dde2] bg-white px-2.5 py-2 text-xs text-[#26364d] outline-none focus:border-[#58718f]">
+        <option value={SIMULATION_ANALYSES.DC_OPERATING_POINT}>{getSimulationAnalysisLabel(SIMULATION_ANALYSES.DC_OPERATING_POINT)}</option>
+        <option value={SIMULATION_ANALYSES.DC_SWEEP}>{getSimulationAnalysisLabel(SIMULATION_ANALYSES.DC_SWEEP)}</option>
+        <option value={SIMULATION_ANALYSES.FREQUENCY_SWEEP}>{getSimulationAnalysisLabel(SIMULATION_ANALYSES.FREQUENCY_SWEEP)}</option>
+        <option value={SIMULATION_ANALYSES.TRANSIENT}>{getSimulationAnalysisLabel(SIMULATION_ANALYSES.TRANSIENT)}</option>
+        <option value={SIMULATION_ANALYSES.AC}>{getSimulationAnalysisLabel(SIMULATION_ANALYSES.AC)}</option>
+      </select>
 
       {config.analysis === SIMULATION_ANALYSES.DC_OPERATING_POINT && <div className="mt-3 rounded-md border border-[#e4e7eb] bg-[#fafbfc] px-3 py-2.5 text-[10px] leading-4 text-[#69717b]">Calculates the steady-state node voltages and branch currents for the current circuit. Capacitors are open circuits and inductors are shorts at DC.</div>}
 
