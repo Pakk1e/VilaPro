@@ -8,10 +8,7 @@ from worlds.math import (
 )
 
 from .binding import bind_component_equations
-from .equations import (
-    EquationSystem,
-    SimulationEquation,
-)
+from .equations import EquationSystem, SimulationEquation
 from .model import SimulationModel
 from .solver import BranchCurrent
 
@@ -20,44 +17,23 @@ class NetworkError(Exception):
     pass
 
 
-def build_network_equation_system(
-    model: SimulationModel,
-) -> EquationSystem:
-    """
-    Build one global equation system for the complete simulation model.
-
-    Voltage is represented by node potentials:
-        voltage(a, b) = V(a) - V(b)
-
-    Current is a component-specific branch-current unknown. A two-terminal
-    component normally contributes one branch current; multiterminal devices
-    may expose multiple independent internal branches and their terminal KCL
-    is assembled from those branch currents.
-
-    Ground has a fixed potential of zero.
-    """
-
+def build_network_equation_system(model: SimulationModel) -> EquationSystem:
+    """Build one global electrical equation system, including multiterminal devices."""
     system = EquationSystem(equations=[])
 
     for component in model.components:
-        bound_equations = bind_component_equations(component)
-
-        for bound in bound_equations:
+        for bound in bind_component_equations(component):
             equation = bound.equation
-
             expression = Binary(
                 left=_normalize_expression(equation.left, component),
                 operator="-",
                 right=_normalize_expression(equation.right, component),
             )
-
             system.add(SimulationEquation(expression=expression))
 
     for node in sorted(model.nodes):
-        if node == "ground":
-            continue
-
-        system.add(SimulationEquation(expression=_build_kcl_equation(model, node)))
+        if node != "ground":
+            system.add(SimulationEquation(expression=_build_kcl_equation(model, node)))
 
     return system
 
@@ -65,64 +41,51 @@ def build_network_equation_system(
 def _normalize_expression(expression, component):
     if isinstance(expression, Number):
         return expression
-
     if isinstance(expression, Variable):
         return expression
-
     if isinstance(expression, FunctionCall):
         if expression.name == "voltage" and len(expression.arguments) == 2:
-            first = _normalize_node(expression.arguments[0])
-            second = _normalize_node(expression.arguments[1])
-
-            return Binary(left=first, operator="-", right=second)
-
+            return Binary(
+                left=_normalize_node(expression.arguments[0]),
+                operator="-",
+                right=_normalize_node(expression.arguments[1]),
+            )
         if expression.name == "current" and len(expression.arguments) == 2:
-            first = _normalize_current_node(expression.arguments[0])
-            second = _normalize_current_node(expression.arguments[1])
-
             return BranchCurrent(
                 name="current",
-                arguments=(first, second),
+                arguments=(_normalize_current_node(expression.arguments[0]), _normalize_current_node(expression.arguments[1])),
                 component=component.name,
             )
-
         raise NetworkError(f"Unsupported physical function: {expression.name}")
-
     if isinstance(expression, Binary):
         return Binary(
             left=_normalize_expression(expression.left, component),
             operator=expression.operator,
             right=_normalize_expression(expression.right, component),
         )
-
     raise NetworkError(f"Unsupported network expression: {expression!r}")
 
 
 def _normalize_node(expression):
     if not isinstance(expression, Variable):
         raise NetworkError(f"Expected node variable, got: {expression!r}")
-
     if expression.name == "ground":
         return Number(0.0)
-
     return Variable(f"V_{expression.name}")
 
 
 def _normalize_current_node(expression):
     if not isinstance(expression, Variable):
         raise NetworkError(f"Expected node variable, got: {expression!r}")
-
     return Variable(expression.name)
 
 
 def _build_kcl_equation(model: SimulationModel, node: str):
     terms = []
-
     for component in model.components:
-        current_branches = _component_current_branches(component)
-        for current in current_branches:
-            first_node = getattr(current.arguments[0], "name", None)
-            second_node = getattr(current.arguments[1], "name", None)
+        for current in _component_current_branches(component):
+            first_node = current.arguments[0].name
+            second_node = current.arguments[1].name
             if first_node == node:
                 terms.append(current)
             elif second_node == node:
@@ -130,31 +93,25 @@ def _build_kcl_equation(model: SimulationModel, node: str):
 
     if not terms:
         return Number(0.0)
-
     expression = terms[0]
     for term in terms[1:]:
         expression = Binary(left=expression, operator="+", right=term)
-
     return expression
 
 
 def _component_current_branches(component):
-    """Return each independent current branch exposed by a component's equations."""
     branches = []
     seen = set()
     for bound in bind_component_equations(component):
-        for current in _find_current_calls(bound.equation.left):
-            if current not in seen:
-                seen.add(current)
-                branches.append(current)
-        for current in _find_current_calls(bound.equation.right):
-            if current not in seen:
-                seen.add(current)
-                branches.append(current)
+        for expression in (bound.equation.left, bound.equation.right):
+            for current in _find_current_calls(expression, component.name):
+                if current not in seen:
+                    seen.add(current)
+                    branches.append(current)
     return branches
 
 
-def _find_current_calls(expression):
+def _find_current_calls(expression, component_name):
     if isinstance(expression, FunctionCall):
         if expression.name == "current" and len(expression.arguments) == 2:
             first, second = expression.arguments
@@ -162,10 +119,10 @@ def _find_current_calls(expression):
                 yield BranchCurrent(
                     name="current",
                     arguments=(Variable(first.name), Variable(second.name)),
-                    component=None,
+                    component=component_name,
                 )
             return
         return
     if isinstance(expression, Binary):
-        yield from _find_current_calls(expression.left)
-        yield from _find_current_calls(expression.right)
+        yield from _find_current_calls(expression.left, component_name)
+        yield from _find_current_calls(expression.right, component_name)
