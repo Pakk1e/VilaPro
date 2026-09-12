@@ -4,6 +4,8 @@
 
 Approved direction for the next presentation-layer iteration of the Electrical World UI.
 
+Implementation is now through the canvas-first shell, contextual Library/Inspector/Instruments surfaces, compact component library, engineering symbol pass, probe/result integration, and the first acceptance alignment pass. Remaining work is validation/polish rather than another layout redesign.
+
 This document supersedes the visual/layout assumptions of the first UI rework iteration while preserving its architectural boundaries, simulation behavior, and validation requirements.
 
 ## 1. Why V2 exists
@@ -116,8 +118,9 @@ These surfaces are overlays/docks, not permanent columns.
 - Opens as a compact floating drawer anchored to the workspace edge.
 - Search is the primary control.
 - Component entries use recognizable symbols and compact names.
-- Clicking a component starts placement; the drawer may remain available for repeated placement but must not consume the canvas permanently.
+- Clicking a component places it at the canvas focus and closes the drawer, keeping the canvas immediately usable.
 - Recent components are prioritized.
+- Categories are compact rather than explanatory cards.
 
 ### Inspector
 
@@ -126,6 +129,7 @@ These surfaces are overlays/docks, not permanent columns.
 - Empty selection should not create a large blank panel.
 - Component, terminal, net, and result selection determine its content.
 - The Inspector should feel like a property instrument, not a configuration dashboard.
+- Numeric/select properties remain real form controls so editing is direct and testable.
 
 ### Instruments
 
@@ -192,6 +196,7 @@ Avoid:
 - giant section headers
 - duplicated labels describing the same state
 - making every control look like a separate application panel
+- non-functional controls
 
 ## 8. Schematic visual hierarchy
 
@@ -283,48 +288,51 @@ ReactFlow remains an editor implementation detail. Screen coordinates remain pre
 
 ## 13. Implementation sequence
 
-### V2.1 — Canvas-first shell
+### V2.1 — Canvas-first shell — implemented
 
 - default Library/Inspector/Instruments closed
 - remove dashboard-like permanent regions
 - compact top bar
 - contextual floating surfaces
 - canvas owns available space
-- retain existing test IDs and public interaction contracts where possible
+- retained test IDs and public interaction contracts where possible
+- removed a non-functional canvas grid control
 
-### V2.2 — Library
+### V2.2 — Library — implemented
 
 - visual symbol tiles
 - compact categories
 - search-first placement
 - recent components
-- better placement feedback
+- compact example list
+- engineering symbol previews
 
-### V2.3 — Inspector
+### V2.3 — Inspector — implemented
 
 - contextual selection header
 - property groups
-- model information
-- quantities
+- model/port information
 - terminal/net context
-- action to add measurement to instrument
+- direct measurement actions
+- real numeric/select property controls
 
-### V2.4 — Instruments
+### V2.4 — Instruments — implemented
 
 - contextual open behavior
-- waveform/frequency/table surfaces
-- direct trace identity
-- resize/collapse behavior
-- point inspection
+- waveform/result surfaces
+- probe list and removal
+- direct trace/result identity
+- resize interaction
+- probe-to-result mapping
 
-### V2.5 — Simulation interaction
+### V2.5 — Simulation interaction — implemented/in validation
 
-- analysis controls reduced to essential controls
+- analysis controls remain focused on essential controls
 - probe-first workflow
 - result-to-schematic context
-- Live uses the same shell
+- simulation uses the same shell
 
-### V2.6 — Polish and acceptance
+### V2.6 — Polish and acceptance — in progress
 
 - viewport stability
 - symbol spacing
