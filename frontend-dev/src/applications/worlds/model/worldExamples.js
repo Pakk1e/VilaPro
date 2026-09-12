@@ -16,6 +16,10 @@ function makeNode(id, definitionKey, label, properties, x, y) {
       { id: "p", kind: "electrical", position: "left", label: "p" },
       { id: "n", kind: "electrical", position: "right", label: "n" },
     ],
+    inductor: [
+      { id: "p", kind: "electrical", position: "left", label: "p" },
+      { id: "n", kind: "electrical", position: "right", label: "n" },
+    ],
     ground: [{ id: "g", kind: "electrical", position: "top", label: "GND" }],
   };
 
@@ -24,6 +28,7 @@ function makeNode(id, definitionKey, label, properties, x, y) {
     currentSource: "Current Source",
     resistor: "Resistor",
     capacitor: "Capacitor",
+    inductor: "Inductor",
     ground: "Ground",
   };
 
@@ -104,6 +109,25 @@ export const WORLD_EXAMPLES = Object.freeze([
         makeEdge("e4", "R1", "n", "GND1", "g"),
         makeEdge("e5", "R2", "n", "GND1", "g"),
         makeEdge("e6", "V1", "n", "GND1", "g"),
+      ],
+    }),
+  }),
+  Object.freeze({
+    id: "rl-transient",
+    label: "RL transient",
+    description: "10 V source driving a resistor-inductor transient response.",
+    createGraph: () => ({
+      nodes: [
+        makeNode("V1", "voltageSource", "Voltage Source 1", { waveform: "dc", voltage: 10 }, 70, 140),
+        makeNode("R1", "resistor", "Resistor 1", { resistance: 1000 }, 290, 140),
+        makeNode("L1", "inductor", "Inductor 1", { inductance: 0.01, initialCurrent: 0 }, 500, 140),
+        makeNode("GND1", "ground", "Ground 1", {}, 390, 300),
+      ],
+      edges: [
+        makeEdge("e1", "V1", "p", "R1", "p"),
+        makeEdge("e2", "R1", "n", "L1", "p"),
+        makeEdge("e3", "L1", "n", "GND1", "g"),
+        makeEdge("e4", "V1", "n", "GND1", "g"),
       ],
     }),
   }),
