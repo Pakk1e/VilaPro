@@ -31,7 +31,8 @@ test("T-EX-RESULT — selecting a simulation result highlights its location in t
   await page.getByTestId("simulate-button").click();
   const results = await waitForResults(page);
 
-  const resistorRow = results.getByRole("button", { name: "Resistor 1" });
+  const componentSummary = results.getByRole("table", { name: "Components result summary" });
+  const resistorRow = componentSummary.getByRole("button", { name: "Resistor 1" });
   await expect(resistorRow).toBeVisible();
   await resistorRow.click();
   await expect(resistorRow).toHaveAttribute("aria-pressed", "true");
