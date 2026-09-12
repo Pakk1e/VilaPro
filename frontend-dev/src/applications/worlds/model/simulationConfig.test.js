@@ -7,6 +7,7 @@ import {
   SIMULATION_ANALYSES,
   SIMULATION_MODES,
   createSimulationConfig,
+  createSimulationConfigFromPreset,
   getAcValidationError,
   getDcSweepValidationError,
   getSimulationConfigValidationError,
@@ -25,6 +26,28 @@ test("simulation defaults to static execution", () => {
   assert.equal(config.mode, SIMULATION_MODES.STATIC);
   assert.equal(getSimulationModeLabel(config.mode), "Static");
   assert.equal(getSimulationConfigValidationError(config, []), null);
+});
+
+test("simulation presets create static configurations without mutating the preset", () => {
+  const preset = Object.freeze({
+    analysis: SIMULATION_ANALYSES.TRANSIENT,
+    settings: Object.freeze({ start: 0, stop: 0.005, step: 0.000005 }),
+  });
+  const config = createSimulationConfigFromPreset(preset);
+
+  assert.equal(config.mode, SIMULATION_MODES.STATIC);
+  assert.equal(config.analysis, SIMULATION_ANALYSES.TRANSIENT);
+  assert.deepEqual(config.settings, { start: 0, stop: 0.005, step: 0.000005 });
+  assert.notEqual(config.settings, preset.settings);
+  assert.equal(getSimulationConfigValidationError(config, []), null);
+  assert.deepEqual(preset.settings, { start: 0, stop: 0.005, step: 0.000005 });
+});
+
+test("invalid simulation preset falls back to the default configuration", () => {
+  const config = createSimulationConfigFromPreset(null);
+  assert.equal(config.mode, SIMULATION_MODES.STATIC);
+  assert.equal(config.analysis, SIMULATION_ANALYSES.DC_OPERATING_POINT);
+  assert.deepEqual(config.settings, {});
 });
 
 test("live mode supports DC operating point", () => {
