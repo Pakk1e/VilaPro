@@ -14,6 +14,10 @@ for (const name of specs) {
   text = text.replaceAll('page.getByLabel("Start", { exact: true })', 'page.getByTestId("simulation-setup").getByLabel("Start", { exact: true })');
   text = text.replaceAll('page.getByLabel("Stop", { exact: true })', 'page.getByTestId("simulation-setup").getByLabel("Stop", { exact: true })');
   text = text.replaceAll('page.getByLabel("Step", { exact: true })', 'page.getByTestId("simulation-setup").getByLabel("Step", { exact: true })');
+  text = text.replace(
+    'const sourceProperties = page.getByTestId("component-inspector").locator("select").first();',
+    'const inspectorSurface = page.getByTestId("workspace-inspector-surface"); if (!(await inspectorSurface.isVisible().catch(() => false))) await page.getByRole("button", { name: "Inspector" }).click(); const sourceProperties = page.getByTestId("component-inspector").locator("select").first();',
+  );
   if (name !== "electrical-ui-acceptance.spec.js") {
     text = text.replaceAll(
       'await page.goto("/worlds", { waitUntil: "networkidle" });',
