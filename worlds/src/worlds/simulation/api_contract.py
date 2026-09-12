@@ -9,7 +9,7 @@ from .service import SimulationResponse
 def response_to_api_payload(response: SimulationResponse) -> dict[str, Any]:
     """Build the stable public JSON contract for a completed simulation."""
     analysis = response.analysis
-    visualization = response.plot() if analysis in {"dc_sweep", "transient"} else None
+    visualization = response.plot() if analysis in {"dc_sweep", "transient", "frequency_sweep"} else None
     return {
         "ok": True,
         "analysis": analysis,
