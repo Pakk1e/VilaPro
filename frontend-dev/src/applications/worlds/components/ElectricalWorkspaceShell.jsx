@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 function SurfaceToggle({ label, active, onClick }) {
   return <button type="button" aria-pressed={active} onClick={onClick} className="inline-flex h-7 items-center border border-[#cfd5dc] bg-white px-2.5 text-[10px] font-medium text-[#4e5b6b] transition hover:border-[#9da8b5] hover:bg-[#f8fafc]">{label}</button>;
@@ -9,6 +9,17 @@ export default function ElectricalWorkspaceShell({ children, library, inspector,
   const [libraryOpen, setLibraryOpen] = useState(true);
   const [inspectorOpen, setInspectorOpen] = useState(true);
   const [instrumentOpen, setInstrumentOpen] = useState(true);
+  const [instrumentHeight, setInstrumentHeight] = useState(260);
+  const resizingRef = useRef(false);
+
+  useEffect(() => {
+    const onPointerMove = event => { if (!resizingRef.current) return; const shell = document.querySelector('[data-testid="electrical-workspace"]'); if (!shell) return; const rect = shell.getBoundingClientRect(); setInstrumentHeight(Math.min(520, Math.max(140, rect.bottom - event.clientY - 8))); };
+    const onPointerUp = () => { resizingRef.current = false; document.body.style.removeProperty("cursor"); document.body.style.removeProperty("user-select"); };
+    window.addEventListener("pointermove", onPointerMove); window.addEventListener("pointerup", onPointerUp);
+    return () => { window.removeEventListener("pointermove", onPointerMove); window.removeEventListener("pointerup", onPointerUp); };
+  }, []);
+
+  const beginResize = event => { if (!instrumentOpen || focusMode) return; event.preventDefault(); resizingRef.current = true; document.body.style.cursor = "ns-resize"; document.body.style.userSelect = "none"; };
 
   return <div data-testid="electrical-workspace" data-focus-mode={focusMode ? "true" : "false"} className="flex h-full min-h-0 flex-col bg-[#f3f5f7] text-[#17253a]">
     <header className="flex h-11 shrink-0 items-center justify-between border-b border-[#d9dde2] bg-white px-3">
@@ -21,7 +32,7 @@ export default function ElectricalWorkspaceShell({ children, library, inspector,
         <main data-testid="workspace-canvas-surface" className="relative min-w-0 flex-1 overflow-hidden">{children}</main>
         {!focusMode&&inspectorOpen&&<aside data-testid="workspace-inspector-surface" className="flex w-[280px] shrink-0 flex-col overflow-hidden border-l border-[#d9dde2] bg-[#fafbfc]">{inspector}</aside>}
       </div>
-      {!focusMode&&instrumentOpen&&<section data-testid="workspace-instrument-surface" className="h-[180px] shrink-0 overflow-hidden border-t border-[#d9dde2] bg-white">{instrument}</section>}
+      {!focusMode&&instrumentOpen&&<><div data-testid="instrument-resize-handle" role="separator" aria-label="Resize instrument panel" aria-orientation="horizontal" onPointerDown={beginResize} className="h-1.5 shrink-0 cursor-ns-resize border-t border-[#d9dde2] bg-[#f4f6f8] hover:bg-[#e9edf1]"/><section data-testid="workspace-instrument-surface" style={{height:instrumentHeight}} className="shrink-0 overflow-hidden bg-white">{instrument}</section></>}
     </div></div>
   </div>;
 }
