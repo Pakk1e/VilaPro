@@ -49,6 +49,15 @@ export function createSimulationConfig(overrides = {}) {
   };
 }
 
+export function createSimulationConfigFromPreset(preset) {
+  if (!preset || typeof preset.analysis !== "string") return createSimulationConfig();
+  return createSimulationConfig({
+    mode: SIMULATION_MODES.STATIC,
+    analysis: preset.analysis,
+    settings: preset.settings ?? {},
+  });
+}
+
 export function getSimulationModeLabel(mode) {
   switch (mode) {
     case SIMULATION_MODES.STATIC: return "Static";
