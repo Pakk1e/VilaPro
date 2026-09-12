@@ -24,7 +24,6 @@ class SimulationServiceError(Exception):
 
 @dataclass(frozen=True)
 class SimulationResponse:
-    """Application response with a generic result envelope and legacy fields."""
     analysis: str
     status: str
     node_voltages: dict[str, float]
@@ -33,11 +32,9 @@ class SimulationResponse:
     result: SimulationResultModel
 
     def plot(self, *, plot_id: str = "simulation-result", title: str | None = None, series_ids: tuple[str, ...] | None = None) -> dict[str, object]:
-        """Return a frontend-ready representation of the selected result plot."""
         return plot_to_visualization(self.result.to_plot(plot_id=plot_id, title=title, series_ids=series_ids))
 
     def plots(self, *, plot_ids: tuple[str, ...] = ("voltage", "current")) -> dict[str, object]:
-        """Return standard voltage/current plots for frontend consumption."""
         from worlds.simulation.plot_presets import voltage_plot, current_plot
         builders = {"voltage": voltage_plot, "current": current_plot}
         plots = tuple(builders[plot_id](self.result, plot_id=plot_id) for plot_id in plot_ids)
@@ -134,38 +131,30 @@ class SimulationService:
 
     @staticmethod
     def _build_ac_point_response(ac_result: ACResult, model):
-        """Translate the string-keyed AC solver result into magnitude summaries."""
         raw_values = {str(key): complex(value) for key, value in ac_result.values.items()}
         node_voltages = {}
         for key, value in raw_values.items():
             match = re.fullmatch(r"Variable\(name=['\"]V_(.+?)['\"]\)", key)
-            if match:
-                node_voltages[match.group(1)] = abs(value)
-
+            if match: node_voltages[match.group(1)] = abs(value)
         branch_currents = {}
         component_currents = {}
         branch_pattern = re.compile(r"BranchCurrent\(name=['\"]current['\"], arguments=\(Variable\(name=['\"](.+?)['\"]\), Variable\(name=['\"](.+?)['\"]\)\), component=['\"](.+?)['\"]\)")
         for key, value in raw_values.items():
             match = branch_pattern.fullmatch(key)
-            if not match:
-                continue
+            if not match: continue
             first_node, second_node, component_name = match.groups()
             branch_currents[f"{first_node}->{second_node}"] = abs(value)
             component_currents.setdefault(component_name, []).append((first_node, second_node, value))
-
         components = []
         for component in model.components:
             p_node, n_node = component.ports.get("p"), component.ports.get("n")
-            if p_node is None or n_node is None:
-                continue
+            if p_node is None or n_node is None: continue
             p_voltage = 0j if p_node == "ground" else next((value for key, value in raw_values.items() if key == f"Variable(name='V_{p_node}')"), None)
             n_voltage = 0j if n_node == "ground" else next((value for key, value in raw_values.items() if key == f"Variable(name='V_{n_node}')"), None)
-            if p_voltage is None or n_voltage is None:
-                continue
+            if p_voltage is None or n_voltage is None: continue
             current_matches = component_currents.get(component.name, [])
             current = next((value for first, second, value in current_matches if first == p_node and second == n_node), None)
-            if current is None:
-                current = next((-value for first, second, value in current_matches if first == n_node and second == p_node), None)
+            if current is None: current = next((-value for first, second, value in current_matches if first == n_node and second == p_node), None)
             components.append({"id": component.component_id, "name": component.display_name, "type": component.component_type, "voltage": abs(p_voltage - n_voltage), "current": abs(current) if current is not None else None})
         return _LegacySimulationResponse(node_voltages, branch_currents, components)
 
@@ -201,6 +190,23 @@ class SimulationService:
     def _build_response(result):
         components=[]
         for name,component in result.instances.items():
+            if component.component_type == "NPNTransistor":
+                ports=component.ports
+                base, collector, emitter = ports.get("b"), ports.get("c"), ports.get("e")
+                if not base or not collector or not emitter: raise SimulationServiceError(f"NPN transistor '{component.display_name}' must have b/c/e ports")
+                vbe=result.node_voltage(base)-result.node_voltage(emitter)
+                vce=result.node_voltage(collector)-result.node_voltage(emitter)
+                ib=result.component_current(name,base,emitter)
+                ic=result.component_current(name,collector,emitter)
+                ie=ib+ic
+                beta=float(component.parameters.get("Beta",0.0))
+                vbe_on=float(component.parameters.get("Vbe",0.0))
+                vce_sat=float(component.parameters.get("VceSat",0.0))
+                if ib <= 1e-12 or vbe < vbe_on-1e-9: region="cutoff"
+                elif vce <= vce_sat+1e-9: region="saturation"
+                else: region="active"
+                components.append({"id":component.component_id,"name":component.display_name,"type":component.component_type,"voltage":vce,"current":ic,"power":vce*ic,"vbe":vbe,"vce":vce,"baseCurrent":ib,"collectorCurrent":ic,"emitterCurrent":ie,"beta":beta,"region":region})
+                continue
             ports=component.ports
             if "p" not in ports or "n" not in ports: raise SimulationServiceError(f"Component '{component.display_name}' is not a two-terminal component")
             voltage=result.node_voltage(ports["p"])-result.node_voltage(ports["n"])
