@@ -9,6 +9,12 @@ for (const name of specs) {
   let text = fs.readFileSync(file, "utf8");
   text = text.replaceAll('page.getByRole("button", { name: /Simulate/ })', 'page.getByTestId("simulate-button")');
   text = text.replaceAll('page.getByRole("button", { name: "Start Live" })', 'page.getByTestId("simulate-button")');
+  if (name !== "electrical-ui-acceptance.spec.js") {
+    text = text.replaceAll(
+      'await page.goto("/worlds", { waitUntil: "networkidle" });',
+      'await page.goto("/worlds", { waitUntil: "networkidle" }); await page.getByRole("button", { name: "Library" }).click();',
+    );
+  }
   fs.writeFileSync(file, text);
 }
 
