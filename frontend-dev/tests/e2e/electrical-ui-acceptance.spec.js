@@ -11,7 +11,6 @@ test.describe("Electrical workspace UI rework", () => {
   test("contextual surfaces, library, inspector and instrument panel are wired to the workspace", async ({ page }) => {
     const errors = browserErrors(page);
     await page.goto("/worlds", { waitUntil: "networkidle" });
-
     await expect(page.getByTestId("electrical-workspace")).toBeVisible();
     await expect(page.getByTestId("workspace-library-surface")).toBeVisible();
     await expect(page.getByTestId("workspace-canvas-surface")).toBeVisible();
@@ -25,7 +24,6 @@ test.describe("Electrical workspace UI rework", () => {
     await expect(page.getByTestId("component-palette").getByRole("button", { name: /NMOS Add to canvas/ })).toBeVisible();
     await expect(page.getByTestId("component-palette").getByRole("button", { name: /Resistor Add to canvas/ })).toHaveCount(0);
     await page.getByTestId("component-palette").getByRole("button", { name: /NMOS Add to canvas/ }).click();
-
     const nmos = page.locator(".react-flow__node").filter({ hasText: "NMOS 1" });
     await expect(nmos).toBeVisible();
     await expect(page.getByTestId("workspace-inspector")).toContainText("NMOS 1");
@@ -34,9 +32,12 @@ test.describe("Electrical workspace UI rework", () => {
     await expect(terminalHandle).toBeVisible();
     await terminalHandle.click({ force: true });
     await expect(page.getByTestId("workspace-inspector")).toContainText("Terminal");
-    await expect(page.getByTestId("workspace-inspector")).toContainText("Port");
-    await expect(page.getByTestId("workspace-inspector")).toContainText("Kind");
-    await page.getByRole("button", { name: "Voltage" }).click();
+    await expect(page.getByTestId("workspace-inspector")).toContainText("Probe");
+    await page.getByTestId("workspace-inspector").getByRole("button", { name: "Voltage" }).click();
+    await expect(page.getByTestId("instrument-probes")).toContainText("NMOS 1");
+    await expect(page.getByTestId("instrument-probes")).toContainText("voltage");
+    await page.getByTestId("instrument-probes").getByRole("button", { name: /Remove NMOS 1 voltage probe/ }).click();
+    await expect(page.getByTestId("instrument-probes")).toHaveCount(0);
 
     await page.getByLabel("Search components").fill("");
     const divider = page.getByTestId("world-examples").getByRole("button", { name: /Voltage divider/ });
@@ -50,8 +51,6 @@ test.describe("Electrical workspace UI rework", () => {
     await expect(page.getByTestId("simulation-setup")).toBeVisible();
     await expect(page.getByTestId("worlds-canvas").locator(".react-flow")).toHaveCSS("opacity", "0");
     await expect(page.getByTestId("workspace-canvas-surface")).toContainText("Simulation");
-    await expect(page.getByTestId("instrument-probes")).toContainText("NMOS 1");
-    await expect(page.getByTestId("instrument-probes")).toContainText("voltage");
 
     const handle = page.getByTestId("instrument-resize-handle");
     const box = await handle.boundingBox();
@@ -68,7 +67,6 @@ test.describe("Electrical workspace UI rework", () => {
     await expect(page.getByTestId("workspace-library-surface")).toHaveCount(0);
     await expect(page.getByTestId("workspace-inspector-surface")).toHaveCount(0);
     await expect(page.getByTestId("workspace-instrument-surface")).toHaveCount(0);
-
     expect(errors).toEqual([]);
   });
 });
