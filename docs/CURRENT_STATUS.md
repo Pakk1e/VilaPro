@@ -10,7 +10,7 @@ Lab OS is a learning-focused interactive sandbox. The current implementation is 
 
 The long-term architecture supports multiple Worlds and multiple meaningful abstraction Layers. A future Layer may replace the current UI entirely and may use an independent simulation model.
 
-The current frontend is now planned for a deliberate UI rework. The rework is a presentation/interaction replacement, not a replacement of the World Graph, serializer, simulation backend, or simulation transport. The target direction is documented in `docs/UI_REWORK.md`.
+The current frontend is now planned for a deliberate UI rework. The rework is a presentation/interaction replacement, not a replacement of the World Graph, serializer, simulation backend, or simulation transport. The target direction is documented in `docs/UI_REWORK.md` and the current visual iteration in `docs/UI_REWORK_V2.md`.
 
 ## Established engineering foundation
 
@@ -56,24 +56,24 @@ A CMOS inverter is now a real editable example built from one PMOS and one NMOS 
 
 ## UI rework direction
 
-The Electrical frontend will be rebuilt around a schematic-first workbench inspired by useful patterns from EveryCircuit, KiCad, LTspice, CircuitLab, and Falstad/CircuitJS.
+The Electrical frontend is being rebuilt around a schematic-first workbench informed by EveryCircuit, KiCad, LTspice, CircuitLab, Falstad/CircuitJS, Multisim Live, EasyEDA, Qucs-S, Altium, and Tinkercad Circuits.
 
-The target workspace has four contextual surfaces:
+The first UI rework established four contextual surfaces:
 
 1. Component Library
 2. Schematic Canvas
 3. Inspector
 4. Instrument Panel
 
-The canvas is the dominant surface. Library, Inspector, and Instruments are collapsible/resizable and a focus mode can maximize the schematic.
+The V2 visual direction now explicitly rejects a dashboard composition in which these surfaces permanently occupy equal-weight regions. The schematic must own the screen; secondary tools orbit it and appear contextually.
 
-The core interaction model is probe/context driven: selecting a component, terminal, wire/net, or result should expose the relevant information rather than forcing the user to navigate generic configuration panels. Simulation analysis controls should be contextual to the selected analysis. Results should remain in the Instrument Panel instead of replacing the schematic.
+The V2 target is documented in `docs/UI_REWORK_V2.md`. Its central principle is: **the circuit owns the screen; tools orbit the circuit.** The default workspace should already feel close to focus mode. Library, Inspector, and Instruments should be closed when they have no immediate purpose, with compact contextual overlays/docks when opened.
+
+The target interaction model remains probe/context driven: selecting a component, terminal, wire/net, or result exposes relevant information. Build and Simulate remain distinct workspace modes while sharing the same shell. Results remain in contextual instruments rather than replacing the schematic.
 
 The schematic must remain clean. Persistent voltage/current boxes and current-direction arrows are explicitly excluded from the target UI. Live mode may provide restrained visual feedback, while measurement remains primarily an instrument/inspection concern.
 
 The target visual language is technical, calm, and restrained rather than card-heavy or dashboard-like. Stable viewport behavior is a requirement: placing/editing components must not unexpectedly zoom or move the circuit; fit-to-content is an explicit action.
-
-The detailed implementation plan, interaction rules, migration phases, validation strategy, and non-goals are documented in `docs/UI_REWORK.md`.
 
 ## Important architectural rules
 
@@ -107,9 +107,9 @@ The detailed implementation plan, interaction rules, migration phases, validatio
 
 ## Immediate engineering priority
 
-The next major frontend work should follow `docs/UI_REWORK.md` rather than adding more UI to the old panel structure. The intended sequence is: new workspace shell, schematic editor presentation, contextual Inspector, contextual simulation controls, Instrument Panel, Live integration, examples entry point, and finally removal of obsolete UI.
+Continue `docs/UI_REWORK_V2.md` as the active frontend presentation direction. Do not merely polish the first dashboard-like composition. The next work should make the canvas-first experience the normal state: compact top bar, large schematic, contextual Library, contextual Inspector, and contextual Instruments.
 
-The dedicated branch `v0.4/electrical-ui-rework` now contains the first implementation stages: the new shell, searchable Component Library, contextual Inspector, graph-to-workspace state bridge, and Simulation/Instrument Panel. The Instrument Panel is mounted outside the schematic canvas and has a user-resizable bottom surface. The existing World Graph remains inside `WorldCanvas`; the page receives only a derived workspace snapshot for the simulation surface.
+The dedicated branch `v0.4/electrical-ui-rework` contains the first implementation stages: the workspace shell, searchable Component Library, contextual Inspector, graph-to-workspace state bridge, schematic symbols, Simulation/Instrument Panel, probe mapping, focus mode, and acceptance coverage. The current shell has been reframed so secondary surfaces are closed by default and overlay the canvas only when requested.
 
 Simulation-model work should continue independently when concrete electrical examples require it, including future semiconductor behavior and small-signal representations.
 
@@ -123,20 +123,20 @@ The live schematic preview no longer overlays persistent live voltage/current bo
 
 The deployed Worlds acceptance workflow executes every `*acceptance.spec.js` file, so dedicated example and result-selection/inspection acceptance specs are included in exact-deployed-revision validation. The current acceptance suite includes the diode, NPN/PNP BJT, NMOS/PMOS, and CMOS inverter examples in addition to the established DC, transient, AC, sweep, live, and result-selection coverage. The UI rework branch also adds a focused Electrical workspace acceptance spec covering contextual surfaces, component search/add, Inspector wiring, instrument-panel migration, resizing, and focus mode.
 
-The latest branch CI run for the UI rework passes the full frontend lint/test/build pipeline and the backend suite. The branch has not been deployed to Worlds DEV because the deployment workflow intentionally auto-deploys only `v0.4/workspace-architecture`; deployment of this isolated UI branch requires an explicit deployment workflow dispatch.
+The branch CI validates the frontend lint/test/build pipeline and backend suite. DEV deployment is available through the dedicated `v0.4/dev-deploy` ref, allowing an exact tested UI-rework SHA to be deployed without deploying every development commit. The deployed revision must still pass the complete relevant browser acceptance suite before a milestone is declared successful.
 
 ## Latest handoff point
 
-The latest validated application revision before the UI rework is `606b7becd297866521919cb47b0cea9970a7f0ad`; its complete deployed browser acceptance suite passed 23/23 tests. The current UI rework branch has additional frontend-only changes validated by CI, but those changes are not yet an exact-deployed-revision acceptance result.
+The latest validated application revision before the UI rework is `606b7becd297866521919cb47b0cea9970a7f0ad`; its complete deployed browser acceptance suite passed 23/23 tests. The current UI rework branch has additional frontend-only changes validated by CI and has a dedicated deployment ref for exact-deployed-revision acceptance.
 
-The current branch contains the approved Electrical UI rework specification in `docs/UI_REWORK.md` and the first implementation stages described above. Continue the migration from the instrument/context surfaces into the schematic presentation, then remove obsolete simulation/editor UI only after equivalent acceptance coverage exists.
+The current branch contains the approved Electrical UI rework specification in `docs/UI_REWORK.md`, the V2 visual direction in `docs/UI_REWORK_V2.md`, and the first implementation stages described above. Continue the migration toward the canvas-first workbench, then remove obsolete simulation/editor UI only after equivalent acceptance coverage exists.
 
 ## Future-session handoff
 
 A new engineering session should begin by:
 
 1. reading this document and the canonical vision/architecture documents
-2. reading `docs/UI_REWORK.md` before changing Electrical frontend structure
+2. reading `docs/UI_REWORK.md` and `docs/UI_REWORK_V2.md` before changing Electrical frontend structure
 3. inspecting the current branch and recent commits
 4. verifying the final CI/deployment state for the latest revision before making assumptions
 5. checking existing tests before changing behavior
