@@ -131,4 +131,25 @@ export const WORLD_EXAMPLES = Object.freeze([
       ],
     }),
   }),
+  Object.freeze({
+    id: "rlc-transient",
+    label: "RLC transient",
+    description: "10 V source driving a resistor-inductor-capacitor transient response.",
+    createGraph: () => ({
+      nodes: [
+        makeNode("V1", "voltageSource", "Voltage Source 1", { waveform: "dc", voltage: 10 }, 50, 140),
+        makeNode("R1", "resistor", "Resistor 1", { resistance: 100 }, 240, 140),
+        makeNode("L1", "inductor", "Inductor 1", { inductance: 0.01, initialCurrent: 0 }, 430, 140),
+        makeNode("C1", "capacitor", "Capacitor 1", { capacitance: 0.000001, initialVoltage: 0 }, 620, 140),
+        makeNode("GND1", "ground", "Ground 1", {}, 330, 300),
+      ],
+      edges: [
+        makeEdge("e1", "V1", "p", "R1", "p"),
+        makeEdge("e2", "R1", "n", "L1", "p"),
+        makeEdge("e3", "L1", "n", "C1", "p"),
+        makeEdge("e4", "C1", "n", "GND1", "g"),
+        makeEdge("e5", "V1", "n", "GND1", "g"),
+      ],
+    }),
+  }),
 ]);
