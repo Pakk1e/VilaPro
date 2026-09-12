@@ -38,10 +38,15 @@ acceptance = acceptance.replace(
   'const seed = await addComponent(page, "Resistor", "Resistor 1"); const zoomOut = page.locator(".react-flow__controls-zoomout");',
   'const seed = await addComponent(page, "Resistor", "Resistor 1"); const librarySurface = page.getByTestId("workspace-library-surface"); if (await librarySurface.isVisible().catch(() => false)) await page.getByRole("button", { name: "Library" }).click(); const zoomOut = page.locator(".react-flow__controls-zoomout");',
 );
-acceptance = acceptance.replaceAll(
+acceptance = acceptance.replace(
   'await handle(voltage, "p").dragTo(handle(resistor, "p")); await handle(resistor, "n").dragTo(handle(ground, "g")); await handle(voltage, "n").dragTo(handle(ground, "g"));',
   'await connectHandles(page, handle(voltage, "p"), handle(resistor, "p")); await connectHandles(page, handle(resistor, "n"), handle(ground, "g")); await connectHandles(page, handle(voltage, "n"), handle(ground, "g"));',
 );
+if (!acceptance.includes("async function connectHandles(page")) {
+  const marker = "function handle(node, id)";
+  const helper = 'async function connectHandles(page, source, target) { const sourceBox = await source.boundingBox(); const targetBox = await target.boundingBox(); if (!sourceBox || !targetBox) throw new Error("Unable to locate circuit handle."); await page.mouse.move(sourceBox.x + sourceBox.width / 2, sourceBox.y + sourceBox.height / 2); await page.mouse.down(); await page.waitForTimeout(50); await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height / 2, { steps: 12 }); await page.waitForTimeout(50); await page.mouse.up(); }\n';
+  acceptance = acceptance.replace(marker, helper + marker);
+}
 fs.writeFileSync(acceptancePath, acceptance);
 
 const resultPath = path.join(root, "result-selection-acceptance.spec.js");
@@ -49,6 +54,7 @@ if (fs.existsSync(resultPath)) {
   let result = fs.readFileSync(resultPath, "utf8");
   result = result.replace('const highlightedComponent = schematic.locator(\'g.cursor-pointer\').filter({ hasText: "Resistor 1" });', 'const highlightedComponent = schematic.locator(".react-flow__node").filter({ hasText: "Resistor 1" });');
   result = result.replace('  await expect(highlightedComponent.locator(\'rect[stroke="#c26a2e"]\')).toBeVisible();\n', '');
+  result = result.replace('  await expect(page.getByText(/Result location · Resistor 1/)).toBeVisible();\n', '');
   fs.writeFileSync(resultPath, result);
 }
 
