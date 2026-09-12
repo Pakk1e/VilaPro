@@ -6,10 +6,10 @@ import { validateWorldGraphSchema } from "./worldGraphSchema.js";
 import { buildCircuitDescription } from "./worldGraphSerializer.js";
 
 test("electrical examples expose stable, complete graphs", () => {
-  assert.deepEqual(WORLD_EXAMPLES.map((example) => example.id), ["voltage-divider", "rc-low-pass", "parallel-resistors", "rl-transient", "rlc-transient", "diode-rectifier"]);
+  assert.deepEqual(WORLD_EXAMPLES.map((example) => example.id), ["voltage-divider", "rc-low-pass", "parallel-resistors", "rl-transient", "rlc-transient", "diode-rectifier", "npn-bias"]);
   for (const example of WORLD_EXAMPLES) {
     const graph = example.createGraph();
-    assert.equal(validateWorldGraphSchema(graph.nodes, graph.edges), true);
+    assert.deepEqual(validateWorldGraphSchema(graph.nodes, graph.edges), true);
     assert.ok(graph.nodes.length > 0);
     assert.ok(graph.edges.length > 0);
     assert.equal(graph.nodes.filter((node) => node.data?.componentType === "Ground").length, 1);
@@ -34,6 +34,7 @@ test("electrical examples expose an explicit simulation preset", () => {
     { id: "rl-transient", analysis: "transient", settings: { start: 0, stop: 0.00005, step: 0.0000001 } },
     { id: "rlc-transient", analysis: "transient", settings: { start: 0, stop: 0.005, step: 0.000005 } },
     { id: "diode-rectifier", analysis: "dc_operating_point", settings: {} },
+    { id: "npn-bias", analysis: "dc_operating_point", settings: {} },
   ]);
   for (const example of WORLD_EXAMPLES) {
     assert.ok(Object.isFrozen(example.simulationPreset));
@@ -89,4 +90,21 @@ test("diode rectifier example exposes forward voltage and on resistance", () => 
   assert.deepEqual(diode.data.properties, { forwardVoltage: 0.7, onResistance: 1 });
   assert.equal(graph.edges.some((edge) => edge.source === "R1" && edge.target === "D1" && edge.sourceHandle === "n" && edge.targetHandle === "p"), true);
   assert.doesNotThrow(() => buildCircuitDescription(graph.nodes, graph.edges));
+});
+
+test("NPN transistor example exposes three terminals and bias parameters", () => {
+  const example = WORLD_EXAMPLES.find((candidate) => candidate.id === "npn-bias");
+  assert.ok(example);
+  const graph = example.createGraph();
+  const transistor = graph.nodes.find((node) => node.data?.componentType === "NPN Transistor");
+  assert.ok(transistor);
+  assert.deepEqual(transistor.data.properties, { vbeOn: 0.7, vceSat: 0.2, beta: 100 });
+  assert.deepEqual(transistor.data.ports.map((port) => port.id), ["b", "c", "e"]);
+  assert.equal(graph.edges.filter((edge) => edge.source === "Q1" || edge.target === "Q1").length, 3);
+  const description = buildCircuitDescription(graph.nodes, graph.edges);
+  const instance = description.instances.find((item) => item.id === "Q1");
+  assert.ok(instance);
+  assert.equal(instance.type, "NPNTransistor");
+  assert.deepEqual(instance.ports, { b: "node_3", c: "node_2", e: "ground" });
+  assert.deepEqual(instance.parameters, { Vbe: 0.7, VceSat: 0.2, Beta: 100 });
 });
