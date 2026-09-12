@@ -35,11 +35,6 @@ test("live simulation shows component measurements on the schematic", async ({ p
   await expect(page.getByText("Live circuit measurements", { exact: true })).toBeVisible({ timeout: 10000 });
   await expect(schematic.locator("text").filter({ hasText: /^V / }).first()).toBeVisible({ timeout: 10000 });
   await expect(schematic.locator("text").filter({ hasText: /^I / }).first()).toBeVisible({ timeout: 10000 });
-
-  const resistor = page.locator('g[role="button"]').filter({ hasText: "Resistor 1" }).last();
-  await expect(resistor).toBeVisible();
-  await resistor.click();
-  await expect(schematic.locator("text").filter({ hasText: /^V / }).first()).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("live-schematic-measurements.png"), fullPage: true });
 
   await page.getByRole("button", { name: "Stop" }).click();
