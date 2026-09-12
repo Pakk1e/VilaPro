@@ -1,1 +1,0 @@
-V2 implementation continues: schematic-first, contextual tools, canvas-dominant.
