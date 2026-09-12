@@ -58,4 +58,5 @@ if (fs.existsSync(uiPath)) {
 }
 
 // Keep this adapter intentionally test-only: production workspace remains canvas-first.
+// Deployment validation trigger commit; no production behavior is changed here.
 console.log(`Prepared ${specs.length} acceptance spec files for the schematic-first workspace.`);
