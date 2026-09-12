@@ -37,6 +37,25 @@ test("electrical examples create independent graph instances", () => {
 });
 
 
+test("electrical examples expose an explicit simulation preset", () => {
+  assert.deepEqual(
+    WORLD_EXAMPLES.map((example) => ({ id: example.id, ...example.simulationPreset })),
+    [
+      { id: "voltage-divider", analysis: "dc_operating_point", settings: {} },
+      { id: "rc-low-pass", analysis: "transient", settings: { start: 0, stop: 0.005, step: 0.00001 } },
+      { id: "parallel-resistors", analysis: "dc_operating_point", settings: {} },
+      { id: "rl-transient", analysis: "transient", settings: { start: 0, stop: 0.00005, step: 0.0000001 } },
+      { id: "rlc-transient", analysis: "transient", settings: { start: 0, stop: 0.005, step: 0.000005 } },
+    ]
+  );
+
+  for (const example of WORLD_EXAMPLES) {
+    assert.ok(Object.isFrozen(example.simulationPreset));
+    assert.ok(Object.isFrozen(example.simulationPreset.settings));
+  }
+});
+
+
 test("RL transient example exposes the canonical dynamic component parameters", () => {
   const example = WORLD_EXAMPLES.find((candidate) => candidate.id === "rl-transient");
   assert.ok(example);
