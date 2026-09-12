@@ -105,8 +105,6 @@ world Electronics {
         }
         representation switch {
             equation:
-                current(g, s) = 0;
-            equation:
                 voltage(d, s) = current(d, s) * RdsOn;
         }
     }
@@ -120,8 +118,6 @@ world Electronics {
             s : ElectricalNode;
         }
         representation switch {
-            equation:
-                current(g, s) = 0;
             equation:
                 voltage(s, d) = current(s, d) * RdsOn;
         }
