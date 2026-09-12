@@ -23,6 +23,18 @@ export const worldDefinitions = {
     properties: { vbeOn: { type: "number", label: "VEB on", unit: "V", defaultValue: 0.7, min: 0 }, vceSat: { type: "number", label: "VEC saturation", unit: "V", defaultValue: 0.2, min: 0 }, beta: { type: "number", label: "DC beta", unit: "", defaultValue: 100, min: 0 } },
     simulationParameters: [{ property: "vbeOn", parameter: "Vbe", label: "VEB on", unit: "V" }, { property: "vceSat", parameter: "VceSat", label: "VEC saturation", unit: "V" }, { property: "beta", parameter: "Beta", label: "DC beta", unit: "" }],
   },
+  nmos: {
+    type: "NMOS", description: "Enhancement MOSFET used as a voltage-controlled switch", category: "Electrical",
+    ports: [{ id: "g", kind: "electrical", position: "left", label: "G" }, { id: "d", kind: "electrical", position: "top", label: "D" }, { id: "s", kind: "electrical", position: "bottom", label: "S" }],
+    properties: { thresholdVoltage: { type: "number", label: "Threshold voltage", unit: "V", defaultValue: 1, min: 0 }, onResistance: { type: "number", label: "RDS(on)", unit: "Ω", defaultValue: 10, min: 0 } },
+    simulationParameters: [{ property: "thresholdVoltage", parameter: "Vth", label: "Threshold voltage", unit: "V" }, { property: "onResistance", parameter: "RdsOn", label: "RDS(on)", unit: "Ω" }],
+  },
+  pmos: {
+    type: "PMOS", description: "Enhancement MOSFET used as a voltage-controlled high-side switch", category: "Electrical",
+    ports: [{ id: "g", kind: "electrical", position: "left", label: "G" }, { id: "d", kind: "electrical", position: "top", label: "D" }, { id: "s", kind: "electrical", position: "bottom", label: "S" }],
+    properties: { thresholdVoltage: { type: "number", label: "Threshold voltage", unit: "V", defaultValue: 1, min: 0 }, onResistance: { type: "number", label: "RDS(on)", unit: "Ω", defaultValue: 10, min: 0 } },
+    simulationParameters: [{ property: "thresholdVoltage", parameter: "Vth", label: "Threshold voltage", unit: "V" }, { property: "onResistance", parameter: "RdsOn", label: "RDS(on)", unit: "Ω" }],
+  },
   capacitor: {
     type: "Capacitor", description: "Electrical capacitance", category: "Electrical",
     ports: [{ id: "p", kind: "electrical", position: "left", label: "p" }, { id: "n", kind: "electrical", position: "right", label: "n" }],
@@ -33,7 +45,7 @@ export const worldDefinitions = {
     type: "Inductor", description: "Electrical inductance", category: "Electrical",
     ports: [{ id: "p", kind: "electrical", position: "left", label: "p" }, { id: "n", kind: "electrical", position: "right", label: "n" }],
     properties: { inductance: { type: "number", label: "Inductance", unit: "H", defaultValue: 0.01 }, initialCurrent: { type: "number", label: "Initial current", unit: "A", defaultValue: 0 } },
-    simulationParameters: [{ property: "inductance", parameter: "L", label: "Inductance", unit: "H" }, { property: "initialCurrent", parameter: "initial_current", label: "Initial current", unit: "A" }],
+    simulationParameters: [{ property: "inductance", parameter: "L" }, { property: "initialCurrent", parameter: "initial_current", label: "Initial current", unit: "A" }],
   },
   voltageSource: {
     type: "Voltage Source", description: "Ideal electrical voltage source", category: "Electrical",
