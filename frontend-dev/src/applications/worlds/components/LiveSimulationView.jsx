@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { formatEngineeringTick, getEngineeringScale } from "../model/engineeringFormat.js";
+import { getLiveSimulationRate, interpolateLiveSimulationTime } from "../model/liveSimulationTiming.js";
 
 const WINDOW_PRESETS = [
   { value: 0.000001, label: "1 µs" }, { value: 0.000002, label: "2 µs" }, { value: 0.000005, label: "5 µs" }, { value: 0.00001, label: "10 µs" }, { value: 0.00005, label: "50 µs" }, { value: 0.0001, label: "100 µs" }, { value: 0.0005, label: "500 µs" }, { value: 0.001, label: "1 ms" }, { value: 0.005, label: "5 ms" }, { value: 0.05, label: "50 ms" }, { value: 0.5, label: "500 ms" }, { value: 1, label: "1 s" }, { value: 10, label: "10 s" },
@@ -23,10 +24,46 @@ export default function LiveSimulationView({ snapshot, history = [], selectedCom
   const signalNames = useMemo(() => Object.keys(snapshot?.signals ?? {}).filter((name) => name !== "__live.time_s" && name !== "__live.frequency_hz"), [snapshot]);
   const defaultSignals = useMemo(() => { const instantaneous = signalNames.filter(isAcInstantaneous).slice(0, 2); return instantaneous.length ? instantaneous : signalNames.slice(0, 2); }, [signalNames]);
   const contextSignals = useMemo(() => { if (!selectedComponentLabel) return []; const matches = signalNames.filter((name) => signalLabel(name).toLowerCase().includes(String(selectedComponentLabel).toLowerCase())); const instantaneous = matches.filter(isAcInstantaneous); return (instantaneous.length ? instantaneous : matches).slice(0, 2); }, [selectedComponentLabel, signalNames]);
-  const frequency = Number(snapshot?.signals?.["__live.frequency_hz"]); const snapshotTime = Number(snapshot?.signals?.["__live.time_s"]); const baseTimeRef = useRef(snapshotTime); const baseWallClockRef = useRef(0);
+  const frequency = Number(snapshot?.signals?.["__live.frequency_hz"]); const snapshotTime = Number(snapshot?.signals?.["__live.time_s"]); const previousSnapshotRef = useRef(null); const timingAnchorRef = useRef({ simulationTime: snapshotTime, wallTime: 0 }); const simulationRateRef = useRef(null);
   const [selectedSignals, setSelectedSignals] = useState(null); const [windowSeconds, setWindowSeconds] = useState(0.05); const [windowCustomized, setWindowCustomized] = useState(false); const [displayTime, setDisplayTime] = useState(snapshotTime);
   const effectiveWindowSeconds = windowCustomized ? windowSeconds : chooseDefaultWindow(frequency);
-  useEffect(() => { if (!Number.isFinite(snapshotTime)) return undefined; baseTimeRef.current = snapshotTime; baseWallClockRef.current = performance.now(); if (snapshot?.status !== "running") return undefined; let frameId; const tick = () => { const elapsed = (performance.now() - baseWallClockRef.current) / 1000; setDisplayTime(baseTimeRef.current + elapsed); frameId = requestAnimationFrame(tick); }; frameId = requestAnimationFrame(tick); return () => cancelAnimationFrame(frameId); }, [snapshotTime, snapshot?.status]);
+  useEffect(() => {
+    if (!Number.isFinite(snapshotTime)) return undefined;
+    const wallTime = performance.now();
+    if (snapshot?.status !== "running") {
+      previousSnapshotRef.current = null;
+      simulationRateRef.current = null;
+      timingAnchorRef.current = { simulationTime: snapshotTime, wallTime };
+      setDisplayTime(snapshotTime);
+      return undefined;
+    }
+    const previous = previousSnapshotRef.current;
+    const rate = getLiveSimulationRate({
+      analysis: snapshot?.analysis,
+      frequency,
+      previousTime: previous?.time,
+      previousWallTime: previous?.wallTime,
+      currentTime: snapshotTime,
+      currentWallTime: wallTime,
+    });
+    simulationRateRef.current = rate;
+    timingAnchorRef.current = { simulationTime: snapshotTime, wallTime };
+    previousSnapshotRef.current = { time: snapshotTime, wallTime };
+    setDisplayTime(snapshotTime);
+    let frameId;
+    const tick = () => {
+      const currentWallTime = performance.now();
+      setDisplayTime(interpolateLiveSimulationTime({
+        anchorTime: timingAnchorRef.current.simulationTime,
+        anchorWallTime: timingAnchorRef.current.wallTime,
+        wallTime: currentWallTime,
+        rate: simulationRateRef.current,
+      }));
+      frameId = requestAnimationFrame(tick);
+    };
+    frameId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frameId);
+  }, [snapshotTime, snapshot?.status, snapshot?.analysis, frequency]);
   const activeSignals = (selectedSignals ?? (contextSignals.length ? contextSignals : defaultSignals)).filter((name) => signalNames.includes(name)).slice(0, MAX_TRACES); const acCycles = Number.isFinite(frequency) && frequency > 0 ? frequency * effectiveWindowSeconds : null; const shownTime = snapshot?.status === "running" && Number.isFinite(displayTime) ? displayTime : snapshotTime;
   const toggleSignal = (name) => setSelectedSignals((current) => { const next = current ?? (contextSignals.length ? contextSignals : defaultSignals); if (next.includes(name)) return next.filter((item) => item !== name); if (next.length >= MAX_TRACES) return next; return [...next, name]; });
   return <section aria-label="Live oscilloscope" className="overflow-hidden rounded-xl border border-[#d9dde2] bg-white"><div className="border-b border-[#e4e7eb] px-4 py-3"><div className="flex flex-wrap items-center justify-between gap-3"><div><div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#58718f]">Live oscilloscope</div><div className="mt-1 text-xs text-[#69717b]">A moving view of the latest part of the simulation.</div></div><div className="flex items-center gap-2"><span className="text-[10px] font-medium text-[#69717b]">Window</span><select aria-label="Oscilloscope time window" value={effectiveWindowSeconds} onChange={(event) => { setWindowCustomized(true); setWindowSeconds(Number(event.target.value)); }} className="rounded-md border border-[#cfd5dc] bg-white px-2 py-1.5 text-[11px] font-medium text-[#26364d] outline-none focus:border-[#58718f]">{WINDOW_PRESETS.map((preset) => <option key={preset.value} value={preset.value}>{preset.label}</option>)}</select></div></div><div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-[#8a929c]"><span>t = {formatSignal(shownTime)} s</span>{Number.isFinite(frequency) && frequency > 0 && <span>f = {formatSignal(frequency)} Hz</span>}{acCycles !== null && <span>{formatSignal(acCycles)} cycles visible</span>}<span>{activeSignals.length}/{MAX_TRACES} traces</span></div></div>{signalNames.length > 0 && <div className="border-b border-[#e4e7eb] px-4 py-2.5"><div className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#8a929c]">Measurements</div><div className="flex flex-wrap gap-1.5">{signalNames.map((name) => { const active = activeSignals.includes(name); return <button key={name} type="button" onClick={() => toggleSignal(name)} aria-pressed={active} className={`max-w-full truncate rounded-full border px-2.5 py-1 text-[10px] font-medium transition ${active ? "border-[#58718f] bg-[#f1f5f9] text-[#26364d]" : "border-[#e4e7eb] bg-white text-[#69717b] hover:bg-[#fafbfc]"}`}>{signalLabel(name)}</button>; })}</div></div>}<div className="p-3">{activeSignals.length > 0 ? <LivePlot snapshot={snapshot} history={history} selectedSignals={activeSignals} windowSeconds={effectiveWindowSeconds} now={shownTime} /> : <div className="flex h-48 items-center justify-center rounded-lg border border-dashed border-[#d9dde2] bg-[#fafbfc] px-4 text-center text-xs text-[#69717b]">Select a measurement to add it to the oscilloscope.</div>}</div></section>;
