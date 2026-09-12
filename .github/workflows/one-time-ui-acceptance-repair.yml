@@ -1,16 +1,17 @@
 name: One-time UI acceptance repair
 on:
   push:
-    branches: [v0.4/electrical-ui-rework]
+    branches:
+      - v0.4/electrical-ui-rework
 permissions:
   contents: write
 jobs:
   repair:
-    if: contains(github.event.head_commit.message, 'ci: repair UI acceptance compatibility') == false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: Repair acceptance tests
+        if: github.event.head_commit.message != 'ci: repair UI acceptance compatibility'
         shell: bash
         run: |
           python - <<'PY'
@@ -35,11 +36,14 @@ jobs:
           text = text.replace(old, new)
           path.write_text(text)
           PY
-      - name: Commit repair
+      - name: Commit repair and remove helper
+        if: github.event.head_commit.message != 'ci: repair UI acceptance compatibility'
         shell: bash
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add frontend-dev/tests/e2e
-          git commit -m 'ci: repair UI acceptance compatibility' || exit 0
+          git commit -m 'ci: repair UI acceptance compatibility'
+          git rm .github/workflows/one-time-ui-acceptance-repair.yml
+          git commit -m 'chore: remove one-time acceptance repair workflow'
           git push
