@@ -36,6 +36,7 @@ test.describe("Electrical workspace UI rework", () => {
     await expect(page.getByTestId("workspace-inspector")).toContainText("Terminal");
     await expect(page.getByTestId("workspace-inspector")).toContainText("Port");
     await expect(page.getByTestId("workspace-inspector")).toContainText("Kind");
+    await page.getByRole("button", { name: "Voltage" }).click();
 
     await page.getByLabel("Search components").fill("");
     const divider = page.getByTestId("world-examples").getByRole("button", { name: /Voltage divider/ });
@@ -49,6 +50,8 @@ test.describe("Electrical workspace UI rework", () => {
     await expect(page.getByTestId("simulation-setup")).toBeVisible();
     await expect(page.getByTestId("worlds-canvas").locator(".react-flow")).toHaveCSS("opacity", "0");
     await expect(page.getByTestId("workspace-canvas-surface")).toContainText("Simulation");
+    await expect(page.getByTestId("instrument-probes")).toContainText("NMOS 1");
+    await expect(page.getByTestId("instrument-probes")).toContainText("voltage");
 
     const handle = page.getByTestId("instrument-resize-handle");
     const box = await handle.boundingBox();
