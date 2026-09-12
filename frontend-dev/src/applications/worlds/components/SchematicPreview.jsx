@@ -47,7 +47,8 @@ function getLiveBranchCurrent(signals, instance, suffix = "") {
   const identifier = String(instance?.name ?? "").replace(/\s+/g, "_");
   const direct = getLiveSignalValue(signals, `I_${identifier}`, suffix);
   if (direct !== null) return direct;
-  const componentPattern = new RegExp(`component=['"]?${escapeRegExp(instance?.name)}['"]?`);
+  const names = [instance?.name, identifier].filter(Boolean).map(escapeRegExp);
+  const componentPattern = new RegExp(`component=['"]?(?:${names.join("|")})['"]?`);
   const branchEntries = Object.entries(signals).filter(([name, value]) => name.startsWith("BranchCurrent(") && componentPattern.test(name) && Number.isFinite(Number(value)));
   const preferred = branchEntries.find(([name]) => suffix ? name.endsWith(suffix) : !name.endsWith(".instantaneous") && !name.endsWith(".magnitude") && !name.endsWith(".phase_deg"));
   if (preferred) return Number(preferred[1]);
