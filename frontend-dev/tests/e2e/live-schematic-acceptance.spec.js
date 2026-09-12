@@ -20,7 +20,7 @@ function browserErrors(page) {
   return errors;
 }
 
-test("live simulation shows component measurements on the schematic", async ({ page }, testInfo) => {
+test("live simulation shows component measurements and current direction on the schematic", async ({ page }, testInfo) => {
   const errors = browserErrors(page);
   await signIn(page);
   await page.goto("/worlds", { waitUntil: "networkidle" });
@@ -33,8 +33,12 @@ test("live simulation shows component measurements on the schematic", async ({ p
   const schematic = page.getByRole("img", { name: "Circuit schematic preview" });
   await expect(schematic).toBeVisible();
   await expect(page.getByText("Live circuit measurements", { exact: true })).toBeVisible({ timeout: 10000 });
+  await expect(page.getByText("Arrow = conventional current direction", { exact: true })).toBeVisible({ timeout: 10000 });
+  await expect(page.getByText("positive current: p → n", { exact: true })).toBeVisible();
   await expect(schematic.locator("text").filter({ hasText: /^V / }).first()).toBeVisible({ timeout: 10000 });
   await expect(schematic.locator("text").filter({ hasText: /^I / }).first()).toBeVisible({ timeout: 10000 });
+  await expect(schematic.locator("marker#live-current-arrow")).toHaveCount(1);
+  await expect(schematic.locator("line[marker-end='url(#live-current-arrow)']").first()).toBeVisible({ timeout: 10000 });
   await page.screenshot({ path: testInfo.outputPath("live-schematic-measurements.png"), fullPage: true });
 
   await page.getByRole("button", { name: "Stop" }).click();
