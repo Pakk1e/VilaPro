@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import re
 
 from worlds.semantics.component import ComponentSemanticAnalyzer
 from worlds.semantics import WorldSemanticAnalyzer
@@ -15,7 +16,6 @@ from worlds.simulation.solver import SimulationResult
 from worlds.simulation.validation import SimulationValidator
 from worlds.simulation.visualization import plot_to_visualization, plots_to_visualization
 from worlds.vdl import Parser
-from worlds.math import Variable
 
 
 class SimulationServiceError(Exception):
@@ -129,40 +129,44 @@ class SimulationService:
         last = successful_responses[-1] if successful_responses else _LegacySimulationResponse({}, {}, [])
         point_statuses = [{"status": "completed"} if error is None else {"status": "failed", "error": error} for error in sweep.errors]
         result_status = "completed_with_failures" if any(item["status"] == "failed" for item in point_statuses) else "completed"
-        generic_result = SimulationResultModel.from_frequency_sweep(
-            status=result_status,
-            settings=configuration.settings,
-            outputs=configuration.outputs,
-            points=[float(point) for point in sweep.points],
-            point_statuses=point_statuses,
-            node_voltages=[item.node_voltages if item is not None else None for item in point_responses],
-            branch_currents=[item.branch_currents if item is not None else None for item in point_responses],
-            components=[item.components if item is not None else None for item in point_responses],
-            circuit_context=circuit_context,
-        )
+        generic_result = SimulationResultModel.from_frequency_sweep(status=result_status, settings=configuration.settings, outputs=configuration.outputs, points=[float(point) for point in sweep.points], point_statuses=point_statuses, node_voltages=[item.node_voltages if item is not None else None for item in point_responses], branch_currents=[item.branch_currents if item is not None else None for item in point_responses], components=[item.components if item is not None else None for item in point_responses], circuit_context=circuit_context)
         return SimulationResponse(configuration.analysis, result_status, last.node_voltages, last.branch_currents, last.components, generic_result)
 
     @staticmethod
     def _build_ac_point_response(ac_result: ACResult, model):
-        simulation_result = SimulationResult(values=dict(ac_result.values), instances={component.name: component for component in model.components})
-        node_voltages = {node: abs(value) for node, value in simulation_result.node_voltages.items()}
-        branch_currents = {f"{first_node}->{second_node}": abs(value) for (first_node, second_node), value in simulation_result.branch_currents.items()}
-        components = []
-        for name, component in simulation_result.instances.items():
-            ports = component.ports
-            if "p" not in ports or "n" not in ports:
+        """Translate the string-keyed AC solver result into magnitude summaries."""
+        raw_values = {str(key): complex(value) for key, value in ac_result.values.items()}
+        node_voltages = {}
+        for key, value in raw_values.items():
+            match = re.fullmatch(r"Variable\(name=['\"]V_(.+?)['\"]\)", key)
+            if match:
+                node_voltages[match.group(1)] = abs(value)
+
+        branch_currents = {}
+        component_currents = {}
+        branch_pattern = re.compile(r"BranchCurrent\(name=['\"]current['\"], arguments=\(Variable\(name=['\"](.+?)['\"]\), Variable\(name=['\"](.+?)['\"]\)\), component=['\"](.+?)['\"]\)")
+        for key, value in raw_values.items():
+            match = branch_pattern.fullmatch(key)
+            if not match:
                 continue
-            p_node, n_node = ports["p"], ports["n"]
-            p_voltage = 0j if p_node == "ground" else simulation_result.values.get(Variable(f"V_{p_node}"))
-            n_voltage = 0j if n_node == "ground" else simulation_result.values.get(Variable(f"V_{n_node}"))
+            first_node, second_node, component_name = match.groups()
+            branch_currents[f"{first_node}->{second_node}"] = abs(value)
+            component_currents.setdefault(component_name, []).append((first_node, second_node, value))
+
+        components = []
+        for component in model.components:
+            p_node, n_node = component.ports.get("p"), component.ports.get("n")
+            if p_node is None or n_node is None:
+                continue
+            p_voltage = 0j if p_node == "ground" else next((value for key, value in raw_values.items() if key == f"Variable(name='V_{p_node}')"), None)
+            n_voltage = 0j if n_node == "ground" else next((value for key, value in raw_values.items() if key == f"Variable(name='V_{n_node}')"), None)
             if p_voltage is None or n_voltage is None:
                 continue
-            voltage = p_voltage - n_voltage
-            try:
-                current = simulation_result.component_current(name, p_node, n_node)
-            except Exception:
-                current = None
-            components.append({"id": component.component_id, "name": component.display_name, "type": component.component_type, "voltage": abs(voltage), "current": abs(current) if current is not None else None})
+            current_matches = component_currents.get(component.name, [])
+            current = next((value for first, second, value in current_matches if first == p_node and second == n_node), None)
+            if current is None:
+                current = next((-value for first, second, value in current_matches if first == n_node and second == p_node), None)
+            components.append({"id": component.component_id, "name": component.display_name, "type": component.component_type, "voltage": abs(p_voltage - n_voltage), "current": abs(current) if current is not None else None})
         return _LegacySimulationResponse(node_voltages, branch_currents, components)
 
     def _build_transient_response(self, transient, configuration, circuit_context):
@@ -175,15 +179,7 @@ class SimulationService:
         return SimulationResponse(configuration.analysis, status, last.node_voltages, last.branch_currents, last.components, generic_result)
 
     def _build_ac_response(self, ac_result: ACResult, configuration, circuit_context):
-        generic_result = SimulationResultModel.from_ac(
-            status="completed",
-            settings=configuration.settings,
-            outputs=configuration.outputs,
-            frequency=ac_result.frequency,
-            excitation=ac_result.excitation,
-            phasors=ac_result.values,
-            circuit_context=circuit_context,
-        )
+        generic_result = SimulationResultModel.from_ac(status="completed", settings=configuration.settings, outputs=configuration.outputs, frequency=ac_result.frequency, excitation=ac_result.excitation, phasors=ac_result.values, circuit_context=circuit_context)
         return SimulationResponse(configuration.analysis, "completed", {}, {}, [], generic_result)
 
     @staticmethod
