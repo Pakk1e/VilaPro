@@ -20,6 +20,12 @@ function browserErrors(page) {
   return errors;
 }
 
+function readSimulationTime(text) {
+  const match = text.match(/t\s*=\s*([-+\d.eE]+)/);
+  if (!match) throw new Error(`Unable to read simulation time from: ${text}`);
+  return Number(match[1]);
+}
+
 test("live simulation shows component measurements and current direction on the schematic", async ({ page }, testInfo) => {
   const errors = browserErrors(page);
   await signIn(page);
@@ -41,6 +47,34 @@ test("live simulation shows component measurements and current direction on the 
   const arrowCount = await schematic.locator("line[marker-end='url(#live-current-arrow)']").count();
   expect(arrowCount).toBeGreaterThanOrEqual(2);
   await page.screenshot({ path: testInfo.outputPath("live-schematic-measurements.png"), fullPage: true });
+
+  await page.getByRole("button", { name: "Stop" }).click();
+  await expect(page.locator("header").getByText("cancelled", { exact: true })).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test("AC live oscilloscope follows the simulation clock instead of wall-clock time", async ({ page }) => {
+  const errors = browserErrors(page);
+  await signIn(page);
+  await page.goto("/worlds", { waitUntil: "networkidle" });
+  await page.getByTestId("world-examples").getByRole("button", { name: /RC low-pass/ }).click();
+  await expect(page.locator(".react-flow__node").filter({ hasText: "Capacitor 1" })).toBeVisible();
+  await page.getByRole("button", { name: "Simulation" }).click();
+  await page.getByRole("button", { name: "Live" }).click();
+  await page.getByLabel("Analysis").selectOption("ac");
+  await page.getByRole("button", { name: "Start Live" }).click();
+
+  const oscilloscope = page.getByRole("region", { name: "Live oscilloscope" });
+  await expect(oscilloscope).toBeVisible();
+  await expect(oscilloscope.getByText(/f = 1000 Hz/)).toBeVisible({ timeout: 10000 });
+  const timeReadout = oscilloscope.getByText(/^t = /);
+  await expect(timeReadout).toBeVisible({ timeout: 10000 });
+  const firstTime = readSimulationTime(await timeReadout.textContent());
+  await page.waitForTimeout(1000);
+  const secondTime = readSimulationTime(await timeReadout.textContent());
+
+  expect(secondTime).toBeGreaterThan(firstTime);
+  expect(secondTime - firstTime).toBeLessThan(0.01);
 
   await page.getByRole("button", { name: "Stop" }).click();
   await expect(page.locator("header").getByText("cancelled", { exact: true })).toBeVisible();
