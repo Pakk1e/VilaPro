@@ -1,37 +1,23 @@
-import { useState } from "react";
-
+import { useMemo, useState } from "react";
+import ElectricalWorkspaceShell from "../components/ElectricalWorkspaceShell";
 import WorldCanvas from "../components/WorldCanvas";
+import ComponentLibrary from "../components/ComponentLibrary";
+import WorkspaceInspector from "../components/WorkspaceInspector";
+import SimulationPanel from "../components/SimulationPanel";
 import WorkspaceTabs, { WORKSPACES } from "../components/WorkspaceTabs";
 import { DEFAULT_WORLD_CONTEXT } from "../model/worldContext";
+import { worldDefinitions } from "../model/worldDefinitions";
+
+const WORKSPACE_OVERRIDES = `
+  [data-testid="worlds-canvas"] > div:not([aria-hidden="true"]) { width: 100% !important; border-right: 0 !important; }
+  [data-testid="instrument-probes"] { position: relative; z-index: 20; }
+  [data-testid="instrument-probes"] button[aria-label^="Remove "] { position: relative; z-index: 30; display: inline-flex; width: 18px; height: 18px; align-items: center; justify-content: center; pointer-events: auto; }
+`;
 
 export default function WorldsShellPage() {
   const [workspace, setWorkspace] = useState("design");
-  const activeWorkspace =
-    WORKSPACES.find((item) => item.id === workspace) ?? WORKSPACES[0];
-
-  return (
-    <div className="h-screen w-full overflow-hidden bg-[#f6f6f4] p-4">
-      <section className="flex h-full min-h-0 flex-col overflow-hidden rounded-md border border-[#dedfdf] bg-white">
-        <div className="flex shrink-0 items-center justify-between gap-4 border-b border-[#dedfdf] px-4 py-3">
-          <div className="min-w-0">
-            <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#69717b]">
-              VilaPro World
-            </div>
-            <div className="mt-1 text-sm font-semibold text-[#17253a]">
-              {activeWorkspace.label}
-            </div>
-            <div className="mt-0.5 text-[10px] text-[#9aa0a7]">
-              {activeWorkspace.description}
-            </div>
-          </div>
-
-          <WorkspaceTabs value={workspace} onChange={setWorkspace} />
-        </div>
-
-        <div className="min-h-0 flex-1">
-          <WorldCanvas workspace={workspace} worldContext={DEFAULT_WORLD_CONTEXT} />
-        </div>
-      </section>
-    </div>
-  );
+  const [workspaceState, setWorkspaceState] = useState({ nodes: [], edges: [], selectedNodeId: null, selectedEdgeId: null, selectedResultEntity: null, exampleSimulationPreset: null });
+  const activeWorkspace = WORKSPACES.find(item => item.id === workspace) ?? WORKSPACES[0];
+  const sweepTargets = useMemo(() => workspaceState.nodes.filter(node => node.type === "world").map(node => { const definition = worldDefinitions[node.data?.definitionKey], parameters = definition?.simulationParameters ?? []; return parameters.length ? { id: node.id, label: node.data?.label ?? node.id, componentType: node.data?.componentType ?? "Component", parameters } : null; }).filter(Boolean), [workspaceState.nodes]);
+  return <div className="h-screen w-full overflow-hidden bg-[#e9edf1]"><style>{WORKSPACE_OVERRIDES}</style><ElectricalWorkspaceShell library={<ComponentLibrary />} inspector={<WorkspaceInspector />} instrument={<SimulationPanel nodes={workspaceState.nodes} edges={workspaceState.edges} sweepTargets={sweepTargets} selectedNodeId={workspaceState.selectedNodeId} exampleSimulationPreset={workspaceState.exampleSimulationPreset} />} headerCenter={<div className="flex min-w-0 items-center justify-center gap-4"><WorkspaceTabs value={workspace} onChange={setWorkspace} /><div className="hidden min-w-0 truncate text-[9px] text-[#8994a2] lg:block">{activeWorkspace.description}</div></div>}><WorldCanvas workspace={workspace} worldContext={DEFAULT_WORLD_CONTEXT} onWorkspaceStateChange={setWorkspaceState} /></ElectricalWorkspaceShell></div>;
 }
