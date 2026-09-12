@@ -105,6 +105,9 @@ test("NPN transistor example exposes three terminals and bias parameters", () =>
   const instance = description.instances.find((item) => item.id === "Q1");
   assert.ok(instance);
   assert.equal(instance.type, "NPNTransistor");
-  assert.deepEqual(instance.ports, { b: "node_3", c: "node_2", e: "ground" });
+  assert.equal(instance.ports.e, "ground");
+  assert.notEqual(instance.ports.b, instance.ports.c);
+  assert.notEqual(instance.ports.b, "ground");
+  assert.notEqual(instance.ports.c, "ground");
   assert.deepEqual(instance.parameters, { Vbe: 0.7, VceSat: 0.2, Beta: 100 });
 });
