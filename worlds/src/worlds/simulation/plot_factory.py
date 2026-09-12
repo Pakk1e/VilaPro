@@ -61,7 +61,6 @@ class SimulationPlotFactory:
             series,
             plot_id=plot_id,
             title=title,
-            series=series,
             x_label=x_label,
             x_unit=x_unit,
         )
