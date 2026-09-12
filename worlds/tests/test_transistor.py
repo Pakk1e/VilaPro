@@ -18,6 +18,16 @@ def instances(vbb=1.7, vcc=12.0):
     ]
 
 
+def pnp_instances(vbb=11.0, vcc=12.0):
+    return [
+        {"id": "VCC", "name": "VCC", "type": "VoltageSource", "parameters": {"V": vcc}, "ports": {"p": "supply", "n": "ground"}},
+        {"id": "RLOAD", "name": "Load resistor", "type": "Resistor", "parameters": {"R": 1000.0}, "ports": {"p": "collector", "n": "ground"}},
+        {"id": "VBB", "name": "VBB", "type": "VoltageSource", "parameters": {"V": vbb}, "ports": {"p": "base_supply", "n": "ground"}},
+        {"id": "RB", "name": "Base resistor", "type": "Resistor", "parameters": {"R": 10000.0}, "ports": {"p": "base_supply", "n": "base"}},
+        {"id": "Q1", "name": "Q1", "type": "PNPTransistor", "parameters": {"Vbe": 0.7, "VceSat": 0.2, "Beta": 100.0}, "ports": {"b": "base", "c": "collector", "e": "supply"}},
+    ]
+
+
 class NPNTransistorSimulationTest(unittest.TestCase):
     def test_forward_active_bias(self):
         response = SimulationService().simulate(world_source(), instances())
@@ -47,11 +57,7 @@ class NPNTransistorSimulationTest(unittest.TestCase):
         self.assertGreater(transistor["baseCurrent"], 0.0)
 
     def test_parameter_sweep_recomputes_transistor_region(self):
-        response = SimulationService().simulate(
-            world_source(),
-            instances(vbb=0.5),
-            simulation={"analysis": "dc_sweep", "settings": {"source": "VBB", "parameter": "V", "start": 0.5, "stop": 1.9, "step": 0.2}},
-        )
+        response = SimulationService().simulate(world_source(), instances(vbb=0.5), simulation={"analysis": "dc_sweep", "settings": {"source": "VBB", "parameter": "V", "start": 0.5, "stop": 1.9, "step": 0.2}})
         self.assertEqual(response.status, "completed")
         components = response.result.dataset("components").values
         currents = [next(item for item in row if item["id"] == "Q1")["collectorCurrent"] for row in components]
@@ -63,5 +69,31 @@ class NPNTransistorSimulationTest(unittest.TestCase):
             SimulationService().simulate(world_source(), instances(), simulation={"analysis": "ac", "settings": {"frequency": 1000}})
 
 
-if __name__ == "__main__":
-    unittest.main()
+class PNPTransistorSimulationTest(unittest.TestCase):
+    def test_forward_active_high_side_bias(self):
+        response = SimulationService().simulate(world_source(), pnp_instances())
+        transistor = next(item for item in response.components if item["id"] == "Q1")
+        self.assertEqual(transistor["region"], "active")
+        self.assertAlmostEqual(transistor["veb"], 1.0, places=9)
+        self.assertAlmostEqual(transistor["vec"], 10.0, places=9)
+        self.assertAlmostEqual(transistor["baseCurrent"], 1e-4, places=12)
+        self.assertAlmostEqual(transistor["collectorCurrent"], 0.01, places=10)
+        self.assertAlmostEqual(transistor["emitterCurrent"], 0.0101, places=10)
+
+    def test_cutoff_when_base_matches_emitter(self):
+        response = SimulationService().simulate(world_source(), pnp_instances(vbb=12.0))
+        transistor = next(item for item in response.components if item["id"] == "Q1")
+        self.assertEqual(transistor["region"], "cutoff")
+        self.assertAlmostEqual(transistor["baseCurrent"], 0.0, places=12)
+        self.assertAlmostEqual(transistor["collectorCurrent"], 0.0, places=12)
+        self.assertAlmostEqual(transistor["vec"], 12.0, places=9)
+
+    def test_saturation_when_load_limits_collector_voltage(self):
+        limited = pnp_instances(vbb=9.0, vcc=5.0)
+        response = SimulationService().simulate(world_source(), limited)
+        transistor = next(item for item in response.components if item["id"] == "Q1")
+        self.assertEqual(transistor["region"], "saturation")
+        self.assertAlmostEqual(transistor["veb"], 0.7, places=9)
+        self.assertAlmostEqual(transistor["vec"], 0.2, places=9)
+        self.assertGreater(transistor["collectorCurrent"], 0.0)
+        self.assertGreater(transistor["baseCurrent"], 0.0)
