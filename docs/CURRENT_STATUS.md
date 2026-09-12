@@ -79,9 +79,9 @@ Current useful next areas are:
 - continue Electrical World implementation
 - later, when requirements become concrete, real navigation between established Layers
 
-The five pre-created Electrical examples now have real-backend browser acceptance coverage where appropriate: Voltage divider, RC low-pass, Parallel resistors, RL transient, and RLC transient. Dynamic examples verify their bounded simulation presets before execution; static examples verify their DC result path. Result selection is also accepted end-to-end: selecting a simulation result highlights its corresponding location in the schematic preview. Transient plot-point inspection is accepted end-to-end for the RC example, including selected time/value and clearing the selection. Visualization result mapping now treats non-finite numeric samples as failed data rather than allowing invalid values into downstream plotting.
+The five pre-created Electrical examples now have real-backend browser acceptance coverage where appropriate: Voltage divider, RC low-pass, Parallel resistors, RL transient, and RLC transient. Dynamic examples verify their bounded simulation presets before execution; static examples verify their DC result path. Result selection is accepted end-to-end: selecting a simulation result highlights its corresponding location in the schematic preview. Transient plot-point inspection is accepted end-to-end for the RC example, including selected time/value and clearing the selection. Visualization result mapping treats non-finite numeric samples as failed data rather than allowing invalid values into downstream plotting.
 
-The deployed Worlds acceptance workflow now executes every `*acceptance.spec.js` file, so dedicated example and result-selection/inspection acceptance specs are included in exact-deployed-revision validation rather than only being present in the repository.
+The deployed Worlds acceptance workflow executes every `*acceptance.spec.js` file, so dedicated example and result-selection/inspection acceptance specs are included in exact-deployed-revision validation rather than only being present in the repository. The result-point acceptance uses the plot's intended interaction surface rather than relying on overlapping SVG point hit targets, and result-selection acceptance scopes component selection to the component summary table.
 
 Do not invent a speculative multi-world registry, persistent user-layer system, or cross-world architecture merely to fill an extension point.
 
@@ -89,7 +89,7 @@ Before starting a new feature, inspect `VISION.md`, `docs/CONCEPTS.md`, `docs/LA
 
 ## Latest handoff point
 
-The latest implementation hardens result visualization against non-finite numeric samples and closes a validation gap in deployed browser acceptance. The five pre-created Electrical examples have explicit simulation presets and real-backend acceptance coverage; result selection and transient plot-point inspection are exercised through the browser; and the deployment acceptance workflow runs the complete set of dedicated acceptance specs against the exact deployed revision. The current branch revision is `fc71a775476844f8c37d08342a9340d4989ac980`. CI, Worlds DEV deployment, and exact-deployed-revision browser acceptance must pass for this revision before it is considered complete.
+The latest implementation hardens result visualization against non-finite numeric samples, closes a deployed-acceptance coverage gap, and stabilizes the dedicated result interaction acceptance tests using the actual UI boundaries. The five pre-created Electrical examples have explicit simulation presets and real-backend acceptance coverage; result selection and transient plot-point inspection are exercised through the browser; and the deployment acceptance workflow runs the complete set of dedicated acceptance specs against the exact deployed revision. The current branch revision is `7fea67e4b901bf447494417f750a6fe257beb756`. CI, Worlds DEV deployment, and exact-deployed-revision browser acceptance must pass for this revision before it is considered complete.
 
 ## Future-session handoff
 
