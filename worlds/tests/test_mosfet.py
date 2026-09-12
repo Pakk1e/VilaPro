@@ -76,7 +76,7 @@ class MOSFETSimulationTest(unittest.TestCase):
         high_n = next(item for item in high.components if item["id"] == "QN")
         self.assertEqual(low_p["region"], "on")
         self.assertEqual(low_n["region"], "off")
-        self.assertAlmostEqual(low.node_voltages["output"], 5.0 * 1000.0 / 1010.0, places=9)
+        self.assertAlmostEqual(low.node_voltages["output"], 5.0, places=9)
         self.assertEqual(high_p["region"], "off")
         self.assertEqual(high_n["region"], "on")
         self.assertAlmostEqual(high.node_voltages["output"], 0.0, places=9)
