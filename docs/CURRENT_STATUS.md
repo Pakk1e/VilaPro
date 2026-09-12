@@ -26,15 +26,34 @@ The Worlds workspace currently has explicit boundaries between:
 
 The current World Graph and public simulation transport boundaries have runtime validation and deterministic tests. Backend domain/model validation remains authoritative for physics, component semantics, and numerical correctness.
 
-The frontend supports both static and live simulation concepts. The live workspace includes oscilloscope-oriented visualization for sampled signals and now mirrors live component voltage/current measurements directly onto the schematic preview while a live session is running or paused. It also renders conventional-current direction arrows from the same live branch-current measurements.
+The frontend supports both static and live simulation concepts. The Live workspace includes oscilloscope-oriented visualization for sampled signals. The schematic preview remains intentionally clean: simulation telemetry is not painted as persistent value boxes or current-direction arrows over component symbols. Result selection still provides a contextual schematic highlight when a result is selected.
 
 The current Electrical workspace carries an explicit, minimal context identity (`universeId`, `worldId`, `layerId`, `representationId`) without coupling that context to the World Graph or changing the Electrical simulation model. This is an extension point for future Worlds/Layers, not a multi-world implementation.
 
-The Electrical workspace has deterministic pre-created examples represented as editable World Graph templates. Current examples are Voltage divider, RC low-pass, Parallel resistors, RL transient, and RLC transient. Examples are graph templates, not separate simulation engines; they exercise the same editor, serializer, backend, and analysis paths as user-built circuits.
+The Electrical workspace has deterministic pre-created examples represented as editable World Graph templates. Current examples are Voltage divider, RC low-pass, Parallel resistors, RL transient, RLC transient, and Diode rectifier. Examples are graph templates, not separate simulation engines; they exercise the same editor, serializer, backend, and analysis paths as user-built circuits.
 
 Electrical examples also carry explicit simulation presets in the example model. Static examples declare DC operating point; dynamic examples declare transient analysis with bounded, example-specific time ranges. The palette exposes the intended analysis, and loading an example applies that preset to the Simulation workspace through a tested configuration boundary.
 
-Browser acceptance uses stable interaction boundaries and failure diagnostics. Deployment acceptance verifies the exact deployed revision.
+## Simulation capabilities
+
+The static analysis set now includes:
+
+- DC operating point
+- DC parameter sweep
+- transient analysis
+- single-frequency AC analysis
+- frequency sweep / frequency-response analysis
+
+Frequency Sweep is a dedicated analysis rather than a special case of DC sweep. It runs the existing AC solver at each requested frequency and stores a generic result with a frequency axis, point status, node-voltage magnitudes, branch-current magnitudes, and component V/I magnitudes. The frontend exposes start/stop/step frequency plus excitation amplitude and phase. The result plot uses Frequency (Hz) as its independent axis and is intended for RLC resonance/filter response work.
+
+The first semiconductor component is now a Diode. Its canonical component definition exposes forward voltage (`Vf`) and on-resistance (`Ron`) parameters. The numerical implementation uses an explicit piecewise-linear active-set model:
+
+```text
+OFF: i = 0
+ON:  v = Vf + i · Ron
+```
+
+The diode state is resolved iteratively using the existing linear network solver. This keeps the diode entity/definition separate from the numerical analysis method while providing deterministic forward conduction, reverse blocking, DC sweep threshold behavior, and transient algebraic switching. The initial diode model is intentionally simpler than a full Shockley/SPICE model; a more detailed semiconductor representation can be added later without changing the World Graph contract.
 
 ## Important architectural rules
 
@@ -68,32 +87,33 @@ Browser acceptance uses stable interaction boundaries and failure diagnostics. D
 
 ## Immediate engineering priority
 
-The minimal World/Layer extension point is established without speculative multi-world behavior. Continue strengthening the engineering foundation only where it provides a concrete benefit to the current Electrical World, then continue the Electrical World implementation.
+Continue the Electrical World implementation from concrete user-facing capabilities. The main simulation foundation now covers DC, transient, AC, DC parameter sweep, and frequency sweep, with the first diode component added on top of the same graph/semantic/simulation pipeline.
 
-Current useful next areas are:
+Useful next areas are:
 
+- validate the clean schematic presentation across representative circuits
+- improve frequency-sweep result interaction, including frequency-domain measurements and cursor inspection
+- extend diode validation to transient rectification and more boundary cases
+- add richer semiconductor models only when required by concrete circuits
 - strengthen safe, bounded browser failure diagnostics
 - add selective geometry assertions for known layout regressions
 - improve architectural-boundary test reporting
-- complete-loop measurement after foundation changes
 - continue Electrical World implementation
 - later, when requirements become concrete, real navigation between established Layers
 
-The five pre-created Electrical examples now have real-backend browser acceptance coverage where appropriate: Voltage divider, RC low-pass, Parallel resistors, RL transient, and RLC transient. Dynamic examples verify their bounded simulation presets before execution; static examples verify their DC result path. Result selection is accepted end-to-end: selecting a simulation result highlights its corresponding location in the schematic preview. Transient plot-point inspection is accepted end-to-end for the RC example, including selected time/value and clearing the selection. Visualization result mapping treats non-finite numeric samples as failed data rather than allowing invalid values into downstream plotting.
+## Validation state
 
-Live simulation now also publishes its current runtime snapshot through the workspace event boundary. The schematic subscribes to that runtime state and derives component voltage from its canonical positive/negative nets and component current from the live branch signal, keeping live measurement display downstream of the canonical circuit description rather than introducing a second simulation model. The schematic additionally visualizes non-zero conventional current direction with arrows based on the backend branch-current sign convention; the live overlay documents that positive current is p → n. Dedicated browser acceptance covers the visible measurements and current-direction overlay.
+The pre-created Electrical examples have real-backend browser acceptance coverage where appropriate. Dynamic examples verify their bounded simulation presets before execution; static examples verify their DC result path. Result selection is accepted end-to-end: selecting a simulation result highlights its corresponding location in the schematic preview. Transient plot-point inspection is accepted end-to-end for the RC example, including selected time/value and clearing the selection. Visualization result mapping treats non-finite numeric samples as failed data rather than allowing invalid values into downstream plotting.
 
-The live oscilloscope now advances its visual clock using the actual simulation-time rate reported by successive live snapshots instead of assuming one simulated second per wall-clock second. This is especially important for AC: a 1 kHz live waveform is no longer scrolled at 1,000 physical cycles per second in the UI. The clock is interpolated between backend snapshots so the rolling window remains continuously moving while respecting the simulation's slower live execution pace. Deterministic timing tests and a real-backend browser acceptance check cover this behavior.
+Live AC oscilloscope pacing uses the actual simulation-time rate reported by successive live snapshots instead of assuming one simulated second per wall-clock second. The clock is interpolated between backend snapshots so the rolling window remains continuously moving while respecting the simulation's slower live execution pace.
 
-The deployed Worlds acceptance workflow executes every `*acceptance.spec.js` file, so dedicated example and result-selection/inspection acceptance specs are included in exact-deployed-revision validation rather than only being present in the repository. The result-point acceptance uses the plot's intended interaction surface rather than relying on overlapping SVG point hit targets, and result-selection acceptance scopes component selection to the component summary table. The live schematic acceptance uses stable structural SVG assertions for the current arrows rather than relying on SVG child visibility semantics.
+The live schematic preview no longer overlays persistent live voltage/current boxes or current-direction arrows. The preview is kept as a schematic/context surface, while the Live oscilloscope and result explorer remain the measurement surfaces. The diode symbol is rendered as a proper diode rather than a generic component box.
 
-Do not invent a speculative multi-world registry, persistent user-layer system, or cross-world architecture merely to fill an extension point.
-
-Before starting a new feature, inspect `VISION.md`, `docs/CONCEPTS.md`, `docs/LAYER_MODEL.md`, `ARCHITECTURE.md`, and `ROADMAP.md`.
+The deployed Worlds acceptance workflow executes every `*acceptance.spec.js` file, so dedicated example and result-selection/inspection acceptance specs are included in exact-deployed-revision validation rather than only being present in the repository.
 
 ## Latest handoff point
 
-The latest implementation fixes live AC oscilloscope pacing by interpolating the backend simulation clock between live snapshots rather than advancing the visualization at wall-clock speed. It adds deterministic timing coverage and real-backend browser acceptance for the corrected rolling behavior. The live schematic also includes component measurements and conventional-current direction arrows. Result visualization remains hardened against non-finite numeric samples, and the deployment acceptance workflow runs the complete set of dedicated acceptance specs against the exact deployed revision. The five pre-created Electrical examples have explicit simulation presets and real-backend acceptance coverage; result selection and transient plot-point inspection are exercised through the browser. The current branch revision is `5a4523305e5bc4c7ec7290dbbf2bcc9368cd80ee`. CI, Worlds DEV deployment, and exact-deployed-revision browser acceptance have passed for this revision.
+The current branch has clean schematic presentation, a dedicated static Frequency Sweep analysis for RLC response, and the first Diode component with deterministic piecewise-linear DC/transient support. The repository also contains backend and frontend regression coverage plus dedicated browser acceptance for frequency sweep and diode behavior. Final CI/deployment/acceptance state must be verified for the latest revision before treating these changes as complete.
 
 ## Future-session handoff
 
