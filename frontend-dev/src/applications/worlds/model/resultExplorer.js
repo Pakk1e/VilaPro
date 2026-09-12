@@ -6,6 +6,12 @@ function addSeries(series, key, label, quantity, unit, value, context) {
   series.push({ key, label, quantity, measurementType: quantity, unit, values: [{ value, failed: false, error: null }], ...context });
 }
 
+function normalizeVisualizationValue(value) {
+  if (value === null || value === undefined) return { value: null, failed: true, error: "No result value was returned." };
+  if (typeof value === "number" && !Number.isFinite(value)) return { value: null, failed: true, error: "Result value is not finite." };
+  return { value, failed: false, error: null };
+}
+
 function getVisualizationPlots(result) {
   const visualization = result?.visualization;
   if (!visualization) return [];
@@ -34,7 +40,7 @@ export function getVisualizationSeries(result) {
       const entityId = sourceParts.join(":") || item?.id || source;
       const entityType = sourceKind === "node" || sourceKind === "branch" || sourceKind === "component" ? sourceKind : "series";
       const yValues = Array.isArray(item?.y) ? item.y : [];
-      const values = yValues.map((value) => ({ value, failed: value === null || value === undefined, error: value === null || value === undefined ? "No result value was returned." : null }));
+      const values = yValues.map(normalizeVisualizationValue);
       series.push({
         key: item?.id ?? `${plot?.id ?? "plot"}:${source}`,
         label: item?.label ?? source,
