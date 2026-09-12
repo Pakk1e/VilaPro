@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { serializeWorldGraph } from "../model/worldGraphSerializer";
-import { createSimulationConfig, getSimulationConfigValidationError, getSimulationModeLabel, SIMULATION_MODES } from "../model/simulationConfig";
+import { createSimulationConfig, createSimulationConfigFromPreset, getSimulationConfigValidationError, getSimulationModeLabel, SIMULATION_MODES } from "../model/simulationConfig";
 import { buildLiveSimulationRequest, buildSimulationRequest, normalizeLiveSnapshot, normalizeSimulationResponse } from "../model/simulationTransport";
 import { getSimulationStatus, getSimulationStatusLabel } from "../model/simulationState";
 import SimulationSetup from "./SimulationSetup";
@@ -27,7 +27,7 @@ export default function SimulationPanel({ nodes, edges, sweepTargets = [], selec
     setLiveSnapshot(null);
     setLiveHistory([]);
     setLastSimulationSignature(null);
-    setSimulationConfig(createSimulationConfig({ mode: SIMULATION_MODES.STATIC, analysis: preset.analysis, settings: preset.settings }));
+    setSimulationConfig(createSimulationConfigFromPreset(preset));
   }, [exampleSimulationPreset]);
   const updateSimulationConfig = (changes) => { setSimulationConfig((current) => ({ ...current, ...changes, settings: { ...current.settings, ...(changes.settings ?? {}) } })); if (changes.mode && changes.mode !== SIMULATION_MODES.LIVE) { liveStreamRef.current?.close(); liveStreamRef.current = null; setLiveSnapshot(null); setLiveHistory([]); } };
   const liveRequest = async (path, method = "POST") => { const response = await fetch(path, { method, headers: { "Content-Type": "application/json" } }); const data = await response.json(); if (!response.ok || !data.ok) throw new Error(data.error ?? `Live simulation request failed (${response.status})`); return normalizeLiveSnapshot(data); };
