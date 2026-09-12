@@ -18,7 +18,7 @@ def instances(vbb=1.7, vcc=12.0):
     ]
 
 
-def pnp_instances(vbb=10.0, vcc=12.0):
+def pnp_instances(vbb=10.3, vcc=12.0):
     return [
         {"id": "VCC", "name": "VCC", "type": "VoltageSource", "parameters": {"V": vcc}, "ports": {"p": "supply", "n": "ground"}},
         {"id": "RLOAD", "name": "Load resistor", "type": "Resistor", "parameters": {"R": 1000.0}, "ports": {"p": "collector", "n": "ground"}},
@@ -89,7 +89,7 @@ class PNPTransistorSimulationTest(unittest.TestCase):
         self.assertAlmostEqual(transistor["vec"], 12.0, places=9)
 
     def test_saturation_when_load_limits_collector_voltage(self):
-        response = SimulationService().simulate(world_source(), pnp_instances(vbb=0.0))
+        response = SimulationService().simulate(world_source(), pnp_instances(vbb=0.5))
         transistor = next(item for item in response.components if item["id"] == "Q1")
         self.assertEqual(transistor["region"], "saturation")
         self.assertAlmostEqual(transistor["veb"], 0.7, places=9)
