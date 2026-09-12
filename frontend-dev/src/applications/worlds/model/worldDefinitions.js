@@ -29,6 +29,27 @@ export const worldDefinitions = {
     ],
   },
 
+  npnTransistor: {
+    type: "NPN Transistor",
+    description: "Three-terminal bipolar transistor with cutoff, active and saturation regions",
+    category: "Electrical",
+    ports: [
+      { id: "b", kind: "electrical", position: "left", label: "B" },
+      { id: "c", kind: "electrical", position: "top", label: "C" },
+      { id: "e", kind: "electrical", position: "bottom", label: "E" },
+    ],
+    properties: {
+      vbeOn: { type: "number", label: "VBE on", unit: "V", defaultValue: 0.7, min: 0 },
+      vceSat: { type: "number", label: "VCE saturation", unit: "V", defaultValue: 0.2, min: 0 },
+      beta: { type: "number", label: "DC beta", unit: "", defaultValue: 100, min: 0 },
+    },
+    simulationParameters: [
+      { property: "vbeOn", parameter: "Vbe", label: "VBE on", unit: "V" },
+      { property: "vceSat", parameter: "VceSat", label: "VCE saturation", unit: "V" },
+      { property: "beta", parameter: "Beta", label: "DC beta", unit: "" },
+    ],
+  },
+
   capacitor: {
     type: "Capacitor",
     description: "Electrical capacitance",
