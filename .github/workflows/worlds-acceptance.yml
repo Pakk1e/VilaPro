@@ -74,20 +74,11 @@ jobs:
             echo "Legacy Worlds workspace detected; no UI rework compatibility patch required."
             exit 0
           fi
-          python - <<'PY'
-          from pathlib import Path
-          root = Path('frontend-dev/tests/e2e')
-          for path in root.glob('*.spec.js'):
-              text = path.read_text()
-              text = text.replace('page.getByRole("button", { name: /Simulate/ })', 'page.getByTestId("simulate-button")')
-              text = text.replace('page.getByRole("button", { name: "Start Live" })', 'page.getByTestId("simulate-button")')
-              path.write_text(text)
-          path = root / 'acceptance.spec.js'
-          text = path.read_text()
-          text = text.replace('const left = canvasBox.x + 80; const right = paletteBox.x - 80; const width = right - left; if (width < 300) throw new Error("Insufficient canvas width for acceptance circuit.");', 'const paletteRight = paletteBox.x + paletteBox.width; const left = Math.max(canvasBox.x + 40, paletteRight + 40); const right = canvasBox.x + canvasBox.width - 80; const width = right - left; if (width < 300) throw new Error("Insufficient canvas width for acceptance circuit.");')
-          text = text.replace('for (const node of nodes) { const box = await node.boundingBox(); if (!box) throw new Error("Unable to locate circuit component."); expect(box.x + box.width).toBeLessThan(paletteBox.x - 8); }', 'const paletteRight = paletteBox.x + paletteBox.width; for (const node of nodes) { const box = await node.boundingBox(); if (!box) throw new Error("Unable to locate circuit component."); expect(box.x).toBeGreaterThan(paletteRight + 8); }')
-          path.write_text(text)
-          PY
+          for path in frontend-dev/tests/e2e/*.spec.js; do
+            perl -0pi -e 's/page\.getByRole\("button", \{ name: \/Simulate\/ \}\)/page.getByTestId("simulate-button")/g; s/page\.getByRole\("button", \{ name: "Start Live" \}\)/page.getByTestId("simulate-button")/g' "$path"
+          done
+          perl -0pi -e 's/const left = canvasBox\.x \+ 80; const right = paletteBox\.x - 80; const width = right - left; if \(width < 300\) throw new Error\("Insufficient canvas width for acceptance circuit\."\);/const paletteRight = paletteBox.x + paletteBox.width; const left = Math.max(canvasBox.x + 40, paletteRight + 40); const right = canvasBox.x + canvasBox.width - 80; const width = right - left; if (width < 300) throw new Error("Insufficient canvas width for acceptance circuit.");/g' frontend-dev/tests/e2e/acceptance.spec.js
+          perl -0pi -e 's/for \(const node of nodes\) \{ const box = await node\.boundingBox\(\); if \(!box\) throw new Error\("Unable to locate circuit component\."\); expect\(box\.x \+ box\.width\)\.toBeLessThan\(paletteBox\.x - 8\); \}/const paletteRight = paletteBox.x + paletteBox.width; for (const node of nodes) { const box = await node.boundingBox(); if (!box) throw new Error("Unable to locate circuit component."); expect(box.x).toBeGreaterThan(paletteRight + 8); }/g' frontend-dev/tests/e2e/acceptance.spec.js
 
       - name: Install frontend dependencies
         working-directory: frontend-dev
