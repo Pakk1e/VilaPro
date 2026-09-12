@@ -4,11 +4,12 @@ function makeNode(id, definitionKey, label, properties, x, y) {
     currentSource: [{ id: "p", kind: "electrical", position: "left", label: "p" }, { id: "n", kind: "electrical", position: "right", label: "n" }],
     resistor: [{ id: "p", kind: "electrical", position: "left", label: "p" }, { id: "n", kind: "electrical", position: "right", label: "n" }],
     diode: [{ id: "p", kind: "electrical", position: "left", label: "p" }, { id: "n", kind: "electrical", position: "right", label: "n" }],
+    npnTransistor: [{ id: "b", kind: "electrical", position: "left", label: "B" }, { id: "c", kind: "electrical", position: "top", label: "C" }, { id: "e", kind: "electrical", position: "bottom", label: "E" }],
     capacitor: [{ id: "p", kind: "electrical", position: "left", label: "p" }, { id: "n", kind: "electrical", position: "right", label: "n" }],
     inductor: [{ id: "p", kind: "electrical", position: "left", label: "p" }, { id: "n", kind: "electrical", position: "right", label: "n" }],
     ground: [{ id: "g", kind: "electrical", position: "top", label: "GND" }],
   };
-  const componentTypes = { voltageSource: "Voltage Source", currentSource: "Current Source", resistor: "Resistor", diode: "Diode", capacitor: "Capacitor", inductor: "Inductor", ground: "Ground" };
+  const componentTypes = { voltageSource: "Voltage Source", currentSource: "Current Source", resistor: "Resistor", diode: "Diode", npnTransistor: "NPN Transistor", capacitor: "Capacitor", inductor: "Inductor", ground: "Ground" };
   return { id, type: "world", position: { x, y }, data: { label, description: componentTypes[definitionKey], componentType: componentTypes[definitionKey], ports: portsByDefinition[definitionKey], definitionKey, properties } };
 }
 
@@ -39,5 +40,9 @@ export const WORLD_EXAMPLES = Object.freeze([
   Object.freeze({
     id: "diode-rectifier", label: "Diode rectifier", description: "5 V source, current-limiting resistor and silicon-style diode.", simulationPreset: simulationPreset("dc_operating_point"),
     createGraph: () => ({ nodes: [makeNode("V1", "voltageSource", "Voltage Source 1", { waveform: "dc", voltage: 5 }, 60, 140), makeNode("R1", "resistor", "Resistor 1", { resistance: 1000 }, 270, 140), makeNode("D1", "diode", "Diode 1", { forwardVoltage: 0.7, onResistance: 1 }, 480, 140), makeNode("GND1", "ground", "Ground 1", {}, 380, 280)], edges: [makeEdge("e1", "V1", "p", "R1", "p"), makeEdge("e2", "R1", "n", "D1", "p"), makeEdge("e3", "D1", "n", "GND1", "g"), makeEdge("e4", "V1", "n", "GND1", "g")] }),
+  }),
+  Object.freeze({
+    id: "npn-bias", label: "NPN transistor bias", description: "Two-supply NPN common-emitter bias in the forward-active region.", simulationPreset: simulationPreset("dc_operating_point"),
+    createGraph: () => ({ nodes: [makeNode("VCC", "voltageSource", "VCC", { waveform: "dc", voltage: 12 }, 560, 70), makeNode("RC", "resistor", "Collector resistor", { resistance: 1000 }, 560, 180), makeNode("Q1", "npnTransistor", "NPN Transistor 1", { vbeOn: 0.7, vceSat: 0.2, beta: 100 }, 560, 310), makeNode("RB", "resistor", "Base resistor", { resistance: 10000 }, 300, 310), makeNode("VBB", "voltageSource", "VBB", { waveform: "dc", voltage: 1.7 }, 80, 310), makeNode("GND1", "ground", "Ground 1", {}, 560, 460)], edges: [makeEdge("e1", "VCC", "p", "RC", "p"), makeEdge("e2", "RC", "n", "Q1", "c"), makeEdge("e3", "VBB", "p", "RB", "p"), makeEdge("e4", "RB", "n", "Q1", "b"), makeEdge("e5", "Q1", "e", "GND1", "g"), makeEdge("e6", "VCC", "n", "GND1", "g"), makeEdge("e7", "VBB", "n", "GND1", "g")] }),
   }),
 ]);
