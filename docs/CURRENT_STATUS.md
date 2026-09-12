@@ -86,7 +86,7 @@ Before starting a new feature, inspect `VISION.md`, `docs/CONCEPTS.md`, `docs/LA
 
 ## Latest handoff point
 
-The latest implementation work formalized simulation presets for the five pre-created Electrical examples, exposed their intended analyses in the palette, made loading an example apply its preset to the Simulation workspace, and added browser acceptance that loads the RLC transient example, verifies its preset time range, sends the resulting graph and simulation configuration through the real `/simulate` backend path, and renders a transient result plot and component summary. The current branch revision is `842452a6397cccad118c635b4ef82211f08615a4`. The preset-to-configuration boundary and example metadata are covered by deterministic tests. The final CI, Worlds DEV deployment, and exact-deployed-revision browser acceptance must be verified for this revision before treating this handoff as complete.
+The latest implementation work formalized simulation presets for the five pre-created Electrical examples, exposed their intended analyses in the palette, made loading an example apply its preset to the Simulation workspace, and added browser acceptance that loads the RLC transient example, verifies its preset time range, sends the resulting graph and simulation configuration through the real `/simulate` backend path, and renders a transient result plot and component result rows. The acceptance test also covers the RL example's preset rather than manually selecting transient mode. The current branch revision is `f4333f6ae25267796627cf466ce087bd9ce8b667`. CI, Worlds DEV deployment, and exact-deployed-revision browser acceptance all pass for this revision.
 
 ## Future-session handoff
 
