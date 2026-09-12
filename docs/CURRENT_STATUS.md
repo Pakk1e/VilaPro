@@ -79,7 +79,7 @@ Current useful next areas are:
 - continue Electrical World implementation
 - later, when requirements become concrete, real navigation between established Layers
 
-The five pre-created Electrical examples now have real-backend browser acceptance coverage where appropriate: Voltage divider, RC low-pass, Parallel resistors, RL transient, and RLC transient. Dynamic examples verify their bounded simulation presets before execution; static examples verify their DC result path. Keep extending this coverage only when it exposes a meaningful product or architectural regression.
+The five pre-created Electrical examples now have real-backend browser acceptance coverage where appropriate: Voltage divider, RC low-pass, Parallel resistors, RL transient, and RLC transient. Dynamic examples verify their bounded simulation presets before execution; static examples verify their DC result path. Result selection is also accepted end-to-end: selecting a simulation result highlights its corresponding location in the schematic preview.
 
 Do not invent a speculative multi-world registry, persistent user-layer system, or cross-world architecture merely to fill an extension point.
 
@@ -87,7 +87,7 @@ Before starting a new feature, inspect `VISION.md`, `docs/CONCEPTS.md`, `docs/LA
 
 ## Latest handoff point
 
-The latest implementation work completed the simulation-preset path for the five pre-created Electrical examples and expanded end-to-end browser coverage. RC low-pass now verifies its canonical source/resistor/capacitor definition and runs through the real transient `/simulate` path, including a non-trivial response plot. Parallel resistors now runs through the real DC `/simulate` path and verifies the expected independent branch currents. RL and RLC transient examples verify their preset time ranges and real backend result rendering, while Voltage divider continues to verify its editable example and DC result path. The current branch revision is `614f868f265170b3aa13c4e260c6cde72bd2d686`. CI, Worlds DEV deployment, and exact-deployed-revision browser acceptance all pass for this revision.
+The latest implementation work completed the simulation-preset path for the five pre-created Electrical examples and expanded end-to-end browser coverage. RC low-pass now verifies its canonical source/resistor/capacitor definition and runs through the real transient `/simulate` path, including a non-trivial response plot. Parallel resistors now runs through the real DC `/simulate` path and verifies the expected independent branch currents. RL and RLC transient examples verify their preset time ranges and real backend result rendering, while Voltage divider continues to verify its editable example and DC result path. Result selection now has an end-to-end acceptance check from the Simulation results table through the WorldCanvas state into the schematic highlight. The current branch revision is `fdc0f2da3735d22b1727239aea66697a56e29968`. CI, Worlds DEV deployment, and exact-deployed-revision browser acceptance must pass for this revision before it is considered complete.
 
 ## Future-session handoff
 
