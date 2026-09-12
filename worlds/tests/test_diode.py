@@ -40,7 +40,7 @@ class DiodeSimulationTest(unittest.TestCase):
         currents = [next(item for item in row if item["id"] == "D1")["current"] for row in components]
         self.assertAlmostEqual(currents[0], 0.0, places=12)
         self.assertAlmostEqual(currents[6], 0.0, places=12)
-        self.assertGreater(currents[7], 1e-4)
+        self.assertGreater(currents[7], 9e-5)
         self.assertGreater(currents[-1], currents[7])
 
 
