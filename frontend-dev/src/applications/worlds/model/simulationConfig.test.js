@@ -4,12 +4,14 @@ import assert from "node:assert/strict";
 import {
   DEFAULT_AC_SETTINGS,
   DEFAULT_DC_SWEEP_SETTINGS,
+  DEFAULT_FREQUENCY_SWEEP_SETTINGS,
   SIMULATION_ANALYSES,
   SIMULATION_MODES,
   createSimulationConfig,
   createSimulationConfigFromPreset,
   getAcValidationError,
   getDcSweepValidationError,
+  getFrequencySweepValidationError,
   getSimulationConfigValidationError,
   getSimulationAnalysisLabel,
   getSimulationModeLabel,
@@ -77,6 +79,22 @@ test("parameter sweep is a supported analysis", () => {
   assert.equal(config.analysis, "dc_sweep");
   assert.equal(getSimulationAnalysisLabel(config.analysis), "Parameter Sweep");
   assert.equal(getSimulationConfigValidationError(config, targets), null);
+});
+
+test("frequency sweep is a supported analysis", () => {
+  const config = createSimulationConfig({ analysis: SIMULATION_ANALYSES.FREQUENCY_SWEEP, settings: DEFAULT_FREQUENCY_SWEEP_SETTINGS });
+  assert.equal(config.analysis, "frequency_sweep");
+  assert.equal(getSimulationAnalysisLabel(config.analysis), "Frequency Sweep");
+  assert.equal(getSimulationConfigValidationError(config, targets), null);
+});
+
+test("frequency sweep validates positive range, step and point count", () => {
+  assert.equal(getFrequencySweepValidationError(DEFAULT_FREQUENCY_SWEEP_SETTINGS), null);
+  assert.equal(getFrequencySweepValidationError({ ...DEFAULT_FREQUENCY_SWEEP_SETTINGS, start: 0 }), "Frequency start and stop must be greater than zero.");
+  assert.equal(getFrequencySweepValidationError({ ...DEFAULT_FREQUENCY_SWEEP_SETTINGS, step: 0 }), "Frequency step cannot be zero.");
+  assert.equal(getFrequencySweepValidationError({ ...DEFAULT_FREQUENCY_SWEEP_SETTINGS, start: 10, stop: 100, step: -1 }), "Frequency step must be positive when start is below stop.");
+  assert.equal(getFrequencySweepValidationError({ ...DEFAULT_FREQUENCY_SWEEP_SETTINGS, start: 100, stop: 10, step: 1 }), "Frequency step must be negative when start is above stop.");
+  assert.equal(getFrequencySweepValidationError({ ...DEFAULT_FREQUENCY_SWEEP_SETTINGS, step: 0.1, stop: 2000 }), "Frequency sweep configuration exceeds the 10,000-point limit.");
 });
 
 test("parameter sweep accepts current-source target", () => {
