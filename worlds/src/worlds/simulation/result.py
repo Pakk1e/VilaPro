@@ -88,6 +88,23 @@ class SimulationResultModel:
         return cls(metadata={"status": status}, datasets=(SimulationDataset("sweep", points, ("sweep",)), SimulationDataset("sweep_status", point_statuses, ("sweep",)), SimulationDataset("node_voltages", node_voltages, ("sweep", "node")), SimulationDataset("branch_currents", branch_currents, ("sweep", "branch")), SimulationDataset("components", components, ("sweep", "component"))), statistics={"point_count": len(points), "completed_point_count": len(point_statuses)-failed_count, "failed_point_count": failed_count}, analysis_information={"analysis": "dc_sweep", "settings": dict(settings), "outputs": list(outputs), "sweep": {"source": sweep_source, "parameter": sweep_parameter}}, circuit_context=dict(circuit_context or {}))
 
     @classmethod
+    def from_frequency_sweep(cls, *, status: str, settings: Mapping[str, object], outputs: tuple[str, ...], points: list[float], point_statuses: list[dict[str, object]], node_voltages: list[dict[str, float] | None], branch_currents: list[dict[str, float] | None], components: list[list[dict] | None], circuit_context: Mapping[str, object] | None = None) -> "SimulationResultModel":
+        failed_count = sum(1 for item in point_statuses if item.get("status") == "failed")
+        return cls(
+            metadata={"status": status},
+            datasets=(
+                SimulationDataset("frequency", points, ("frequency",)),
+                SimulationDataset("sweep_status", point_statuses, ("frequency",)),
+                SimulationDataset("node_voltages", node_voltages, ("frequency", "node")),
+                SimulationDataset("branch_currents", branch_currents, ("frequency", "branch")),
+                SimulationDataset("components", components, ("frequency", "component")),
+            ),
+            statistics={"point_count": len(points), "completed_point_count": len(point_statuses)-failed_count, "failed_point_count": failed_count},
+            analysis_information={"analysis": "frequency_sweep", "settings": dict(settings), "outputs": list(outputs), "sweep": {"variable": "frequency", "unit": "Hz"}},
+            circuit_context=dict(circuit_context or {}),
+        )
+
+    @classmethod
     def from_transient(cls, *, status: str, settings: Mapping[str, object], outputs: tuple[str, ...], points: list[float], point_statuses: list[dict[str, object]], node_voltages: list[dict[str, float] | None], branch_currents: list[dict[str, float] | None], components: list[list[dict] | None], circuit_context: Mapping[str, object] | None = None) -> "SimulationResultModel":
         failed_count = sum(1 for item in point_statuses if item.get("status") == "failed")
         return cls(metadata={"status": status}, datasets=(SimulationDataset("time", points, ("time",)), SimulationDataset("time_status", point_statuses, ("time",)), SimulationDataset("node_voltages", node_voltages, ("time", "node")), SimulationDataset("branch_currents", branch_currents, ("time", "branch")), SimulationDataset("components", components, ("time", "component"))), statistics={"point_count": len(points), "completed_point_count": len(point_statuses)-failed_count, "failed_point_count": failed_count}, analysis_information={"analysis": "transient", "settings": dict(settings), "outputs": list(outputs)}, circuit_context=dict(circuit_context or {}))
