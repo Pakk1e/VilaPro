@@ -26,7 +26,7 @@ function readSimulationTime(text) {
   return Number(match[1]);
 }
 
-test("live simulation shows component measurements and current direction on the schematic", async ({ page }, testInfo) => {
+test("live simulation keeps the schematic clean while the simulation surface stays active", async ({ page }, testInfo) => {
   const errors = browserErrors(page);
   await signIn(page);
   await page.goto("/worlds", { waitUntil: "networkidle" });
@@ -38,15 +38,12 @@ test("live simulation shows component measurements and current direction on the 
 
   const schematic = page.getByRole("img", { name: "Circuit schematic preview" });
   await expect(schematic).toBeVisible();
-  await expect(page.getByText("Live circuit measurements", { exact: true })).toBeVisible({ timeout: 10000 });
-  await expect(page.getByText("Arrow = conventional current direction", { exact: true })).toBeVisible({ timeout: 10000 });
-  await expect(page.getByText("positive current: p → n", { exact: true })).toBeVisible();
-  await expect(schematic.locator("text").filter({ hasText: /^V / }).first()).toBeVisible({ timeout: 10000 });
-  await expect(schematic.locator("text").filter({ hasText: /^I / }).first()).toBeVisible({ timeout: 10000 });
-  await expect(schematic.locator("marker#live-current-arrow")).toHaveCount(1);
-  const arrowCount = await schematic.locator("line[marker-end='url(#live-current-arrow)']").count();
-  expect(arrowCount).toBeGreaterThanOrEqual(2);
-  await page.screenshot({ path: testInfo.outputPath("live-schematic-measurements.png"), fullPage: true });
+  await expect(page.getByText("Live oscilloscope", { exact: true })).toBeVisible({ timeout: 10000 });
+  await expect(schematic.locator("text").filter({ hasText: /^V / })).toHaveCount(0);
+  await expect(schematic.locator("text").filter({ hasText: /^I / })).toHaveCount(0);
+  await expect(schematic.locator("marker#live-current-arrow")).toHaveCount(0);
+  await expect(schematic.locator("line[marker-end='url(#live-current-arrow)']")).toHaveCount(0);
+  await page.screenshot({ path: testInfo.outputPath("live-schematic-clean.png"), fullPage: true });
 
   await page.getByRole("button", { name: "Stop" }).click();
   await expect(page.locator("header").getByText("cancelled", { exact: true })).toBeVisible();
