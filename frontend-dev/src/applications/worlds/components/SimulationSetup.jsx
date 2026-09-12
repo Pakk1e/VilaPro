@@ -1,9 +1,11 @@
 import {
   DEFAULT_AC_SETTINGS,
   DEFAULT_DC_SWEEP_SETTINGS,
+  DEFAULT_FREQUENCY_SWEEP_SETTINGS,
   DEFAULT_TRANSIENT_SETTINGS,
   getAcValidationError,
   getDcSweepValidationError,
+  getFrequencySweepValidationError,
   getSimulationAnalysisLabel,
   getTransientValidationError,
   SIMULATION_ANALYSES,
@@ -13,6 +15,7 @@ export default function SimulationSetup({ config, onChange, sweepTargets = [], v
   const allTargets = sweepTargets.length > 0 ? sweepTargets : voltageSources;
   const targets = allTargets.filter((target) => Array.isArray(target.parameters) && target.parameters.length > 0);
   const sweepError = config.analysis === SIMULATION_ANALYSES.DC_SWEEP ? getDcSweepValidationError(config.settings, targets) : null;
+  const frequencySweepError = config.analysis === SIMULATION_ANALYSES.FREQUENCY_SWEEP ? getFrequencySweepValidationError(config.settings) : null;
   const transientError = config.analysis === SIMULATION_ANALYSES.TRANSIENT ? getTransientValidationError(config.settings) : null;
   const acError = config.analysis === SIMULATION_ANALYSES.AC ? getAcValidationError(config.settings) : null;
   const selectedTarget = targets.find((target) => target.id === config.settings?.source);
@@ -20,6 +23,7 @@ export default function SimulationSetup({ config, onChange, sweepTargets = [], v
 
   const changeAnalysis = (analysis) => {
     if (analysis === SIMULATION_ANALYSES.DC_SWEEP) onChange({ analysis, settings: { ...DEFAULT_DC_SWEEP_SETTINGS, ...config.settings } });
+    else if (analysis === SIMULATION_ANALYSES.FREQUENCY_SWEEP) onChange({ analysis, settings: { ...DEFAULT_FREQUENCY_SWEEP_SETTINGS, ...config.settings } });
     else if (analysis === SIMULATION_ANALYSES.TRANSIENT) onChange({ analysis, settings: { ...DEFAULT_TRANSIENT_SETTINGS, ...config.settings } });
     else if (analysis === SIMULATION_ANALYSES.AC) onChange({ analysis, settings: { ...DEFAULT_AC_SETTINGS, ...config.settings } });
     else onChange({ analysis, settings: {} });
@@ -39,6 +43,7 @@ export default function SimulationSetup({ config, onChange, sweepTargets = [], v
         <select value={config.analysis} onChange={(event) => changeAnalysis(event.target.value)} className="mt-1 w-full rounded-md border border-[#d9dde2] bg-white px-2.5 py-2 text-xs text-[#26364d] outline-none focus:border-[#58718f]">
           <option value={SIMULATION_ANALYSES.DC_OPERATING_POINT}>{getSimulationAnalysisLabel(SIMULATION_ANALYSES.DC_OPERATING_POINT)}</option>
           <option value={SIMULATION_ANALYSES.DC_SWEEP}>{getSimulationAnalysisLabel(SIMULATION_ANALYSES.DC_SWEEP)}</option>
+          <option value={SIMULATION_ANALYSES.FREQUENCY_SWEEP}>{getSimulationAnalysisLabel(SIMULATION_ANALYSES.FREQUENCY_SWEEP)}</option>
           <option value={SIMULATION_ANALYSES.TRANSIENT}>{getSimulationAnalysisLabel(SIMULATION_ANALYSES.TRANSIENT)}</option>
           <option value={SIMULATION_ANALYSES.AC}>{getSimulationAnalysisLabel(SIMULATION_ANALYSES.AC)}</option>
         </select>
@@ -48,7 +53,7 @@ export default function SimulationSetup({ config, onChange, sweepTargets = [], v
 
       {config.analysis === SIMULATION_ANALYSES.AC && (
         <div className="mt-4 space-y-3">
-          <div className="rounded-md border border-[#e4e7eb] bg-[#fafbfc] px-3 py-2.5 text-[10px] leading-4 text-[#69717b]">AC uses sinusoidal excitation and reports complex phasor magnitude and phase for the current linear electrical model. Static AC is a single-frequency operating point; frequency-sweep/Bode analysis can build on the same AC representation.</div>
+          <div className="rounded-md border border-[#e4e7eb] bg-[#fafbfc] px-3 py-2.5 text-[10px] leading-4 text-[#69717b]">AC uses sinusoidal excitation and reports complex phasor magnitude and phase for the current linear electrical model. Static AC is a single-frequency operating point; Frequency Sweep can build a response curve across a range of frequencies.</div>
           <div className="grid grid-cols-1 gap-3">
             {[["frequency", "Frequency", "Hz"], ["amplitude", "Amplitude", "V/A"], ["phase", "Phase", "°"]].map(([name, label, unit]) => (
               <label key={name} className="block min-w-0">
@@ -58,6 +63,16 @@ export default function SimulationSetup({ config, onChange, sweepTargets = [], v
             ))}
           </div>
           {acError && <div role="alert" className="rounded-md border border-[#ead1d1] bg-[#fff8f8] px-3 py-2.5 text-[10px] leading-4 text-red-700">{acError}</div>}
+        </div>
+      )}
+
+      {config.analysis === SIMULATION_ANALYSES.FREQUENCY_SWEEP && (
+        <div className="mt-4 space-y-3">
+          <div className="rounded-md border border-[#e4e7eb] bg-[#fafbfc] px-3 py-2.5 text-[10px] leading-4 text-[#69717b]">Runs small-signal AC analysis at each frequency. This is useful for RLC networks, resonant circuits and filter response. Results are plotted against frequency.</div>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">{[["start", "Start", "Hz"], ["stop", "Stop", "Hz"], ["step", "Step", "Hz"]].map(([name, label, unit]) => <label key={name} className="block"><span className="text-[10px] font-medium text-[#69717b]">{label}</span><div className="relative mt-1"><input type="number" value={config.settings?.[name] ?? ""} onChange={(event) => changeSetting(name, event.target.value)} step="any" className="w-full rounded-md border border-[#d9dde2] bg-white px-2 py-2 pr-8 text-xs tabular-nums text-[#26364d] outline-none focus:border-[#58718f]" /><span className="pointer-events-none absolute right-2 top-2 text-[9px] text-[#8a929c]">{unit}</span></div></label>)}</div>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">{[["amplitude", "Excitation amplitude", "V/A"], ["phase", "Excitation phase", "°"]].map(([name, label, unit]) => <label key={name} className="block"><span className="text-[10px] font-medium text-[#69717b]">{label}</span><div className="relative mt-1"><input type="number" value={config.settings?.[name] ?? ""} onChange={(event) => changeSetting(name, event.target.value)} step="any" className="w-full rounded-md border border-[#d9dde2] bg-white px-2 py-2 pr-10 text-xs tabular-nums text-[#26364d] outline-none focus:border-[#58718f]" /><span className="pointer-events-none absolute right-2 top-2 text-[9px] text-[#8a929c]">{unit}</span></div></label>)}</div>
+          {frequencySweepError && <div role="alert" className="rounded-md border border-[#ead1d1] bg-[#fff8f8] px-3 py-2.5 text-[10px] leading-4 text-red-700">{frequencySweepError}</div>}
+          <div className="rounded-md border border-[#e4e7eb] bg-[#fafbfc] px-3 py-2.5 text-[10px] leading-4 text-[#69717b]">Use a smaller step around an expected resonance. The sweep is linear in frequency; logarithmic spacing can be added later without changing the result model.</div>
         </div>
       )}
 
@@ -77,7 +92,7 @@ export default function SimulationSetup({ config, onChange, sweepTargets = [], v
           {selectedParameter && <div className="rounded-md border border-[#e4e7eb] bg-[#fafbfc] px-3 py-2.5"><div className="text-[9px] font-medium uppercase tracking-[0.1em] text-[#69717b]">Sweep parameter</div><div className="mt-1 text-xs font-medium text-[#17253a]">{selectedParameter.label ?? selectedParameter.parameter ?? selectedParameter}{selectedParameter.unit ? ` (${selectedParameter.unit})` : ""}</div></div>}
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">{[["start", "Start"], ["stop", "Stop"], ["step", "Step"]].map(([name, label]) => <label key={name} className="block"><span className="text-[10px] font-medium text-[#69717b]">{label}</span><input type="number" value={config.settings?.[name] ?? ""} onChange={(event) => changeSweepSetting(name, event.target.value)} step="any" className="mt-1 w-full rounded-md border border-[#d9dde2] bg-white px-2 py-2 text-xs tabular-nums text-[#26364d] outline-none focus:border-[#58718f]" /></label>)}</div>
           {sweepError && <div role="alert" className="rounded-md border border-[#ead1d1] bg-[#fff8f8] px-3 py-2.5 text-[10px] leading-4 text-red-700">{sweepError}</div>}
-          <div className="rounded-md border border-[#e4e7eb] bg-[#fafbfc] px-3 py-2.5 text-[10px] leading-4 text-[#69717b]">Sweep a component or source parameter and calculate a DC operating point at every value. Frequency sweeps and other analysis-parameter sweeps can use the same target model later.</div>
+          <div className="rounded-md border border-[#e4e7eb] bg-[#fafbfc] px-3 py-2.5 text-[10px] leading-4 text-[#69717b]">Sweep a component or source parameter and calculate a DC operating point at every value. Frequency response uses the dedicated Frequency Sweep analysis.</div>
         </div>
       )}
     </div>
