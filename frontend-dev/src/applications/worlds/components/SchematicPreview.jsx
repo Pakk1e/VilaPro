@@ -48,8 +48,14 @@ function getLiveBranchCurrent(signals, instance, suffix = "") {
   const direct = getLiveSignalValue(signals, `I_${identifier}`, suffix);
   if (direct !== null) return direct;
   const componentPattern = new RegExp(`component=['"]?${escapeRegExp(instance?.name)}['"]?`);
-  const entry = Object.entries(signals).find(([name, value]) => name.startsWith("BranchCurrent(") && componentPattern.test(name) && (suffix ? name.endsWith(suffix) : !name.endsWith(".instantaneous") && !name.endsWith(".magnitude") && !name.endsWith(".phase_deg")) && Number.isFinite(Number(value)));
-  return entry ? Number(entry[1]) : null;
+  const branchEntries = Object.entries(signals).filter(([name, value]) => name.startsWith("BranchCurrent(") && componentPattern.test(name) && Number.isFinite(Number(value)));
+  const preferred = branchEntries.find(([name]) => suffix ? name.endsWith(suffix) : !name.endsWith(".instantaneous") && !name.endsWith(".magnitude") && !name.endsWith(".phase_deg"));
+  if (preferred) return Number(preferred[1]);
+  if (!suffix) {
+    const instantaneous = branchEntries.find(([name]) => name.endsWith(".instantaneous"));
+    if (instantaneous) return Number(instantaneous[1]);
+  }
+  return null;
 }
 
 function getLiveComponentMeasurements(liveSnapshot, instance) {
@@ -86,14 +92,8 @@ function getLiveCurrentArrow(instance, liveMeasurements, schematic) {
   const px = -uy;
   const py = ux;
   const origin = direction > 0 ? p : n;
-  const start = {
-    x: origin.x + ux * startDistance + px * offset,
-    y: origin.y + uy * startDistance + py * offset,
-  };
-  const end = {
-    x: origin.x + ux * endDistance + px * offset,
-    y: origin.y + uy * endDistance + py * offset,
-  };
+  const start = { x: origin.x + ux * startDistance + px * offset, y: origin.y + uy * startDistance + py * offset };
+  const end = { x: origin.x + ux * endDistance + px * offset, y: origin.y + uy * endDistance + py * offset };
   return { x1: start.x, y1: start.y, x2: end.x, y2: end.y };
 }
 
