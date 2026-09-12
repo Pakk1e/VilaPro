@@ -12,6 +12,7 @@ test("electrical examples expose stable, complete graphs", () => {
     "rc-low-pass",
     "parallel-resistors",
     "rl-transient",
+    "rlc-transient",
   ]);
 
   for (const example of WORLD_EXAMPLES) {
@@ -50,6 +51,29 @@ test("RL transient example exposes the canonical dynamic component parameters", 
   assert.equal(
     graph.edges.some(
       (edge) => edge.source === "R1" && edge.target === "L1" && edge.sourceHandle === "n" && edge.targetHandle === "p"
+    ),
+    true
+  );
+  assert.doesNotThrow(() => buildCircuitDescription(graph.nodes, graph.edges));
+});
+
+
+test("RLC transient example exposes both dynamic components", () => {
+  const example = WORLD_EXAMPLES.find((candidate) => candidate.id === "rlc-transient");
+  assert.ok(example);
+  const graph = example.createGraph();
+  const inductor = graph.nodes.find((node) => node.data?.componentType === "Inductor");
+  const capacitor = graph.nodes.find((node) => node.data?.componentType === "Capacitor");
+
+  assert.ok(inductor);
+  assert.ok(capacitor);
+  assert.equal(inductor.data.properties.inductance, 0.01);
+  assert.equal(inductor.data.properties.initialCurrent, 0);
+  assert.equal(capacitor.data.properties.capacitance, 0.000001);
+  assert.equal(capacitor.data.properties.initialVoltage, 0);
+  assert.equal(
+    graph.edges.some(
+      (edge) => edge.source === "L1" && edge.target === "C1" && edge.sourceHandle === "n" && edge.targetHandle === "p"
     ),
     true
   );
