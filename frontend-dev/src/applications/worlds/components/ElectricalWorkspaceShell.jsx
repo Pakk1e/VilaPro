@@ -20,14 +20,16 @@ export default function ElectricalWorkspaceShell({ children, library, inspector,
       const rect = shell.getBoundingClientRect();
       setInstrumentHeight(Math.min(500, Math.max(190, rect.bottom - event.clientY - 24)));
     };
-    const onPointerUp = () => {
-      resizingRef.current = false;
-      document.body.style.removeProperty("cursor");
-      document.body.style.removeProperty("user-select");
-    };
+    const onPointerUp = () => { resizingRef.current = false; document.body.style.removeProperty("cursor"); document.body.style.removeProperty("user-select"); };
+    const onSelection = event => { if (event.detail?.selectedNode || event.detail?.selectedEdgeId || event.detail?.selectedTerminal || event.detail?.selectedResultEntity) setInspectorOpen(true); };
+    const onComponentAdded = () => setLibraryOpen(false);
+    const onProbeAdded = () => { setInstrumentOpen(true); setInspectorOpen(true); };
     window.addEventListener("pointermove", onPointerMove);
     window.addEventListener("pointerup", onPointerUp);
-    return () => { window.removeEventListener("pointermove", onPointerMove); window.removeEventListener("pointerup", onPointerUp); };
+    window.addEventListener("worlds:selection-change", onSelection);
+    window.addEventListener("worlds:add-component", onComponentAdded);
+    window.addEventListener("worlds:add-probe", onProbeAdded);
+    return () => { window.removeEventListener("pointermove", onPointerMove); window.removeEventListener("pointerup", onPointerUp); window.removeEventListener("worlds:selection-change", onSelection); window.removeEventListener("worlds:add-component", onComponentAdded); window.removeEventListener("worlds:add-probe", onProbeAdded); };
   }, []);
 
   const beginResize = event => {
@@ -47,7 +49,6 @@ export default function ElectricalWorkspaceShell({ children, library, inspector,
 
     <div className="relative min-h-0 flex-1 overflow-hidden p-3">
       <main data-testid="workspace-canvas-surface" className="absolute inset-3 overflow-hidden rounded-lg border border-[#d3d9e0] bg-[#f8f9f7] shadow-[0_2px_10px_rgba(24,37,58,0.05)]">{children}</main>
-
       {!focusMode && libraryOpen && <aside data-testid="workspace-library-surface" className="absolute bottom-5 left-5 top-5 z-30 flex w-[340px] flex-col overflow-hidden rounded-lg border border-[#cfd6de] bg-[#fbfcfd]/98 shadow-[0_10px_28px_rgba(24,37,58,0.16)] backdrop-blur">{library}</aside>}
       {!focusMode && inspectorOpen && <aside data-testid="workspace-inspector-surface" className="absolute bottom-5 right-5 top-5 z-30 flex w-[330px] flex-col overflow-hidden rounded-lg border border-[#cfd6de] bg-[#fbfcfd]/98 shadow-[0_10px_28px_rgba(24,37,58,0.16)] backdrop-blur">{inspector}</aside>}
       {!focusMode && instrumentOpen && <section data-testid="workspace-instrument-surface" style={{ height: instrumentHeight }} className="absolute bottom-5 left-5 right-5 z-40 overflow-hidden rounded-lg border border-[#cfd6de] bg-[#fbfcfd]/99 shadow-[0_12px_32px_rgba(24,37,58,0.18)] backdrop-blur">{instrument}</section>}
