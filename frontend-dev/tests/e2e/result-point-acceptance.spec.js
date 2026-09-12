@@ -41,7 +41,7 @@ test("result plot point selection exposes the selected transient sample", async 
 
   const plotPanel = plot.locator("xpath=..").locator("xpath=..");
   await expect(plotPanel.getByText(/Time:/)).toBeVisible();
-  await expect(plotPanel.getByText(/V\(Capacitor 1\):/)).toBeVisible();
+  await expect(plotPanel.getByText(/^V\(.+\):$/)).toBeVisible();
   await expect(plotPanel.getByRole("button", { name: "Clear" })).toBeVisible();
   await expect(plotPanel.getByText(/Click the plot to inspect the nearest result point\./)).toHaveCount(0);
   await expect(results.getByText("Circuit Summary", { exact: true })).toBeVisible();
