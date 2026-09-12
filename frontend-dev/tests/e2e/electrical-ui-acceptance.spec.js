@@ -26,8 +26,23 @@ test.describe("Electrical workspace UI rework", () => {
     await expect(page.getByTestId("component-palette").getByRole("button", { name: /Resistor Add to canvas/ })).toHaveCount(0);
     await page.getByTestId("component-palette").getByRole("button", { name: /NMOS Add to canvas/ }).click();
 
-    await expect(page.locator(".react-flow__node").filter({ hasText: "NMOS 1" })).toBeVisible();
+    const nmos = page.locator(".react-flow__node").filter({ hasText: "NMOS 1" });
+    await expect(nmos).toBeVisible();
     await expect(page.getByTestId("workspace-inspector")).toContainText("NMOS 1");
+
+    const terminalHandle = nmos.locator(".react-flow__handle").first();
+    await expect(terminalHandle).toBeVisible();
+    await terminalHandle.click({ force: true });
+    await expect(page.getByTestId("workspace-inspector")).toContainText("Terminal");
+    await expect(page.getByTestId("workspace-inspector")).toContainText("Port");
+    await expect(page.getByTestId("workspace-inspector")).toContainText("Kind");
+
+    await page.getByLabel("Search components").fill("");
+    const divider = page.getByTestId("world-examples").getByRole("button", { name: /Voltage divider/ });
+    await expect(divider).toBeVisible();
+    await divider.click();
+    await expect(page.locator(".react-flow__node").filter({ hasText: "V1" })).toBeVisible();
+    await expect(page.getByTestId("workspace-inspector")).toContainText("Voltage divider");
 
     await page.getByRole("button", { name: "Simulation" }).click();
     await expect(page.getByTestId("workspace-instrument-surface")).toContainText("Analysis");
@@ -35,7 +50,6 @@ test.describe("Electrical workspace UI rework", () => {
     await expect(page.getByTestId("worlds-canvas").locator(".react-flow")).toHaveCSS("opacity", "0");
     await expect(page.getByTestId("workspace-canvas-surface")).toContainText("Simulation");
 
-    await page.getByTestId("instrument-resize-handle").hover();
     const handle = page.getByTestId("instrument-resize-handle");
     const box = await handle.boundingBox();
     if (!box) throw new Error("Unable to locate instrument resize handle.");
