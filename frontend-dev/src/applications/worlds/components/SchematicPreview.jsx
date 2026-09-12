@@ -15,12 +15,14 @@ function getSymbol(instance) {
   if (instance.type === "VoltageSource") return "voltage-source";
   if (instance.type === "Resistor") return "resistor";
   if (instance.type === "Diode") return "diode";
+  if (instance.type === "NPNTransistor") return "npn-transistor";
   return "generic";
 }
 
 function getValueLabel(instance) {
   if (instance.type === "Resistor") return `${instance.parameters?.R ?? "—"} Ω`;
   if (instance.type === "Diode") return `Vf ${instance.parameters?.Vf ?? "—"} V · ${instance.parameters?.Ron ?? "—"} Ω`;
+  if (instance.type === "NPNTransistor") return `β ${instance.parameters?.Beta ?? "—"} · VBE ${instance.parameters?.Vbe ?? "—"} V`;
   if (instance.type === "VoltageSource") {
     const value = instance.parameters?.V;
     if (typeof value === "number") return `${value} V DC`;
@@ -41,12 +43,16 @@ function SchematicSymbol({ instance, position, orientation, selected, resultHigh
   const label = instance.name ?? "Component";
   const symbolTransform = orientation === "reversed" ? "scale(-1 1)" : undefined;
   return <g transform={`translate(${position.x} ${position.y})`} onClick={() => onSelect?.(instance.id)} className="cursor-pointer" role="button" tabIndex={0} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onSelect?.(instance.id); } }}>
-    {resultHighlighted && <rect x="-86" y="-56" width="172" height="112" rx="10" fill="none" stroke={RESULT_HIGHLIGHT} strokeWidth="4" pointerEvents="none" />}
-    {selected && !resultHighlighted && <rect x="-82" y="-52" width="164" height="104" rx="9" fill="none" stroke={SELECTED} strokeWidth="2" strokeDasharray="5 4" pointerEvents="none" />}
+    {resultHighlighted && <rect x="-86" y="-78" width="172" height="156" rx="10" fill="none" stroke={RESULT_HIGHLIGHT} strokeWidth="4" pointerEvents="none" />}
+    {selected && !resultHighlighted && <rect x="-82" y="-74" width="164" height="148" rx="9" fill="none" stroke={SELECTED} strokeWidth="2" strokeDasharray="5 4" pointerEvents="none" />}
     <g transform={symbolTransform}>
-      {symbol === "voltage-source" ? <><line x1={-TERMINAL_OFFSET} y1="0" x2="-32" y2="0" stroke={STROKE} strokeWidth="3" /><circle cx="0" cy="0" r="32" fill="white" stroke={STROKE} strokeWidth="3" /><line x1="32" y1="0" x2={TERMINAL_OFFSET} y2="0" stroke={STROKE} strokeWidth="3" /><line x1="-10" y1="-12" x2="10" y2="-12" stroke={STROKE} strokeWidth="2.5" /><line x1="0" y1="-22" x2="0" y2="-2" stroke={STROKE} strokeWidth="2.5" /><line x1="-10" y1="12" x2="10" y2="12" stroke={STROKE} strokeWidth="2.5" /></> : symbol === "resistor" ? <><line x1={-TERMINAL_OFFSET} y1="0" x2="-40" y2="0" stroke={STROKE} strokeWidth="3" /><path d="M -40 0 L -28 -14 L -10 14 L 8 -14 L 26 14 L 40 0" fill="none" stroke={STROKE} strokeWidth="4" strokeLinejoin="round" /><line x1="40" y1="0" x2={TERMINAL_OFFSET} y2="0" stroke={STROKE} strokeWidth="3" /></> : symbol === "diode" ? <><line x1={-TERMINAL_OFFSET} y1="0" x2="-24" y2="0" stroke={STROKE} strokeWidth="3" /><path d="M -24 -22 L 16 0 L -24 22 Z" fill="white" stroke={STROKE} strokeWidth="3" strokeLinejoin="round" /><line x1="16" y1="-24" x2="16" y2="24" stroke={STROKE} strokeWidth="4" /><line x1="16" y1="0" x2={TERMINAL_OFFSET} y2="0" stroke={STROKE} strokeWidth="3" /></> : <><line x1={-TERMINAL_OFFSET} y1="0" x2="-38" y2="0" stroke={STROKE} strokeWidth="3" /><rect x="-38" y="-22" width="76" height="44" rx="6" fill="white" stroke={STROKE} strokeWidth="3" /><line x1="38" y1="0" x2={TERMINAL_OFFSET} y2="0" stroke={STROKE} strokeWidth="3" /></>}
+      {symbol === "voltage-source" ? <><line x1={-TERMINAL_OFFSET} y1="0" x2="-32" y2="0" stroke={STROKE} strokeWidth="3" /><circle cx="0" cy="0" r="32" fill="white" stroke={STROKE} strokeWidth="3" /><line x1="32" y1="0" x2={TERMINAL_OFFSET} y2="0" stroke={STROKE} strokeWidth="3" /><line x1="-10" y1="-12" x2="10" y2="-12" stroke={STROKE} strokeWidth="2.5" /><line x1="0" y1="-22" x2="0" y2="-2" stroke={STROKE} strokeWidth="2.5" /><line x1="-10" y1="12" x2="10" y2="12" stroke={STROKE} strokeWidth="2.5" />
+      </> : symbol === "resistor" ? <><line x1={-TERMINAL_OFFSET} y1="0" x2="-40" y2="0" stroke={STROKE} strokeWidth="3" /><path d="M -40 0 L -28 -14 L -10 14 L 8 -14 L 26 14 L 40 0" fill="none" stroke={STROKE} strokeWidth="4" strokeLinejoin="round" /><line x1="40" y1="0" x2={TERMINAL_OFFSET} y2="0" stroke={STROKE} strokeWidth="3" />
+      </> : symbol === "diode" ? <><line x1={-TERMINAL_OFFSET} y1="0" x2="-24" y2="0" stroke={STROKE} strokeWidth="3" /><path d="M -24 -22 L 16 0 L -24 22 Z" fill="white" stroke={STROKE} strokeWidth="3" strokeLinejoin="round" /><line x1="16" y1="-24" x2="16" y2="24" stroke={STROKE} strokeWidth="4" /><line x1="16" y1="0" x2={TERMINAL_OFFSET} y2="0" stroke={STROKE} strokeWidth="3" />
+      </> : symbol === "npn-transistor" ? <><line x1="-70" y1="0" x2="-22" y2="0" stroke={STROKE} strokeWidth="3" /><line x1="-22" y1="-42" x2="-22" y2="42" stroke={STROKE} strokeWidth="4" /><line x1="-12" y1="-28" x2="28" y2="-58" stroke={STROKE} strokeWidth="3" /><line x1="-12" y1="28" x2="28" y2="58" stroke={STROKE} strokeWidth="3" /><line x1="28" y1="-58" x2="28" y2="-72" stroke={STROKE} strokeWidth="3" /><line x1="28" y1="58" x2="28" y2="72" stroke={STROKE} strokeWidth="3" /><path d="M 14 49 L 28 58 L 12 62" fill="none" stroke={STROKE} strokeWidth="3" strokeLinejoin="round" /><text x="-38" y="-10" fontSize="9" fontWeight="700" fill={MUTED} pointerEvents="none">B</text><text x="35" y="-67" fontSize="9" fontWeight="700" fill={MUTED} pointerEvents="none">C</text><text x="35" y="76" fontSize="9" fontWeight="700" fill={MUTED} pointerEvents="none">E</text>
+      </> : <><line x1={-TERMINAL_OFFSET} y1="0" x2="-38" y2="0" stroke={STROKE} strokeWidth="3" /><rect x="-38" y="-22" width="76" height="44" rx="6" fill="white" stroke={STROKE} strokeWidth="3" /><line x1="38" y1="0" x2={TERMINAL_OFFSET} y2="0" stroke={STROKE} strokeWidth="3" /></>}
     </g>
-    <text x="0" y="50" textAnchor="middle" fontSize="12" fontWeight="600" fill={TEXT} pointerEvents="none">{label}</text>{value && <text x="0" y="66" textAnchor="middle" fontSize="10" fill={MUTED} pointerEvents="none">{value}</text>}
+    <text x="0" y="96" textAnchor="middle" fontSize="12" fontWeight="600" fill={TEXT} pointerEvents="none">{label}</text>{value && <text x="0" y="112" textAnchor="middle" fontSize="10" fill={MUTED} pointerEvents="none">{value}</text>}
   </g>;
 }
 
@@ -56,11 +62,11 @@ function getResultHighlight(schematic, selectedResultEntity) {
   if (selectedResultEntity.entityType === "node") return { instanceIds: new Set(), nodeId: selectedResultEntity.entityId, branchId: null };
   if (selectedResultEntity.entityType === "branch") {
     const [firstNode, secondNode] = String(selectedResultEntity.entityId ?? "").split("->");
-    const instanceIds = new Set(schematic.instances.filter((instance) => {
+    const instanceIds = schematic.instances.filter((instance) => {
       const ports = instance.ports ?? {};
       return (ports.p === firstNode && ports.n === secondNode) || (ports.p === secondNode && ports.n === firstNode);
-    }).map((instance) => instance.id));
-    return { instanceIds, nodeId: null, branchId: selectedResultEntity.entityId };
+    }).map((instance) => instance.id);
+    return { instanceIds: new Set(instanceIds), nodeId: null, branchId: selectedResultEntity.entityId };
   }
   return { instanceIds: new Set(), nodeId: null, branchId: null };
 }
