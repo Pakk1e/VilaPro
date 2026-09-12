@@ -95,10 +95,10 @@ export default function ResultExplorer({ result }) {
   const nodeRows = rows.filter((row) => row.entityType === "node");
   const componentRows = rows.filter((row) => row.entityType === "component");
   const branchRows = rows.filter((row) => row.entityType === "branch");
-  const isSweep = result?.analysis === "dc_sweep";
+  const isSweep = result?.analysis === "dc_sweep" || result?.analysis === "frequency_sweep";
   const isTransient = result?.analysis === "transient";
   const isAC = result?.analysis === "ac";
-  const sweepInformation = isSweep ? getSweepInformation(result) : null;
+  const sweepInformation = result?.analysis === "dc_sweep" ? getSweepInformation(result) : null;
   const [selectedKey, setSelectedKey] = useState(null);
   const [measurement, setMeasurement] = useState(null);
   const preferredSweepRow = sweepInformation?.source
