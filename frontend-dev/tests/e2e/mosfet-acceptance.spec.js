@@ -63,6 +63,6 @@ test("CMOS inverter renders complementary MOSFETs and produces transient results
   await expect(results).toBeVisible({ timeout: 20000 });
   await expect(results).toContainText("PMOS 1");
   await expect(results).toContainText("NMOS 1");
-  await expect(results).toContainText("output");
+  await expect(results).toContainText("Result Plot");
   expect(errors).toEqual([]);
 });
