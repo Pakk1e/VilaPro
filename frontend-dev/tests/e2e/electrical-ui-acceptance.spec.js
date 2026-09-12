@@ -52,6 +52,16 @@ test.describe("Electrical workspace UI rework", () => {
     await expect(page.getByTestId("worlds-canvas").locator(".react-flow")).toHaveCSS("opacity", "0");
     await expect(page.getByTestId("workspace-canvas-surface")).toContainText("Simulation");
 
+    await page.getByTestId("simulate-button").click();
+    await expect(page.getByRole("region", { name: "Simulation results" })).toBeVisible({ timeout: 30000 });
+    await expect(page.getByRole("region", { name: "Simulation results" })).toContainText("Circuit Summary");
+
+    const componentRow = page.getByRole("region", { name: "Simulation results" }).getByRole("button", { name: /R1/ }).first();
+    await expect(componentRow).toBeVisible();
+    await componentRow.click();
+    await expect(page.getByRole("region", { name: "Simulation results" })).toContainText("Selected");
+    await page.getByTestId("workspace-inspector-surface").getByRole("button", { name: "Instruments" }).click().catch(() => {});
+
     const handle = page.getByTestId("instrument-resize-handle");
     const box = await handle.boundingBox();
     if (!box) throw new Error("Unable to locate instrument resize handle.");
