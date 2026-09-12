@@ -10,6 +10,8 @@ Lab OS is a learning-focused interactive sandbox. The current implementation is 
 
 The long-term architecture supports multiple Worlds and multiple meaningful abstraction Layers. A future Layer may replace the current UI entirely and may use an independent simulation model.
 
+The current frontend is now planned for a deliberate UI rework. The rework is a presentation/interaction replacement, not a replacement of the World Graph, serializer, simulation backend, or simulation transport. The target direction is documented in `docs/UI_REWORK.md`.
+
 ## Established engineering foundation
 
 The Worlds workspace currently has explicit boundaries between:
@@ -52,6 +54,27 @@ NMOS and PMOS are represented as three-terminal enhancement MOSFET switch models
 
 A CMOS inverter is now a real editable example built from one PMOS and one NMOS sharing the input gate and output drain node. CMOS is deliberately modeled as a circuit/technology example rather than as a separate transistor type. The current MOSFET model does not yet include body effect, capacitances, channel-length modulation, detailed saturation equations, or a small-signal AC representation; AC/frequency-domain operation explicitly rejects nonlinear BJT/MOSFET models until those representations are introduced.
 
+## UI rework direction
+
+The Electrical frontend will be rebuilt around a schematic-first workbench inspired by useful patterns from EveryCircuit, KiCad, LTspice, CircuitLab, and Falstad/CircuitJS.
+
+The target workspace has four contextual surfaces:
+
+1. Component Library
+2. Schematic Canvas
+3. Inspector
+4. Instrument Panel
+
+The canvas is the dominant surface. Library, Inspector, and Instruments are collapsible/resizable and a focus mode can maximize the schematic.
+
+The core interaction model is probe/context driven: selecting a component, terminal, wire/net, or result should expose the relevant information rather than forcing the user to navigate generic configuration panels. Simulation analysis controls should be contextual to the selected analysis. Results should remain in the Instrument Panel instead of replacing the schematic.
+
+The schematic must remain clean. Persistent voltage/current boxes and current-direction arrows are explicitly excluded from the target UI. Live mode may provide restrained visual feedback, while measurement remains primarily an instrument/inspection concern.
+
+The target visual language is technical, calm, and restrained rather than card-heavy or dashboard-like. Stable viewport behavior is a requirement: placing/editing components must not unexpectedly zoom or move the circuit; fit-to-content is an explicit action.
+
+The detailed implementation plan, interaction rules, migration phases, validation strategy, and non-goals are documented in `docs/UI_REWORK.md`.
+
 ## Important architectural rules
 
 1. Do not make the renderer the source of physical/simulation truth.
@@ -84,19 +107,9 @@ A CMOS inverter is now a real editable example built from one PMOS and one NMOS 
 
 ## Immediate engineering priority
 
-Continue the Electrical World implementation from concrete user-facing capabilities. The simulation foundation now covers DC, transient, AC, DC parameter sweep, and frequency sweep, with semiconductor coverage for diode, NPN/PNP BJT, and NMOS/PMOS switch models.
+The next major frontend work should follow `docs/UI_REWORK.md` rather than adding more UI to the existing panel structure. The intended sequence is: new workspace shell, schematic editor presentation, contextual Inspector, contextual simulation controls, Instrument Panel, Live integration, examples entry point, and finally removal of obsolete UI.
 
-Useful next areas are:
-
-- improve frequency-sweep result interaction, including frequency-domain measurements and cursor inspection
-- extend diode validation to transient rectification and more boundary cases
-- extend BJT/MOSFET modeling when concrete amplifier/switch circuits require it, including future small-signal AC representations
-- add richer MOSFET behavior such as body diode and capacitances when real examples need them
-- strengthen safe, bounded browser failure diagnostics
-- add selective geometry assertions for known layout regressions
-- improve architectural-boundary test reporting
-- continue Electrical World implementation
-- later, when requirements become concrete, real navigation between established Layers
+Simulation-model work should continue independently when concrete electrical examples require it, including future semiconductor behavior and small-signal representations.
 
 ## Validation state
 
@@ -110,17 +123,20 @@ The deployed Worlds acceptance workflow executes every `*acceptance.spec.js` fil
 
 ## Latest handoff point
 
-The current branch has clean schematic presentation, a dedicated static Frequency Sweep analysis for RLC response, and semiconductor coverage for Diode, NPN/PNP BJT, NMOS/PMOS, plus a CMOS inverter example. The latest validated application revision is `606b7becd297866521919cb47b0cea9970a7f0ad`; its complete deployed browser acceptance suite passed 23/23 tests. Documentation changes after that application revision should not be treated as an application behavior change until the next deployment pipeline completes.
+The latest validated application revision is `606b7becd297866521919cb47b0cea9970a7f0ad`; its complete deployed browser acceptance suite passed 23/23 tests. Documentation-only revisions after that application revision should not be treated as application behavior changes until the next deployment pipeline completes.
+
+The current branch also contains the approved Electrical UI rework specification in `docs/UI_REWORK.md`. No new UI implementation has started yet; the next implementation session should begin from that specification and preserve the established backend/World Graph boundaries.
 
 ## Future-session handoff
 
 A new engineering session should begin by:
 
 1. reading this document and the canonical vision/architecture documents
-2. inspecting the current branch and recent commits
-3. verifying the final CI/deployment state for the latest revision before making assumptions
-4. checking existing tests before changing behavior
-5. identifying the architectural boundary affected by the task
-6. implementing the smallest coherent change
-7. running the complete relevant validation/deployment/acceptance loop
-8. only then reporting completion
+2. reading `docs/UI_REWORK.md` before changing Electrical frontend structure
+3. inspecting the current branch and recent commits
+4. verifying the final CI/deployment state for the latest revision before making assumptions
+5. checking existing tests before changing behavior
+6. identifying the architectural boundary affected by the task
+7. implementing the smallest coherent change
+8. running the complete relevant validation/deployment/acceptance loop
+9. only then reporting completion
