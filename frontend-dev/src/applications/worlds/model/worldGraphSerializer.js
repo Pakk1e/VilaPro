@@ -9,8 +9,10 @@ world Electronics {
     quantity Resistance { dimension: Voltage / Current; unit: Ohm; }
     quantity Capacitance { dimension: Current * T / Voltage; unit: F; }
     quantity Inductance { dimension: Voltage * T / Current; unit: H; }
+    quantity Gain { dimension: Current / Current; }
     component Resistor { parameter R : Resistance; interface { p : ElectricalNode; n : ElectricalNode; } representation ideal { equation: voltage(p, n) = current(p, n) * R; } }
     component Diode { parameter Vf : Voltage; parameter Ron : Resistance; interface { p : ElectricalNode; n : ElectricalNode; } representation piecewise_linear { equation: voltage(p, n) = current(p, n) * Ron + Vf; } }
+    component NPNTransistor { parameter Vbe : Voltage; parameter VceSat : Voltage; parameter Beta : Gain; interface { b : ElectricalNode; c : ElectricalNode; e : ElectricalNode; } representation piecewise_linear { equation: voltage(b, e) = Vbe; equation: current(c, e) = Beta * current(b, e); } }
     component VoltageSource { parameter V : Voltage; interface { p : ElectricalNode; n : ElectricalNode; } representation ideal { equation: voltage(p, n) = V; } }
     component CurrentSource { parameter I : Current; interface { p : ElectricalNode; n : ElectricalNode; } representation ideal { equation: current(p, n) = I; } }
     component Capacitor { parameter C : Capacitance; interface { p : ElectricalNode; n : ElectricalNode; } representation ideal { equation: current(p, n) = C * derivative(voltage(p, n), time); } }
@@ -21,6 +23,7 @@ world Electronics {
 const PROPERTY_TO_PARAMETER = {
   Resistor: { backendType: "Resistor", parameter: { resistance: "R" } },
   Diode: { backendType: "Diode", parameter: { forwardVoltage: "Vf", onResistance: "Ron" } },
+  "NPN Transistor": { backendType: "NPNTransistor", parameter: { vbeOn: "Vbe", vceSat: "VceSat", beta: "Beta" } },
   "Voltage Source": { backendType: "VoltageSource", parameter: { voltage: "V" } },
   "Current Source": { backendType: "CurrentSource", parameter: { current: "I" } },
   Capacitor: { backendType: "Capacitor", parameter: { capacitance: "C" } },
