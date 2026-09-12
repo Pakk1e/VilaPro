@@ -20,7 +20,8 @@ DC_OPERATING_POINT = "dc_operating_point"
 DC_SWEEP = "dc_sweep"
 TRANSIENT = "transient"
 AC = "ac"
-SUPPORTED_ANALYSES = (DC_OPERATING_POINT, DC_SWEEP, TRANSIENT, AC)
+FREQUENCY_SWEEP = "frequency_sweep"
+SUPPORTED_ANALYSES = (DC_OPERATING_POINT, DC_SWEEP, TRANSIENT, AC, FREQUENCY_SWEEP)
 MAX_SWEEP_POINTS = 10_000
 
 
@@ -70,6 +71,8 @@ class SimulationConfiguration:
                 ACConfiguration.from_dict(settings)
             except ACConfigurationError as exc:
                 raise SimulationAnalysisError(str(exc)) from exc
+        elif analysis == FREQUENCY_SWEEP:
+            cls._validate_frequency_sweep_settings(settings)
         return cls(mode=mode, analysis=analysis, settings=dict(settings), outputs=tuple(outputs))
 
     @staticmethod
@@ -94,6 +97,28 @@ class SimulationConfiguration:
         if _count_sweep_points(start, stop, step) > MAX_SWEEP_POINTS:
             raise SimulationAnalysisError(f"dc_sweep produces more than {MAX_SWEEP_POINTS} points")
 
+    @staticmethod
+    def _validate_frequency_sweep_settings(settings: Mapping[str, object]) -> None:
+        for name in ("start", "stop", "step"):
+            _parse_finite_decimal(settings.get(name), name)
+        start = _parse_finite_decimal(settings.get("start"), "start")
+        stop = _parse_finite_decimal(settings.get("stop"), "stop")
+        step = _parse_finite_decimal(settings.get("step"), "step")
+        if start <= 0 or stop <= 0:
+            raise SimulationAnalysisError("frequency_sweep start and stop must be greater than zero")
+        if step == 0:
+            raise SimulationAnalysisError("frequency_sweep step must not be zero")
+        if start < stop and step < 0:
+            raise SimulationAnalysisError("frequency_sweep step must be positive when start is below stop")
+        if start > stop and step > 0:
+            raise SimulationAnalysisError("frequency_sweep step must be negative when start is above stop")
+        amplitude = _parse_finite_decimal(settings.get("amplitude", 1.0), "amplitude")
+        if amplitude < 0:
+            raise SimulationAnalysisError("frequency_sweep amplitude must not be negative")
+        _parse_finite_decimal(settings.get("phase", 0.0), "phase")
+        if _count_sweep_points(start, stop, step) > MAX_SWEEP_POINTS:
+            raise SimulationAnalysisError(f"frequency_sweep produces more than {MAX_SWEEP_POINTS} points")
+
     def to_dict(self) -> dict[str, object]:
         return {"mode": self.mode.value, "analysis": self.analysis, "settings": dict(self.settings), "outputs": list(self.outputs)}
 
@@ -104,6 +129,13 @@ class DCSweepResult:
     parameter: str
     points: tuple[Decimal, ...]
     results: tuple[SimulationResult | None, ...]
+    errors: tuple[str | None, ...]
+
+
+@dataclass(frozen=True)
+class FrequencySweepResult:
+    points: tuple[Decimal, ...]
+    results: tuple[ACResult | None, ...]
     errors: tuple[str | None, ...]
 
 
@@ -174,6 +206,33 @@ class DCSweepAnalysis:
         if parameter not in target.parameters:
             raise SimulationAnalysisError(f"dc_sweep target '{source_id}' does not expose parameter '{parameter}'")
         return source_id, parameter, _parse_finite_decimal(settings.get("start"), "start"), _parse_finite_decimal(settings.get("stop"), "stop"), _parse_finite_decimal(settings.get("step"), "step")
+
+
+class FrequencySweepAnalysis:
+    key = FREQUENCY_SWEEP
+
+    def run(self, model, *, known=None, configuration=None, session=None):
+        if configuration is None:
+            raise SimulationAnalysisError("frequency_sweep requires a simulation configuration")
+        start = _parse_finite_decimal(configuration.settings.get("start"), "start")
+        stop = _parse_finite_decimal(configuration.settings.get("stop"), "stop")
+        step = _parse_finite_decimal(configuration.settings.get("step"), "step")
+        amplitude = float(configuration.settings.get("amplitude", 1.0))
+        phase = float(configuration.settings.get("phase", 0.0))
+        points = _build_sweep_points(start, stop, step)
+        results, errors = [], []
+        for point in points:
+            _check_cancel(session)
+            try:
+                result = solve_ac(model, ACConfiguration(frequency=float(point), amplitude=amplitude, phase=phase))
+            except (ACConfigurationError, SolverError) as exc:
+                message = str(exc) or "Frequency point did not converge"
+                results.append(None); errors.append(message)
+                if session is not None: session.record_point({"status": "failed", "error": message}, time=float(point))
+                continue
+            results.append(result); errors.append(None)
+            if session is not None: session.record_point(result, time=float(point))
+        return FrequencySweepResult(tuple(points), tuple(results), tuple(errors))
 
 
 class TransientAnalysis:
@@ -257,10 +316,10 @@ def _check_cancel(session):
 
 
 def _parse_finite_decimal(value, name):
-    if isinstance(value, bool) or value is None: raise SimulationAnalysisError(f"dc_sweep.settings.{name} must be a finite number")
+    if isinstance(value, bool) or value is None: raise SimulationAnalysisError(f"simulation settings.{name} must be a finite number")
     try: parsed = Decimal(str(value))
-    except (InvalidOperation, ValueError): raise SimulationAnalysisError(f"dc_sweep.settings.{name} must be a finite number") from None
-    if not parsed.is_finite(): raise SimulationAnalysisError(f"dc_sweep.settings.{name} must be a finite number")
+    except (InvalidOperation, ValueError): raise SimulationAnalysisError(f"simulation settings.{name} must be a finite number") from None
+    if not parsed.is_finite(): raise SimulationAnalysisError(f"simulation settings.{name} must be a finite number")
     return parsed
 
 
@@ -286,7 +345,7 @@ def _override_component_parameter(model, *, source_id, parameter, value):
     if not found: raise SimulationAnalysisError(f"dc_sweep target '{source_id}' does not exist in the circuit")
     return SimulationModel(components=components, nodes=set(model.nodes))
 
-_ANALYSES = {DC_OPERATING_POINT: DCOperatingPointAnalysis(), DC_SWEEP: DCSweepAnalysis(), TRANSIENT: TransientAnalysis(), AC: ACAnalysis()}
+_ANALYSES = {DC_OPERATING_POINT: DCOperatingPointAnalysis(), DC_SWEEP: DCSweepAnalysis(), TRANSIENT: TransientAnalysis(), AC: ACAnalysis(), FREQUENCY_SWEEP: FrequencySweepAnalysis()}
 
 
 def get_simulation_analysis(key):
