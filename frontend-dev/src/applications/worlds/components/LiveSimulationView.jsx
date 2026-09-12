@@ -34,7 +34,6 @@ export default function LiveSimulationView({ snapshot, history = [], selectedCom
       previousSnapshotRef.current = null;
       simulationRateRef.current = null;
       timingAnchorRef.current = { simulationTime: snapshotTime, wallTime };
-      setDisplayTime(snapshotTime);
       return undefined;
     }
     const previous = previousSnapshotRef.current;
@@ -49,7 +48,6 @@ export default function LiveSimulationView({ snapshot, history = [], selectedCom
     simulationRateRef.current = rate;
     timingAnchorRef.current = { simulationTime: snapshotTime, wallTime };
     previousSnapshotRef.current = { time: snapshotTime, wallTime };
-    setDisplayTime(snapshotTime);
     let frameId;
     const tick = () => {
       const currentWallTime = performance.now();
