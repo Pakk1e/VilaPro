@@ -34,6 +34,10 @@ acceptance = acceptance.replace(
   'for (const node of nodes) { const box = await node.boundingBox(); if (!box) throw new Error("Unable to locate circuit component."); expect(box.x + box.width).toBeLessThan(paletteBox.x - 8); }',
   'const paletteRight = paletteBox.x + paletteBox.width; for (const node of nodes) { const box = await node.boundingBox(); if (!box) throw new Error("Unable to locate circuit component."); expect(box.x).toBeGreaterThan(paletteRight + 8); }',
 );
+acceptance = acceptance.replace(
+  'const seed = await addComponent(page, "Resistor", "Resistor 1"); const zoomOut = page.locator(".react-flow__controls-zoomout");',
+  'const seed = await addComponent(page, "Resistor", "Resistor 1"); const librarySurface = page.getByTestId("workspace-library-surface"); if (await librarySurface.isVisible().catch(() => false)) await page.getByRole("button", { name: "Library" }).click(); const zoomOut = page.locator(".react-flow__controls-zoomout");',
+);
 acceptance = acceptance.replaceAll(
   'await handle(voltage, "p").dragTo(handle(resistor, "p")); await handle(resistor, "n").dragTo(handle(ground, "g")); await handle(voltage, "n").dragTo(handle(ground, "g"));',
   'await connectHandles(page, handle(voltage, "p"), handle(resistor, "p")); await connectHandles(page, handle(resistor, "n"), handle(ground, "g")); await connectHandles(page, handle(voltage, "n"), handle(ground, "g"));',
@@ -44,7 +48,7 @@ const uiPath = path.join(root, "electrical-ui-acceptance.spec.js");
 if (fs.existsSync(uiPath)) {
   let ui = fs.readFileSync(uiPath, "utf8");
   ui = ui.replace("/Remove NMOS 1 voltage probe/", "/Remove NMOS 1(?: · G)? voltage probe/");
-  ui = ui.replace('await page.getByRole("button", { name: "Simulation" }).click();', 'const instruments = page.getByTestId("workspace-instrument-surface"); if (!(await instruments.isVisible().catch(() => false))) await page.getByRole("button", { name: "Instruments" }).click();');
+  ui = ui.replace('await page.getByRole("button", { name: "Instruments" }).click();', 'const instruments = page.getByTestId("workspace-instrument-surface"); if (!(await instruments.isVisible().catch(() => false))) await page.getByRole("button", { name: "Instruments" }).click();');
   fs.writeFileSync(uiPath, ui);
 }
 
