@@ -30,7 +30,9 @@ The frontend supports both static and live simulation concepts. The live workspa
 
 The current Electrical workspace carries an explicit, minimal context identity (`universeId`, `worldId`, `layerId`, `representationId`) without coupling that context to the World Graph or changing the Electrical simulation model. This is an extension point for future Worlds/Layers, not a multi-world implementation.
 
-The Electrical workspace also has deterministic pre-created examples represented as editable World Graph templates. Current examples are Voltage divider, RC low-pass, Parallel resistors, RL transient, and RLC transient. Examples are graph templates, not separate simulation engines; they exercise the same editor, serializer, backend, and analysis paths as user-built circuits.
+The Electrical workspace has deterministic pre-created examples represented as editable World Graph templates. Current examples are Voltage divider, RC low-pass, Parallel resistors, RL transient, and RLC transient. Examples are graph templates, not separate simulation engines; they exercise the same editor, serializer, backend, and analysis paths as user-built circuits.
+
+Electrical examples now also carry explicit simulation presets in the example model. Static examples declare DC operating point; dynamic examples declare transient analysis with bounded, example-specific time ranges. The palette exposes that intended analysis so an example's simulation intent is visible without coupling the example to a separate simulation path.
 
 Browser acceptance uses stable interaction boundaries and failure diagnostics. Deployment acceptance verifies the exact deployed revision.
 
@@ -70,8 +72,8 @@ The minimal World/Layer extension point is established without speculative multi
 
 Current useful next areas are:
 
-- finish and validate the pre-created Electrical example set against the real backend where useful
-- improve example metadata/foundation semantics without turning examples into a separate simulation path
+- consume the explicit simulation presets when loading pre-created Electrical examples, keeping the preset as configuration rather than simulation logic
+- add real-backend browser acceptance for the remaining pre-created dynamic examples where it provides coverage value
 - strengthen safe, bounded browser failure diagnostics
 - add selective geometry assertions for known layout regressions
 - improve architectural-boundary test reporting
@@ -85,7 +87,7 @@ Before starting a new feature, inspect `VISION.md`, `docs/CONCEPTS.md`, `docs/LA
 
 ## Latest handoff point
 
-The latest implementation work added the RLC transient pre-created example and deterministic coverage for its resistor/inductor/capacitor topology and initial-state parameters. The last committed revision at handoff is `c087322dc90f71ca5adf399e9f372295e51a890c`. CI and Worlds deployment workflows were triggered for that revision; a new session must verify their final state and, if deployment succeeded, verify the complete browser acceptance suite against the exact deployed revision before treating the change as complete.
+The latest implementation work added explicit simulation presets to all five pre-created Electrical examples and exposed the intended analysis in the component palette. The current branch revision is `533512c5fbda537ba478669208345c7e34383821`. CI passed for the revision, Worlds DEV deployment passed, and the complete browser acceptance suite passed against the exact deployed revision. The preset metadata is intentionally not yet consumed to automatically configure the Simulation workspace; that is the next coherent implementation step.
 
 ## Future-session handoff
 
