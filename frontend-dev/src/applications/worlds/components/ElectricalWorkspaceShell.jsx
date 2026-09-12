@@ -27,6 +27,7 @@ export default function ElectricalWorkspaceShell({ children, library, inspector,
     const onPointerUp = () => { resizingRef.current = false; document.body.style.removeProperty("cursor"); document.body.style.removeProperty("user-select"); };
     const onSelection = event => { if (event.detail?.selectedNode || event.detail?.selectedEdgeId || event.detail?.selectedTerminal || event.detail?.selectedResultEntity) setInspectorOpen(true); };
     const onComponentAdded = () => setLibraryOpen(false);
+    const onExampleLoaded = () => setLibraryOpen(false);
     const onProbeAdded = event => {
       if (event.detail?.__replayed) return;
       setInstrumentOpen(true);
@@ -38,6 +39,7 @@ export default function ElectricalWorkspaceShell({ children, library, inspector,
     window.addEventListener("pointerup", onPointerUp);
     window.addEventListener("worlds:selection-change", onSelection);
     window.addEventListener("worlds:add-component", onComponentAdded);
+    window.addEventListener("worlds:load-example", onExampleLoaded);
     window.addEventListener("worlds:add-probe", onProbeAdded);
     window.addEventListener("worlds:close-library", onLibraryClose);
     return () => {
@@ -45,6 +47,7 @@ export default function ElectricalWorkspaceShell({ children, library, inspector,
       window.removeEventListener("pointerup", onPointerUp);
       window.removeEventListener("worlds:selection-change", onSelection);
       window.removeEventListener("worlds:add-component", onComponentAdded);
+      window.removeEventListener("worlds:load-example", onExampleLoaded);
       window.removeEventListener("worlds:add-probe", onProbeAdded);
       window.removeEventListener("worlds:close-library", onLibraryClose);
     };
