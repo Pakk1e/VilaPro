@@ -213,13 +213,12 @@ export default function WorldCanvas({ workspace = "design", worldContext = DEFAU
   };
 
   const handleCanvasClick = event => {
+    const target = event.target;
+    const blocked = target?.closest?.(".react-flow__node, .react-flow__handle, .react-flow__controls, .react-flow__attribution");
+    if (blocked) return;
     if (placementDefinitionKey) {
-      const target = event.target;
-      const blocked = target?.closest?.(".react-flow__node, .react-flow__handle, .react-flow__controls, .react-flow__attribution");
-      if (!blocked) {
-        insertComponent(placementDefinitionKey, { x: event.clientX, y: event.clientY });
-        return;
-      }
+      insertComponent(placementDefinitionKey, { x: event.clientX, y: event.clientY });
+      return;
     }
     setSelectedNodeId(null);
     setSelectedEdgeId(null);
