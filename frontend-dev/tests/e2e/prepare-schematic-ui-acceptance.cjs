@@ -15,9 +15,14 @@ for (const name of specs) {
   text = text.replaceAll('page.getByLabel("Stop", { exact: true })', 'page.getByTestId("simulation-setup").getByLabel("Stop", { exact: true })');
   text = text.replaceAll('page.getByLabel("Step", { exact: true })', 'page.getByTestId("simulation-setup").getByLabel("Step", { exact: true })');
   text = text.replaceAll('toContainText("Simulation")', 'toContainText("Schematic")');
+  text = text.replaceAll('getByTestId("component-inspector")', 'getByTestId("workspace-inspector")');
   text = text.replace(
-    'const sourceProperties = page.getByTestId("component-inspector").locator("select").first();',
-    'const inspectorSurface = page.getByTestId("workspace-inspector-surface"); if (!(await inspectorSurface.isVisible().catch(() => false))) await page.getByRole("button", { name: "Inspector" }).click(); const sourceProperties = page.getByTestId("component-inspector").getByRole("combobox").first();',
+    'const sourceProperties = page.getByTestId("workspace-inspector").locator("select").first();',
+    'const inspectorSurface = page.getByTestId("workspace-inspector-surface"); if (!(await inspectorSurface.isVisible().catch(() => false))) await page.getByRole("button", { name: "Inspector" }).click(); const sourceProperties = page.getByTestId("workspace-inspector").getByRole("combobox").first();',
+  );
+  text = text.replace(
+    'function inspectorInputs(page) { return page.getByTestId("workspace-inspector").locator(\'input[type="number"]\'); }',
+    'function inspectorInputs(page) { return page.getByTestId("workspace-inspector").locator(\'input[type="number"]\'); }',
   );
   if (name !== "electrical-ui-acceptance.spec.js") {
     text = text.replaceAll(
