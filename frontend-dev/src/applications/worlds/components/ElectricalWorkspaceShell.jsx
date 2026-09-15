@@ -70,11 +70,6 @@ export default function ElectricalWorkspaceShell({ children, library, inspector,
       <div className="flex w-[210px] shrink-0 items-center gap-2.5"><div className="flex h-7 w-7 items-center justify-center rounded-[7px] bg-[#26384e] text-[7px] font-bold tracking-[0.08em] text-white shadow-[0_2px_5px_rgba(25,39,58,0.18)]">LO</div><div><div className="text-[8px] font-bold uppercase tracking-[0.2em] text-[#718093]">Lab OS</div><div className="mt-0.5 text-[11px] font-semibold tracking-[-0.01em] text-[#26374d]">Electrical Workbench</div></div></div>
       <div data-testid="workspace-header-context" className="min-w-0 flex-1 px-4">{headerCenter}</div>
       <div className="flex shrink-0 items-center gap-1.5">
-        {!focusMode && <div className="flex items-center gap-0.5 rounded-xl border border-[#d5dde4] bg-white p-1 shadow-[0_1px_3px_rgba(24,37,58,0.05)]">
-          <ActionButton label="Add" accessibleLabel="Library" onClick={openLibrary} icon={<LayersIcon />} emphasis />
-          <ActionButton label="Inspect" accessibleLabel="Inspector" active={inspectorOpen} onClick={openInspector} icon={<InspectIcon />} />
-          <ActionButton label="Measure" accessibleLabel="Instruments" active={instrumentOpen} onClick={openInstrument} icon={<ChartIcon />} />
-        </div>}
         <button type="button" aria-label={focusMode ? "Exit focus mode" : "Focus mode"} aria-pressed={focusMode} onClick={() => setFocusMode(value => !value)} className={`inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[10px] font-semibold transition ${focusMode ? "bg-[#e2e8ed] text-[#22374f]" : "text-[#68788a] hover:bg-[#eef2f4] hover:text-[#2e4057]"}`}><FocusIcon />{focusMode ? "Exit" : "Focus"}</button>
       </div>
     </header>
@@ -82,10 +77,10 @@ export default function ElectricalWorkspaceShell({ children, library, inspector,
       <main data-testid="workspace-canvas-surface" className="absolute inset-0 overflow-hidden bg-[#f8faf9]">{children}</main>
       {!focusMode && <div className="pointer-events-none absolute left-4 top-4 z-10 flex items-center gap-2 rounded-md border border-[#d5dde3] bg-[#f9fbfa]/90 px-2.5 py-1.5 shadow-[0_2px_8px_rgba(24,37,58,0.05)] backdrop-blur"><span className="h-1.5 w-1.5 rounded-full bg-[#667f98]"/><span className="text-[8px] font-bold uppercase tracking-[0.18em] text-[#647589]">Design surface</span></div>}
       {!focusMode && <div className="absolute bottom-4 left-4 z-20 flex items-center gap-1 rounded-xl border border-[#d2dae1] bg-white/94 p-1 shadow-[0_8px_22px_rgba(24,37,58,0.10)] backdrop-blur">
-        <ActionButton label="Add" accessibleLabel="Open component library" onClick={openLibrary} icon={<LayersIcon />} emphasis />
+        <ActionButton label="Add" accessibleLabel="Library" onClick={openLibrary} icon={<LayersIcon />} emphasis />
         <div className="mx-0.5 h-5 w-px bg-[#e0e5e9]" />
-        <ActionButton label="Inspect" accessibleLabel="Open inspector" active={inspectorOpen} onClick={openInspector} icon={<InspectIcon />} />
-        <ActionButton label="Measure" accessibleLabel="Open instruments" active={instrumentOpen} onClick={openInstrument} icon={<ChartIcon />} />
+        <ActionButton label="Inspect" accessibleLabel="Inspector" active={inspectorOpen} onClick={openInspector} icon={<InspectIcon />} />
+        <ActionButton label="Measure" accessibleLabel="Instruments" active={instrumentOpen} onClick={openInstrument} icon={<ChartIcon />} />
         <div className="mx-0.5 h-5 w-px bg-[#e0e5e9]" />
         <button type="button" aria-label="Center schematic" onClick={() => window.dispatchEvent(new CustomEvent("worlds:fit-view"))} className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[#8996a4] transition hover:bg-[#eef2f4] hover:text-[#52677d]"><CrosshairIcon /></button>
       </div>}
