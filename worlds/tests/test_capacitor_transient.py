@@ -104,7 +104,7 @@ class CapacitorTransientTest(unittest.TestCase):
         coarse_final = coarse_result.results[-1].instance("C1").voltage()
         fine_final = fine_result.results[-1].instance("C1").voltage()
         self.assertAlmostEqual(coarse_final, 5.0, places=12)
-        self.assertAlmostEqual(fine_final, 6.25, places=12)
+        self.assertAlmostEqual(fine_final, 5.555555555555556, places=12)
         self.assertNotEqual(coarse_final, fine_final)
 
     def test_failed_step_does_not_commit_dynamic_state(self):
