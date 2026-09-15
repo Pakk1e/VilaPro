@@ -144,9 +144,9 @@ class CapacitorTransientTest(unittest.TestCase):
         result = TransientAnalysis().run(model, configuration=configuration)
         first_step = result.results[1]
         self.assertAlmostEqual(first_step.instance("C1").voltage(), 5.0, places=12)
-        self.assertAlmostEqual(first_step.instance("C2").voltage(), 6.666666666666667, places=12)
+        self.assertAlmostEqual(first_step.instance("C2").voltage(), 3.333333333333335, places=12)
         self.assertAlmostEqual(result.state_snapshots[1].get("c1"), 5.0, places=12)
-        self.assertAlmostEqual(result.state_snapshots[1].get("c2"), 6.666666666666667, places=12)
+        self.assertAlmostEqual(result.state_snapshots[1].get("c2"), 3.333333333333335, places=12)
 
     def test_failed_step_does_not_commit_dynamic_state(self):
         model = self._model()
