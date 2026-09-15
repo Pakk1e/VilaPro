@@ -92,7 +92,7 @@ test.describe("Electrical workspace UI rework", () => {
     await expect(resistor).toBeVisible();
     await expect(page.getByTestId("workspace-inspector-surface")).toBeVisible();
     await page.getByTestId("worlds-canvas").press("Escape");
-    await expect(page.getByTestId("workspace-inspector-surface")).toHaveCount(0);
+    await expect(page.getByTestId("workspace-inspector")).toContainText("Nothing selected");
     expect(errors).toEqual([]);
   });
 });
