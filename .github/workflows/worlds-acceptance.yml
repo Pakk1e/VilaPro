@@ -66,6 +66,16 @@ jobs:
           free -m 2>/dev/null | awk 'NR==1 || NR==2 {print "Memory: " $0}' || true
           df -h "$GITHUB_WORKSPACE" 2>/dev/null | awk 'NR==1 || NR==2 {print "Disk: " $0}' || true
 
+      - name: Prepare acceptance suite for schematic-first workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -f frontend-dev/src/applications/worlds/components/ElectricalWorkspaceShell.jsx ]; then
+            node frontend-dev/tests/e2e/prepare-schematic-ui-acceptance.cjs
+          else
+            echo "Legacy Worlds workspace detected; no UI rework compatibility patch required."
+          fi
+
       - name: Install frontend dependencies
         working-directory: frontend-dev
         shell: bash
@@ -76,9 +86,6 @@ jobs:
           ended=$(date +%s%3N)
           echo "npm ci duration=$((ended - started))ms"
 
-      # Keep the Playwright toolchain outside the checkout. actions/checkout
-      # cleans node_modules on every run, while this cache survives between
-      # runs on the persistent worlds-dev self-hosted runner.
       - name: Ensure persistent Playwright test runner
         working-directory: frontend-dev
         shell: bash
@@ -88,22 +95,13 @@ jobs:
           cache_root="$HOME/.cache/vilapro-playwright/$version"
           package_root="$cache_root/node_modules/@playwright/test"
           started=$(date +%s%3N)
-
           if [ ! -f "$package_root/package.json" ]; then
             echo "Playwright $version not present on runner; installing once..."
             mkdir -p "$cache_root"
-            npm install \
-              --prefix "$cache_root" \
-              --no-save \
-              --package-lock=false \
-              --prefer-offline \
-              --no-audit \
-              --no-fund \
-              "@playwright/test@$version"
+            npm install --prefix "$cache_root" --no-save --package-lock=false --prefer-offline --no-audit --no-fund "@playwright/test@$version"
           else
             echo "Playwright $version already present on runner; reusing persistent install."
           fi
-
           rm -rf node_modules/@playwright/test node_modules/playwright node_modules/playwright-core
           mkdir -p node_modules/@playwright node_modules/.bin
           ln -s "$package_root" node_modules/@playwright/test
@@ -112,7 +110,6 @@ jobs:
           rm -f node_modules/.bin/playwright node_modules/.bin/playwright-core
           ln -s "$cache_root/node_modules/.bin/playwright" node_modules/.bin/playwright
           ln -s "$cache_root/node_modules/.bin/playwright-core" node_modules/.bin/playwright-core
-
           ended=$(date +%s%3N)
           echo "Playwright runner setup duration=$((ended - started))ms"
           node -e "console.log('Playwright version:', require('@playwright/test/package.json').version)"
@@ -162,7 +159,7 @@ jobs:
         with:
           name: worlds-acceptance-screenshots
           path: testscreenshots/playwright
-          if-no-files-found: warn
+          if-no-files-found: ignore
           retention-days: 14
 
       - name: Upload failure artifacts

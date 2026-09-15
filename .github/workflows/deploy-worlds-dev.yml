@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - v0.4/workspace-architecture
+      - v0.4/dev-deploy
   workflow_dispatch:
     inputs:
       branch:
