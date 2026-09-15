@@ -83,7 +83,7 @@ test.describe("Electrical workspace UI rework", () => {
     expect(errors).toEqual([]);
   });
 
-  test("selected schematic components can be dismissed with Escape", async ({ page }) => {
+  test("selected schematic components can be dismissed with Escape and Backspace", async ({ page }) => {
     const errors = browserErrors(page);
     await page.goto("/worlds", { waitUntil: "networkidle" });
     await page.getByRole("button", { name: "Library" }).click();
@@ -93,6 +93,10 @@ test.describe("Electrical workspace UI rework", () => {
     await expect(page.getByTestId("workspace-inspector-surface")).toBeVisible();
     await page.getByTestId("worlds-canvas").press("Escape");
     await expect(page.getByTestId("workspace-inspector")).toContainText("Nothing selected");
+    await resistor.click();
+    await expect(page.getByTestId("workspace-inspector")).toContainText("Resistor 1");
+    await page.getByTestId("worlds-canvas").press("Backspace");
+    await expect(resistor).toHaveCount(0);
     expect(errors).toEqual([]);
   });
 });
