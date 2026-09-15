@@ -107,6 +107,47 @@ class CapacitorTransientTest(unittest.TestCase):
         self.assertAlmostEqual(fine_final, 5.555555555555556, places=12)
         self.assertNotEqual(coarse_final, fine_final)
 
+    def test_multiple_capacitors_keep_independent_dynamic_state(self):
+        source1 = SimulationComponent(
+            name="V1", display_name="V1", component_id="v1", component_type="VoltageSource",
+            parameters={"V": 10.0}, ports={"p": "in1", "n": "ground"},
+            equations=[Equation(FunctionCall("voltage", (Variable("p"), Variable("n"))), Variable("V"))],
+        )
+        source2 = SimulationComponent(
+            name="V2", display_name="V2", component_id="v2", component_type="VoltageSource",
+            parameters={"V": 10.0}, ports={"p": "in2", "n": "ground"},
+            equations=[Equation(FunctionCall("voltage", (Variable("p"), Variable("n"))), Variable("V"))],
+        )
+        resistor1 = SimulationComponent(
+            name="R1", display_name="R1", component_id="r1", component_type="Resistor",
+            parameters={"R": 1000.0}, ports={"p": "in1", "n": "out1"},
+            equations=[Equation(FunctionCall("current", (Variable("p"), Variable("n"))), Binary(FunctionCall("voltage", (Variable("p"), Variable("n"))), "/", Variable("R")))],
+        )
+        resistor2 = SimulationComponent(
+            name="R2", display_name="R2", component_id="r2", component_type="Resistor",
+            parameters={"R": 1000.0}, ports={"p": "in2", "n": "out2"},
+            equations=[Equation(FunctionCall("current", (Variable("p"), Variable("n"))), Binary(FunctionCall("voltage", (Variable("p"), Variable("n"))), "/", Variable("R")))],
+        )
+        capacitor1 = SimulationComponent(
+            name="C1", display_name="C1", component_id="c1", component_type="Capacitor",
+            parameters={"C": 1e-6, "initial_voltage": 0.0}, ports={"p": "out1", "n": "ground"}, equations=[],
+        )
+        capacitor2 = SimulationComponent(
+            name="C2", display_name="C2", component_id="c2", component_type="Capacitor",
+            parameters={"C": 2e-6, "initial_voltage": 0.0}, ports={"p": "out2", "n": "ground"}, equations=[],
+        )
+        model = SimulationModel(
+            components=[source1, source2, resistor1, resistor2, capacitor1, capacitor2],
+            nodes={"in1", "out1", "in2", "out2", "ground"},
+        )
+        configuration = type("Config", (), {"settings": {"start": 0.0, "stop": 0.001, "step": 0.001}})()
+        result = TransientAnalysis().run(model, configuration=configuration)
+        first_step = result.results[1]
+        self.assertAlmostEqual(first_step.instance("C1").voltage(), 5.0, places=12)
+        self.assertAlmostEqual(first_step.instance("C2").voltage(), 6.666666666666667, places=12)
+        self.assertAlmostEqual(result.state_snapshots[1].get("c1"), 5.0, places=12)
+        self.assertAlmostEqual(result.state_snapshots[1].get("c2"), 6.666666666666667, places=12)
+
     def test_failed_step_does_not_commit_dynamic_state(self):
         model = self._model()
         handler = CapacitorStateHandler()
