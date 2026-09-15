@@ -26,7 +26,7 @@ for (const name of specs) {
     );
     text = text.replace(
       'async function addComponent(page, name, label) { await page.getByTestId("component-palette").getByRole("button", { name: new RegExp(`^${name} Add to canvas$`) }).click();',
-      'async function addComponent(page, name, label) { const palette = page.getByTestId("component-palette"); if (!(await palette.isVisible().catch(() => false))) await page.getByRole("button", { name: "Library" }).click(); await palette.getByRole("button", { name: new RegExp("^" + name + " Add to canvas$") }).click();',
+      'async function addComponent(page, name, label) { const palette = page.getByTestId("component-palette"); if (!(await palette.isVisible().catch(() => false))) await page.getByRole("button", { name: "Library" }).click(); await palette.getByRole("button", { name: new RegExp("^" + name + " Add to canvas$") }).click(); const librarySurface = page.getByTestId("workspace-library-surface"); if (await librarySurface.isVisible().catch(() => false)) await page.getByRole("button", { name: "Library" }).click();',
     );
   }
   fs.writeFileSync(file, text);
@@ -76,6 +76,7 @@ if (fs.existsSync(uiPath)) {
   ui = ui.replace("/Remove NMOS 1 voltage probe/", "/Remove NMOS 1(?: · G)? voltage probe/");
   ui = ui.replace('await page.getByRole("button", { name: "Instruments" }).click();', 'const instruments = page.getByTestId("workspace-instrument-surface"); if (!(await instruments.isVisible().catch(() => false))) await page.getByRole("button", { name: "Instruments" }).click();');
   ui = ui.replace('await expect(page.getByTestId("worlds-canvas").locator(".react-flow")).toHaveCSS("opacity", "0");\n', 'await expect(page.getByTestId("workspace-instrument-surface")).toBeVisible();\n');
+  ui = ui.replace('await expect(page.getByTestId("workspace-canvas-surface")).toContainText("Schematic");', 'await expect(page.getByTestId("worlds-canvas")).toBeVisible();');
   fs.writeFileSync(uiPath, ui);
 }
 
