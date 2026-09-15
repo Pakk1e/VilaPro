@@ -212,10 +212,11 @@ export default function WorldCanvas({ workspace = "design", worldContext = DEFAU
     setSelectedTerminal(null);
   };
 
-  const handlePaneClick = event => {
+  const handleCanvasClick = event => {
     if (placementDefinitionKey) {
-      const pane = event.target.closest?.(".react-flow__pane");
-      if (pane) {
+      const target = event.target;
+      const blocked = target?.closest?.(".react-flow__node, .react-flow__handle, .react-flow__controls, .react-flow__attribution");
+      if (!blocked) {
         insertComponent(placementDefinitionKey, { x: event.clientX, y: event.clientY });
         return;
       }
@@ -302,9 +303,9 @@ export default function WorldCanvas({ workspace = "design", worldContext = DEFAU
 
   const flowClass = isDesignWorkspace ? "absolute inset-0" : "absolute inset-0 pointer-events-none opacity-0";
 
-  return <div data-testid="worlds-canvas" data-world-id={worldContext.worldId} data-layer-id={worldContext.layerId} data-representation-id={worldContext.representationId} aria-label="Schematic canvas" className={`relative h-full w-full ${isDesignWorkspace ? "bg-[#f8f9f7]" : "bg-[#f2f4f5]"}`} tabIndex={0} onKeyDown={onKeyDown} onPointerMove={onPointerMove}>
+  return <div data-testid="worlds-canvas" data-world-id={worldContext.worldId} data-layer-id={worldContext.layerId} data-representation-id={worldContext.representationId} aria-label="Schematic canvas" className={`relative h-full w-full ${isDesignWorkspace ? "bg-[#f8f9f7]" : "bg-[#f2f4f5]"}`} tabIndex={0} onKeyDown={onKeyDown} onPointerMove={onPointerMove} onClick={handleCanvasClick}>
     <div className={flowClass} aria-hidden={!isDesignWorkspace}>
-      <ReactFlow nodes={nodes} edges={edges} edgeTypes={edgeTypes} nodeTypes={nodeTypes} connectionMode="loose" defaultEdgeOptions={{ type: "circuit", interactionWidth: 30 }} connectionLineType="step" nodesDraggable={isDesignWorkspace && !placementDefinitionKey} nodesConnectable={isDesignWorkspace && !placementDefinitionKey} elementsSelectable={isDesignWorkspace && !placementDefinitionKey} onNodesChange={handleNodesChange} onEdgesChange={onEdgesChange} onEdgeClick={handleEdgeClick} onEdgeDoubleClick={insertJunctionOnEdge} onConnect={onConnect} onConnectEnd={handleConnectEnd} onInit={setReactFlowInstance} onNodeClick={handleNodeClick} onPaneClick={handlePaneClick} fitView proOptions={{ hideAttribution: true }}>
+      <ReactFlow nodes={nodes} edges={edges} edgeTypes={edgeTypes} nodeTypes={nodeTypes} connectionMode="loose" defaultEdgeOptions={{ type: "circuit", interactionWidth: 30 }} connectionLineType="step" nodesDraggable={isDesignWorkspace && !placementDefinitionKey} nodesConnectable={isDesignWorkspace && !placementDefinitionKey} elementsSelectable={isDesignWorkspace && !placementDefinitionKey} onNodesChange={handleNodesChange} onEdgesChange={onEdgesChange} onEdgeClick={handleEdgeClick} onEdgeDoubleClick={insertJunctionOnEdge} onConnect={onConnect} onConnectEnd={handleConnectEnd} onInit={setReactFlowInstance} onNodeClick={handleNodeClick} onPaneClick={placementDefinitionKey ? undefined : handleCanvasClick} fitView proOptions={{ hideAttribution: true }}>
         <Background color="#d9dee3" gap={24} size={1} />
         <Controls position="bottom-left" showInteractive={false} />
       </ReactFlow>
