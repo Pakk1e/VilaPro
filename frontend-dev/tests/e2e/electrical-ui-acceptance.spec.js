@@ -82,4 +82,17 @@ test.describe("Electrical workspace UI rework", () => {
     await expect(page.getByTestId("workspace-instrument-surface")).toHaveCount(0);
     expect(errors).toEqual([]);
   });
+
+  test("selected schematic components can be dismissed with Escape", async ({ page }) => {
+    const errors = browserErrors(page);
+    await page.goto("/worlds", { waitUntil: "networkidle" });
+    await page.getByRole("button", { name: "Library" }).click();
+    await page.getByTestId("component-palette").getByRole("button", { name: /Resistor Add to canvas/ }).click();
+    const resistor = page.locator(".react-flow__node").filter({ hasText: "Resistor 1" });
+    await expect(resistor).toBeVisible();
+    await expect(page.getByTestId("workspace-inspector-surface")).toBeVisible();
+    await page.getByTestId("worlds-canvas").press("Escape");
+    await expect(page.getByTestId("workspace-inspector-surface")).toHaveCount(0);
+    expect(errors).toEqual([]);
+  });
 });
