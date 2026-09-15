@@ -25,7 +25,7 @@ for (const name of specs) {
       'await page.goto("/worlds", { waitUntil: "networkidle" }); await page.getByRole("button", { name: "Library" }).click();',
     );
     text = text.replace(
-      /async function addComponent\(page, name, label\) \{[\s\S]*?\n\}/,
+      'async function addComponent(page, name, label) { await page.getByTestId("component-palette").getByRole("button", { name: new RegExp(`^${name} Add to canvas$`) }).click(); const node = page.locator(".react-flow__node").filter({ hasText: label }); await expect(node).toBeVisible(); return node; }',
       'async function addComponent(page, name, label) { const palette = page.getByTestId("component-palette"); if (!(await palette.isVisible().catch(() => false))) await page.getByRole("button", { name: "Library" }).click(); await palette.getByRole("button", { name: new RegExp("^" + name + " Add to canvas$") }).click(); const node = page.locator(".react-flow__node").filter({ hasText: label }); await expect(node).toBeVisible(); const librarySurface = page.getByTestId("workspace-library-surface"); if (await librarySurface.isVisible().catch(() => false)) await page.getByRole("button", { name: "Library" }).click(); return node; }',
     );
     text = text.replace(
