@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 function ActionButton({ label, accessibleLabel, active, onClick, icon, emphasis = false }) {
-  return <button type="button" aria-label={accessibleLabel ?? label} aria-pressed={active} onClick={onClick} className={`group inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[10px] font-semibold transition ${emphasis ? "bg-[#26384e] text-white shadow-[0_3px_10px_rgba(25,39,58,0.16)] hover:bg-[#314761]" : active ? "bg-[#e7edf2] text-[#20364e]" : "text-[#69788a] hover:bg-[#eef2f4] hover:text-[#2e4057]"}`}><span className={`flex h-4 w-4 items-center justify-center ${emphasis ? "text-white" : active ? "text-[#405a75]" : "text-[#8a97a5] group-hover:text-[#5e7084]"}`}>{icon}</span>{label}</button>;
+  return <button type="button" aria-label={accessibleLabel ?? label} aria-pressed={active} onClick={onClick} className={`group inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[10px] font-semibold transition ${emphasis ? "bg-[#26384e] text-white shadow-[0_3px_10px_rgba(25,39,58,0.16)] hover:bg-[#314761]" : active ? "bg-[#e7edf2] text-[#20364e]" : "text-[#69788a] hover:bg-[#eef2f4] hover:text-[#2e4057]"}`}><span className={`flex h-4 w-4 items-center justify-center ${emphasis ? "text-white" : active ? "text-[#405a75]" : "text-[#8a97a5] group-hover:text-[#5e7084]`}>{icon}</span>{label}</button>;
 }
 function LayersIcon() { return <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.35"><path d="m2.5 5 5.5-2.5L13.5 5 8 7.5 2.5 5Z"/><path d="m2.5 8 5.5 2.5L13.5 8M2.5 11l5.5 2.5 5.5-2.5"/></svg>; }
 function InspectIcon() { return <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.35"><circle cx="7" cy="7" r="3.8"/><path d="m10 10 3.2 3.2M5.7 7h2.6M7 5.7v2.6"/></svg>; }
@@ -18,49 +18,18 @@ export default function ElectricalWorkspaceShell({ children, library, inspector,
   const resizingRef = useRef(false);
 
   useEffect(() => {
-    const onPointerMove = event => {
-      if (!resizingRef.current) return;
-      const shell = document.querySelector('[data-testid="electrical-workspace"]');
-      if (!shell) return;
-      const rect = shell.getBoundingClientRect();
-      setInstrumentHeight(Math.min(460, Math.max(180, rect.bottom - event.clientY - 28)));
-    };
+    const onPointerMove = event => { if (!resizingRef.current) return; const shell = document.querySelector('[data-testid="electrical-workspace"]'); if (!shell) return; const rect = shell.getBoundingClientRect(); setInstrumentHeight(Math.min(460, Math.max(180, rect.bottom - event.clientY - 28))); };
     const onPointerUp = () => { resizingRef.current = false; document.body.style.removeProperty("cursor"); document.body.style.removeProperty("user-select"); };
     const onSelection = event => { if (event.detail?.selectedNode || event.detail?.selectedEdgeId || event.detail?.selectedTerminal || event.detail?.selectedResultEntity) setInspectorOpen(true); };
     const onComponentAdded = () => setLibraryOpen(false);
     const onExampleLoaded = () => setLibraryOpen(false);
-    const onProbeAdded = event => {
-      if (event.detail?.__replayed) return;
-      setInstrumentOpen(true);
-      setInspectorOpen(true);
-      requestAnimationFrame(() => window.dispatchEvent(new CustomEvent("worlds:add-probe", { detail: { ...event.detail, __replayed: true } })));
-    };
+    const onProbeAdded = event => { if (event.detail?.__replayed) return; setInstrumentOpen(true); setInspectorOpen(true); requestAnimationFrame(() => window.dispatchEvent(new CustomEvent("worlds:add-probe", { detail: { ...event.detail, __replayed: true } }))); };
     const onLibraryClose = () => setLibraryOpen(false);
-    window.addEventListener("pointermove", onPointerMove);
-    window.addEventListener("pointerup", onPointerUp);
-    window.addEventListener("worlds:selection-change", onSelection);
-    window.addEventListener("worlds:add-component", onComponentAdded);
-    window.addEventListener("worlds:load-example", onExampleLoaded);
-    window.addEventListener("worlds:add-probe", onProbeAdded);
-    window.addEventListener("worlds:close-library", onLibraryClose);
-    return () => {
-      window.removeEventListener("pointermove", onPointerMove);
-      window.removeEventListener("pointerup", onPointerUp);
-      window.removeEventListener("worlds:selection-change", onSelection);
-      window.removeEventListener("worlds:add-component", onComponentAdded);
-      window.removeEventListener("worlds:load-example", onExampleLoaded);
-      window.removeEventListener("worlds:add-probe", onProbeAdded);
-      window.removeEventListener("worlds:close-library", onLibraryClose);
-    };
+    window.addEventListener("pointermove", onPointerMove); window.addEventListener("pointerup", onPointerUp); window.addEventListener("worlds:selection-change", onSelection); window.addEventListener("worlds:add-component", onComponentAdded); window.addEventListener("worlds:load-example", onExampleLoaded); window.addEventListener("worlds:add-probe", onProbeAdded); window.addEventListener("worlds:close-library", onLibraryClose);
+    return () => { window.removeEventListener("pointermove", onPointerMove); window.removeEventListener("pointerup", onPointerUp); window.removeEventListener("worlds:selection-change", onSelection); window.removeEventListener("worlds:add-component", onComponentAdded); window.removeEventListener("worlds:load-example", onExampleLoaded); window.removeEventListener("worlds:add-probe", onProbeAdded); window.removeEventListener("worlds:close-library", onLibraryClose); };
   }, []);
 
-  const beginResize = event => {
-    if (!instrumentOpen || focusMode) return;
-    event.preventDefault();
-    resizingRef.current = true;
-    document.body.style.cursor = "ns-resize";
-    document.body.style.userSelect = "none";
-  };
+  const beginResize = event => { if (!instrumentOpen || focusMode) return; event.preventDefault(); resizingRef.current = true; document.body.style.cursor = "ns-resize"; document.body.style.userSelect = "none"; };
   const openLibrary = () => { setLibraryOpen(true); setInspectorOpen(false); };
   const openInspector = () => setInspectorOpen(value => !value);
   const openInstrument = () => setInstrumentOpen(value => !value);
@@ -69,14 +38,11 @@ export default function ElectricalWorkspaceShell({ children, library, inspector,
     <header className="relative z-50 flex h-12 shrink-0 items-center border-b border-[#cfd7df] bg-[#f6f8f9] px-3 shadow-[0_1px_0_rgba(255,255,255,0.8)]">
       <div className="flex w-[210px] shrink-0 items-center gap-2.5"><div className="flex h-7 w-7 items-center justify-center rounded-[7px] bg-[#26384e] text-[7px] font-bold tracking-[0.08em] text-white shadow-[0_2px_5px_rgba(25,39,58,0.18)]">LO</div><div><div className="text-[8px] font-bold uppercase tracking-[0.2em] text-[#718093]">Lab OS</div><div className="mt-0.5 text-[11px] font-semibold tracking-[-0.01em] text-[#26374d]">Electrical Workbench</div></div></div>
       <div data-testid="workspace-header-context" className="min-w-0 flex-1 px-4">{headerCenter}</div>
-      <div className="flex shrink-0 items-center gap-1.5">
-        <button type="button" aria-label={focusMode ? "Exit focus mode" : "Focus mode"} aria-pressed={focusMode} onClick={() => setFocusMode(value => !value)} className={`inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[10px] font-semibold transition ${focusMode ? "bg-[#e2e8ed] text-[#22374f]" : "text-[#68788a] hover:bg-[#eef2f4] hover:text-[#2e4057]"}`}><FocusIcon />{focusMode ? "Exit" : "Focus"}</button>
-      </div>
+      <div className="flex shrink-0 items-center gap-1.5"><button type="button" aria-label={focusMode ? "Exit focus mode" : "Focus mode"} aria-pressed={focusMode} onClick={() => setFocusMode(value => !value)} className={`inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[10px] font-semibold transition ${focusMode ? "bg-[#e2e8ed] text-[#22374f]" : "text-[#68788a] hover:bg-[#eef2f4] hover:text-[#2e4057]"}`}><FocusIcon />{focusMode ? "Exit" : "Focus"}</button></div>
     </header>
     <div className="relative min-h-0 flex-1 overflow-hidden">
       <main data-testid="workspace-canvas-surface" className="absolute inset-0 overflow-hidden bg-[#f8faf9]">{children}</main>
-      {!focusMode && <div className="pointer-events-none absolute left-4 top-4 z-10 flex items-center gap-2 rounded-md border border-[#d5dde3] bg-[#f9fbfa]/90 px-2.5 py-1.5 shadow-[0_2px_8px_rgba(24,37,58,0.05)] backdrop-blur"><span className="h-1.5 w-1.5 rounded-full bg-[#667f98]"/><span className="text-[8px] font-bold uppercase tracking-[0.18em] text-[#647589]">Design surface</span></div>}
-      {!focusMode && <div className="absolute bottom-4 left-4 z-20 flex items-center gap-1 rounded-xl border border-[#d2dae1] bg-white/94 p-1 shadow-[0_8px_22px_rgba(24,37,58,0.10)] backdrop-blur">
+      {!focusMode && <div className="absolute left-4 top-4 z-20 flex items-center gap-1 rounded-xl border border-[#d2dae1] bg-white/94 p-1 shadow-[0_8px_22px_rgba(24,37,58,0.10)] backdrop-blur">
         <ActionButton label="Add" accessibleLabel="Library" onClick={openLibrary} icon={<LayersIcon />} emphasis />
         <div className="mx-0.5 h-5 w-px bg-[#e0e5e9]" />
         <ActionButton label="Inspect" accessibleLabel="Inspector" active={inspectorOpen} onClick={openInspector} icon={<InspectIcon />} />
