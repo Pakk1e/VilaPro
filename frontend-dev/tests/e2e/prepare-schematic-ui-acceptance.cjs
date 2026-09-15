@@ -17,7 +17,7 @@ for (const name of specs) {
   text = text.replaceAll('toContainText("Simulation")', 'toContainText("Schematic")');
   text = text.replace(
     'const sourceProperties = page.getByTestId("component-inspector").locator("select").first();',
-    'const inspectorSurface = page.getByTestId("workspace-inspector-surface"); if (!(await inspectorSurface.isVisible().catch(() => false))) await page.getByRole("button", { name: "Inspector" }).click(); const sourceProperties = page.getByTestId("component-inspector").locator("select").first();',
+    'const inspectorSurface = page.getByTestId("workspace-inspector-surface"); if (!(await inspectorSurface.isVisible().catch(() => false))) await page.getByRole("button", { name: "Inspector" }).click(); const sourceProperties = page.getByTestId("component-inspector").getByRole("combobox").first();',
   );
   if (name !== "electrical-ui-acceptance.spec.js") {
     text = text.replaceAll(
@@ -25,8 +25,12 @@ for (const name of specs) {
       'await page.goto("/worlds", { waitUntil: "networkidle" }); await page.getByRole("button", { name: "Library" }).click();',
     );
     text = text.replace(
-      'async function addComponent(page, name, label) { await page.getByTestId("component-palette").getByRole("button", { name: new RegExp(`^${name} Add to canvas$`) }).click();',
-      'async function addComponent(page, name, label) { const palette = page.getByTestId("component-palette"); if (!(await palette.isVisible().catch(() => false))) await page.getByRole("button", { name: "Library" }).click(); await palette.getByRole("button", { name: new RegExp("^" + name + " Add to canvas$") }).click(); const librarySurface = page.getByTestId("workspace-library-surface"); if (await librarySurface.isVisible().catch(() => false)) await page.getByRole("button", { name: "Library" }).click();',
+      /async function addComponent\(page, name, label\) \{[\s\S]*?\n\}/,
+      'async function addComponent(page, name, label) { const palette = page.getByTestId("component-palette"); if (!(await palette.isVisible().catch(() => false))) await page.getByRole("button", { name: "Library" }).click(); await palette.getByRole("button", { name: new RegExp("^" + name + " Add to canvas$") }).click(); const node = page.locator(".react-flow__node").filter({ hasText: label }); await expect(node).toBeVisible(); const librarySurface = page.getByTestId("workspace-library-surface"); if (await librarySurface.isVisible().catch(() => false)) await page.getByRole("button", { name: "Library" }).click(); return node; }',
+    );
+    text = text.replace(
+      'const voltage = await addComponent(page, "Voltage Source", "Voltage Source 1"); const resistor = await addComponent(page, "Resistor", "Resistor 1"); const ground = await addComponent(page, "Ground", "Ground 1");',
+      'const voltage = await addComponent(page, "Voltage Source", "Voltage Source 1"); const resistor = await addComponent(page, "Resistor", "Resistor 1"); const ground = await addComponent(page, "Ground", "Ground 1"); const librarySurfaceAfterAdd = page.getByTestId("workspace-library-surface"); if (await librarySurfaceAfterAdd.isVisible().catch(() => false)) await page.getByRole("button", { name: "Library" }).click();',
     );
   }
   fs.writeFileSync(file, text);
@@ -77,6 +81,7 @@ if (fs.existsSync(uiPath)) {
   ui = ui.replace('await page.getByRole("button", { name: "Instruments" }).click();', 'const instruments = page.getByTestId("workspace-instrument-surface"); if (!(await instruments.isVisible().catch(() => false))) await page.getByRole("button", { name: "Instruments" }).click();');
   ui = ui.replace('await expect(page.getByTestId("worlds-canvas").locator(".react-flow")).toHaveCSS("opacity", "0");\n', 'await expect(page.getByTestId("workspace-instrument-surface")).toBeVisible();\n');
   ui = ui.replace('await expect(page.getByTestId("workspace-canvas-surface")).toContainText("Schematic");', 'await expect(page.getByTestId("worlds-canvas")).toBeVisible();');
+  ui = ui.replace('getByRole("button", { name: /R1/ })', 'getByRole("button", { name: /Resistor 1|R1/ })');
   fs.writeFileSync(uiPath, ui);
 }
 
