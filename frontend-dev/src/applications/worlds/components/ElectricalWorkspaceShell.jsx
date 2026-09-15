@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 
 function ActionButton({ label, accessibleLabel, active, onClick, icon, emphasis = false }) {
-  return <button type="button" aria-label={accessibleLabel ?? label} aria-pressed={active} onClick={onClick} className={`group inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[10px] font-semibold transition ${emphasis ? "bg-[#26384e] text-white shadow-[0_3px_10px_rgba(25,39,58,0.16)] hover:bg-[#314761]" : active ? "bg-[#e7edf2] text-[#20364e]" : "text-[#69788a] hover:bg-[#eef2f4] hover:text-[#2e4057]"}`}><span className={`flex h-4 w-4 items-center justify-center ${emphasis ? "text-white" : active ? "text-[#405a75]" : "text-[#8a97a5] group-hover:text-[#5e7084]`}>{icon}</span>{label}</button>;
+  const tone = emphasis ? "bg-[#26384e] text-white shadow-[0_3px_10px_rgba(25,39,58,0.16)] hover:bg-[#314761]" : active ? "bg-[#e7edf2] text-[#20364e]" : "text-[#69788a] hover:bg-[#eef2f4] hover:text-[#2e4057]";
+  const iconTone = emphasis ? "text-white" : active ? "text-[#405a75]" : "text-[#8a97a5] group-hover:text-[#5e7084]";
+  return <button type="button" aria-label={accessibleLabel ?? label} aria-pressed={active} onClick={onClick} className={`group inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[10px] font-semibold transition ${tone}`}><span className={`flex h-4 w-4 items-center justify-center ${iconTone}`}>{icon}</span>{label}</button>;
 }
 function LayersIcon() { return <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.35"><path d="m2.5 5 5.5-2.5L13.5 5 8 7.5 2.5 5Z"/><path d="m2.5 8 5.5 2.5L13.5 8M2.5 11l5.5 2.5 5.5-2.5"/></svg>; }
 function InspectIcon() { return <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.35"><circle cx="7" cy="7" r="3.8"/><path d="m10 10 3.2 3.2M5.7 7h2.6M7 5.7v2.6"/></svg>; }
