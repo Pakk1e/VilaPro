@@ -31,7 +31,7 @@ for (const name of specs) {
     );
     text = text.replace(
       'async function addComponent(page, name, label) { await page.getByTestId("component-palette").getByRole("button", { name: new RegExp(`^${name} Add to canvas$`) }).click(); const node = page.locator(".react-flow__node").filter({ hasText: label }); await expect(node).toBeVisible(); return node; }',
-      'async function addComponent(page, name, label) { const palette = page.getByTestId("component-palette"); if (!(await palette.isVisible().catch(() => false))) await page.getByRole("button", { name: "Library" }).click(); await palette.getByRole("button", { name: new RegExp("^" + name + " Add to canvas$") }).click(); const node = page.locator(".react-flow__node").filter({ hasText: label }); await expect(node).toBeVisible(); const librarySurface = page.getByTestId("workspace-library-surface"); if (await librarySurface.isVisible().catch(() => false)) await page.getByRole("button", { name: "Library" }).click(); return node; }',
+      'async function addComponent(page, name, label) { const palette = page.getByTestId("component-palette"); if (!(await palette.isVisible().catch(() => false))) await page.getByRole("button", { name: "Library" }).click(); await palette.getByRole("button", { name: new RegExp("^" + name + " Add to canvas$") }).click(); const canvas = page.getByTestId("worlds-canvas"); const canvasBox = await canvas.boundingBox(); if (!canvasBox) throw new Error("Unable to locate schematic canvas."); await page.mouse.click(canvasBox.x + canvasBox.width / 2, canvasBox.y + canvasBox.height / 2); const node = page.locator(".react-flow__node").filter({ hasText: label }); await expect(node).toBeVisible(); const librarySurface = page.getByTestId("workspace-library-surface"); if (await librarySurface.isVisible().catch(() => false)) await page.getByRole("button", { name: "Library" }).click(); return node; }',
     );
     text = text.replace(
       'const voltage = await addComponent(page, "Voltage Source", "Voltage Source 1"); const resistor = await addComponent(page, "Resistor", "Resistor 1"); const ground = await addComponent(page, "Ground", "Ground 1");',
@@ -90,5 +90,4 @@ if (fs.existsSync(uiPath)) {
   fs.writeFileSync(uiPath, ui);
 }
 
-// Keep this adapter intentionally test-only: production workspace remains canvas-first.
 console.log(`Prepared ${specs.length} acceptance spec files for the schematic-first workspace.`);
