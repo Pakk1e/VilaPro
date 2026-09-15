@@ -21,8 +21,8 @@ for (const name of specs) {
     'const inspectorSurface = page.getByTestId("workspace-inspector-surface"); if (!(await inspectorSurface.isVisible().catch(() => false))) await page.getByRole("button", { name: "Inspector" }).click(); const sourceProperties = page.getByTestId("workspace-inspector").getByRole("combobox").first();',
   );
   text = text.replace(
-    'function inspectorInputs(page) { return page.getByTestId("workspace-inspector").locator(\'input[type="number"]\'); }',
-    'function inspectorInputs(page) { return page.getByTestId("workspace-inspector").locator(\'input[type="number"]\'); }',
+    'await expect(voltage.getByText("Sine", { exact: true })).toBeVisible();',
+    'await expect(sourceProperties).toHaveValue("sine");',
   );
   if (name !== "electrical-ui-acceptance.spec.js") {
     text = text.replaceAll(
