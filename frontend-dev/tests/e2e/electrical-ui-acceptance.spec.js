@@ -99,4 +99,19 @@ test.describe("Electrical workspace UI rework", () => {
     await expect(resistor).toHaveCount(0);
     expect(errors).toEqual([]);
   });
+
+  test("inspector clear selection clears the schematic selection", async ({ page }) => {
+    const errors = browserErrors(page);
+    await page.goto("/worlds", { waitUntil: "networkidle" });
+    await page.getByRole("button", { name: "Library" }).click();
+    await page.getByTestId("component-palette").getByRole("button", { name: /Resistor Add to canvas/ }).click();
+    const resistor = page.locator(".react-flow__node").filter({ hasText: "Resistor 1" });
+    await expect(resistor).toBeVisible();
+    await expect(page.getByTestId("workspace-inspector")).toContainText("Resistor 1");
+    await page.getByTestId("workspace-inspector").getByRole("button", { name: "Clear selection" }).click();
+    await expect(page.getByTestId("workspace-inspector")).toContainText("Nothing selected");
+    await expect(page.evaluate(() => window.__WORLDS_DEBUG__?.selectedNodeId)).toBeNull();
+    await expect(resistor).toBeVisible();
+    expect(errors).toEqual([]);
+  });
 });
