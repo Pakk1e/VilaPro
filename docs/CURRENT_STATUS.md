@@ -83,7 +83,9 @@ Current design rules:
 - instruments appear around meaningful results and give space back to the schematic when dismissed
 - visual inspection is a release gate alongside automated acceptance
 
-The current implementation has begun this shift with an action rail integrated into the canvas, a reduced top bar, a dedicated centering action, and a component-placement surface framed as a temporary Place tool. This is only the beginning; the next work should continue removing dashboard/card semantics and make direct manipulation the dominant experience.
+The interaction redesign now has a real direct-placement path: choosing a component from the Component Library closes the tool and enters a temporary placement state; the selected engineering symbol follows the pointer as a placement preview; clicking the schematic places the instance on a snapped canvas position; Escape cancels placement. The legacy `worlds:add-component` event remains available for deterministic compatibility and example/test setup, while normal user insertion uses the placement boundary. This is the first material change to the way the canvas is used rather than a panel-only restyle.
+
+The visual direction still needs further work: the schematic symbols, object-local inspection, wiring feedback, simulation mode treatment, and instrument presentation must be refined until the workspace no longer reads as a collection of application panels.
 
 The target visual language is technical, calm, and restrained rather than card-heavy or dashboard-like. Stable viewport behavior is a requirement: placing/editing components must not unexpectedly zoom or move the circuit; fit-to-content is an explicit action.
 
@@ -121,7 +123,7 @@ The target visual language is technical, calm, and restrained rather than card-h
 
 Continue `docs/UI_REWORK_V2.md` as the active frontend presentation direction. Do not merely polish the first dashboard-like composition. The current implementation has the canvas-first shell, compact searchable Component Library, contextual Inspector, schematic symbols, Simulation/Instrument Panel, probe mapping, focus mode, and focused UI acceptance coverage. The latest refinement also removed a non-functional canvas control and tightened schematic component presentation.
 
-The **active V2.5 Interaction Redesign** must now continue from the new action-first direction. The next implementation work should materially change the canvas interaction and visual composition rather than only adjusting panel dimensions or colors.
+The **active V2.5 Interaction Redesign** must now continue from the new action-first direction. Direct component placement is now implemented as a temporary canvas tool; next work should materially improve object-local inspection, wiring interaction, Build/Simulate mode treatment, and instrument presentation rather than reverting to panel dimensions/colors.
 
 Simulation-model work should continue independently when concrete electrical examples require it, including future semiconductor behavior and small-signal representations.
 
