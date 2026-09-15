@@ -110,7 +110,7 @@ test.describe("Electrical workspace UI rework", () => {
     await expect(page.getByTestId("workspace-inspector")).toContainText("Resistor 1");
     await page.getByTestId("workspace-inspector").getByRole("button", { name: "Clear selection" }).click();
     await expect(page.getByTestId("workspace-inspector")).toContainText("Nothing selected");
-    await expect(page.evaluate(() => window.__WORLDS_DEBUG__?.selectedNodeId)).toBeNull();
+    await expect(await page.evaluate(() => window.__WORLDS_DEBUG__?.selectedNodeId)).toBeNull();
     await expect(resistor).toBeVisible();
     expect(errors).toEqual([]);
   });
