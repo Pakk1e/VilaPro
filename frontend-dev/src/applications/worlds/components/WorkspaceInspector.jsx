@@ -2,34 +2,9 @@ import { useEffect, useState } from "react";
 import { worldDefinitions } from "../model/worldDefinitions";
 import ComponentPropertiesPanel from "./ComponentPropertiesPanel";
 
-function getInitialSelection() {
-  const debug = window.__WORLDS_DEBUG__;
-  const selectedNode = debug?.selectedNodeId
-    ? debug.nodes?.find(node => node.id === debug.selectedNodeId) ?? null
-    : null;
-
-  return {
-    selectedNode,
-    selectedEdgeId: debug?.selectedEdgeId ?? null,
-    selectedTerminal: debug?.selectedTerminal ?? null,
-    selectedResultEntity: debug?.selectedResultEntity ?? null,
-  };
-}
-
 function addProbe(node, measurement, terminal = null) {
   if (!node) return;
-  window.dispatchEvent(new CustomEvent("worlds:add-probe", {
-    detail: {
-      entityType: terminal ? "terminal" : "component",
-      entityId: terminal ? `${node.id}:${terminal.id}` : node.id,
-      nodeId: node.id,
-      terminalId: terminal?.id ?? null,
-      measurement,
-      label: terminal
-        ? `${node.data?.label ?? "Component"} · ${terminal.label ?? terminal.id}`
-        : node.data?.label ?? "Component",
-    },
-  }));
+  window.dispatchEvent(new CustomEvent("worlds:add-probe", { detail: { entityType: terminal ? "terminal" : "component", entityId: terminal ? `${node.id}:${terminal.id}` : node.id, nodeId: node.id, terminalId: terminal?.id ?? null, measurement, label: terminal ? `${node.data?.label ?? "Component"} · ${terminal.label ?? terminal.id}` : node.data?.label ?? "Component" } }));
 }
 
 function ProbeButton({ label, onClick, disabled = false }) {
@@ -96,7 +71,7 @@ function ClearSelectionButton({ onClick }) {
 }
 
 export default function WorkspaceInspector() {
-  const [selection, setSelection] = useState(getInitialSelection);
+  const [selection, setSelection] = useState({ selectedNode: null, selectedEdgeId: null, selectedTerminal: null, selectedResultEntity: null });
   const [probes, setProbes] = useState([]);
 
   useEffect(() => {
