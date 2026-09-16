@@ -12,7 +12,7 @@ test("selected component exposes object-local inspection", async ({ page }) => {
   await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
   const resistor = page.locator(".react-flow__node").filter({ hasText: "Resistor 1" });
   await expect(resistor).toBeVisible();
-  const local = page.getByTestId("object-local-inspector");
+  const local = page.getByTestId("workspace-inspector");
   await expect(local).toBeVisible();
   await expect(local).toContainText("Resistor 1");
   await expect(local).toContainText("Resistance");
