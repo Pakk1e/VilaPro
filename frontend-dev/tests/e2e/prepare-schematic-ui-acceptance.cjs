@@ -11,6 +11,7 @@ for (const name of specs) {
   const file = path.join(root, name);
   let text = fs.readFileSync(file, "utf8");
   text = text.replaceAll('page.getByRole("button", { name: /Simulate/ })', 'page.getByTestId("simulate-button")');
+  text = text.replaceAll('page.getByRole("button", { name: "Simulation" })', 'page.getByRole("button", { name: "Simulate" })');
   text = text.replaceAll('page.getByRole("button", { name: "Start Live" })', 'page.getByTestId("simulate-button")');
   text = text.replaceAll('page.getByRole("img", { name: "Circuit schematic preview" })', 'page.getByTestId("worlds-canvas")');
   text = text.replaceAll('page.getByLabel("Start", { exact: true })', 'page.getByTestId("simulation-setup").getByLabel("Start", { exact: true })');
@@ -29,17 +30,14 @@ for (const name of specs) {
     'await expect(voltage.getByText("Sine", { exact: true })).toBeVisible();',
     'await expect(sourceProperties).toHaveValue("sine");',
   );
-  if (!text.includes("async function ensureLibrary(page)")) {
-    text = text.replace(/(function browserErrors\(page\) \{)/, `${ensureLibraryHelper}$1`);
+  if (text.includes("ensureLibrary(page)") && !text.includes("async function ensureLibrary(page)")) {
+    text = ensureLibraryHelper + text;
+  }
+  if (text.includes("addComponent(page,") && !text.includes("async function addComponent(page,")) {
+    text = addComponentHelper + text;
   }
   text = text.replaceAll('const examples = page.getByTestId("world-examples");', 'await ensureLibrary(page); const examples = page.getByTestId("world-examples");');
   text = text.replaceAll('page.getByTestId("world-examples").getByRole(', '(await ensureLibrary(page), page.getByTestId("world-examples")).getByRole(');
-  if (name !== "electrical-ui-acceptance.spec.js") {
-    text = text.replace(
-      'async function addComponent(page, name, label) { await page.getByTestId("component-palette").getByRole("button", { name: new RegExp(`^${name} Add to canvas$`) }).click(); const node = page.locator(".react-flow__node").filter({ hasText: label }); await expect(node).toBeVisible(); return node; }',
-      addComponentHelper,
-    );
-  }
   fs.writeFileSync(file, text);
 }
 
