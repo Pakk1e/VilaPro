@@ -63,13 +63,13 @@ test.describe("Electrical workspace UI rework", () => {
     await page.getByRole("button", { name: "Simulation" }).click();
     await expect(page.getByTestId("simulation-panel")).toBeVisible();
     await expect(page.getByTestId("simulation-setup")).toBeVisible();
-    await expect(page.getByTestId("worlds-canvas").locator(".react-flow")).toHaveCSS("opacity", "0");
-    await expect(page.getByTestId("workspace-canvas-surface")).toContainText("Simulation");
+    await expect(page.getByTestId("workspace-instrument-surface")).toBeVisible();
+    await expect(page.getByTestId("worlds-canvas")).toBeVisible();
 
     await page.getByTestId("simulate-button").click();
     await expect(page.getByRole("region", { name: "Simulation results" })).toBeVisible({ timeout: 30000 });
     await expect(page.getByRole("region", { name: "Simulation results" })).toContainText("Circuit Summary");
-    const componentRow = page.getByRole("region", { name: "Simulation results" }).getByRole("button", { name: /R1/ }).first();
+    const componentRow = page.getByRole("region", { name: "Simulation results" }).getByRole("button", { name: /Resistor 1|R1/ }).first();
     await expect(componentRow).toBeVisible();
     await componentRow.click();
     await expect(page.getByRole("region", { name: "Simulation results" })).toContainText("Selected");
@@ -99,11 +99,12 @@ test.describe("Electrical workspace UI rework", () => {
     const resistor = await placeComponent(page, "Resistor", "Resistor 1");
     await expect(page.getByTestId("workspace-inspector-surface")).toBeVisible();
     await page.getByTestId("worlds-canvas").press("Escape");
-    await expect(page.getByTestId("workspace-inspector")).toContainText("Nothing selected");
+    await expect(page.getByTestId("workspace-inspector-surface")).toHaveCount(0);
     await resistor.click();
     await expect(page.getByTestId("workspace-inspector")).toContainText("Resistor 1");
     await page.getByTestId("worlds-canvas").press("Backspace");
     await expect(resistor).toHaveCount(0);
+    await expect(page.getByTestId("workspace-inspector-surface")).toHaveCount(0);
     expect(errors).toEqual([]);
   });
 
@@ -111,12 +112,12 @@ test.describe("Electrical workspace UI rework", () => {
     const errors = browserErrors(page);
     await page.goto("/worlds", { waitUntil: "networkidle" });
     await page.getByRole("button", { name: "Library" }).click();
-    await placeComponent(page, "Resistor", "Resistor 1");
+    const resistor = await placeComponent(page, "Resistor", "Resistor 1");
     await expect(page.getByTestId("workspace-inspector")).toContainText("Resistor 1");
     await page.getByTestId("workspace-inspector").getByRole("button", { name: "Clear selection" }).click();
-    await expect(page.getByTestId("workspace-inspector")).toContainText("Nothing selected");
+    await expect(page.getByTestId("workspace-inspector-surface")).toHaveCount(0);
     await expect(await page.evaluate(() => window.__WORLDS_DEBUG__?.selectedNodeId)).toBeNull();
-    await expect(page.locator(".react-flow__node").filter({ hasText: "Resistor 1" })).toBeVisible();
+    await expect(resistor).toBeVisible();
     expect(errors).toEqual([]);
   });
 });
