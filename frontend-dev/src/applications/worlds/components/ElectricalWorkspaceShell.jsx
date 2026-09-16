@@ -18,6 +18,8 @@ export default function ElectricalWorkspaceShell({ children, library, inspector,
   const [instrumentOpen, setInstrumentOpen] = useState(false);
   const [instrumentHeight, setInstrumentHeight] = useState(230);
   const resizingRef = useRef(false);
+  const simulationWorkspace = workspace === "simulation";
+  const showInstrument = instrumentOpen || simulationWorkspace;
 
   useEffect(() => {
     const onPointerMove = event => { if (!resizingRef.current) return; const shell = document.querySelector('[data-testid="electrical-workspace"]'); if (!shell) return; const rect = shell.getBoundingClientRect(); setInstrumentHeight(Math.min(460, Math.max(180, rect.bottom - event.clientY - 28))); };
@@ -31,9 +33,7 @@ export default function ElectricalWorkspaceShell({ children, library, inspector,
     return () => { window.removeEventListener("pointermove", onPointerMove); window.removeEventListener("pointerup", onPointerUp); window.removeEventListener("worlds:selection-change", onSelection); window.removeEventListener("worlds:add-component", onComponentAdded); window.removeEventListener("worlds:load-example", onExampleLoaded); window.removeEventListener("worlds:add-probe", onProbeAdded); window.removeEventListener("worlds:close-library", onLibraryClose); };
   }, []);
 
-  useEffect(() => { if (workspace === "simulation") setInstrumentOpen(true); }, [workspace]);
-
-  const beginResize = event => { if (!instrumentOpen || focusMode) return; event.preventDefault(); resizingRef.current = true; document.body.style.cursor = "ns-resize"; document.body.style.userSelect = "none"; };
+  const beginResize = event => { if (!showInstrument || focusMode) return; event.preventDefault(); resizingRef.current = true; document.body.style.cursor = "ns-resize"; document.body.style.userSelect = "none"; };
   const openLibrary = () => { setLibraryOpen(true); setInspectorOpen(false); };
   const openInspector = () => setInspectorOpen(value => !value);
   const openInstrument = () => setInstrumentOpen(value => !value);
@@ -50,15 +50,15 @@ export default function ElectricalWorkspaceShell({ children, library, inspector,
         <ActionButton label="Add" accessibleLabel="Library" onClick={openLibrary} icon={<LayersIcon />} emphasis />
         <div className="mx-0.5 h-5 w-px bg-[#e0e5e9]" />
         <ActionButton label="Inspect" accessibleLabel="Inspector" active={inspectorOpen} onClick={openInspector} icon={<InspectIcon />} />
-        <ActionButton label="Measure" accessibleLabel="Instruments" active={instrumentOpen} onClick={openInstrument} icon={<ChartIcon />} />
+        <ActionButton label="Measure" accessibleLabel="Instruments" active={showInstrument} onClick={openInstrument} icon={<ChartIcon />} />
         <div className="mx-0.5 h-5 w-px bg-[#e0e5e9]" />
         <button type="button" aria-label="Center schematic" onClick={() => window.dispatchEvent(new CustomEvent("worlds:fit-view"))} className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[#8996a4] transition hover:bg-[#eef2f4] hover:text-[#52677d]"><CrosshairIcon /></button>
       </div>}
       {!focusMode && <div className="pointer-events-none absolute bottom-4 right-4 z-10 flex items-center gap-2 rounded-md border border-[#d8dfe5] bg-white/88 px-2.5 py-1.5 shadow-[0_2px_8px_rgba(24,37,58,0.04)] backdrop-blur"><span className="text-[8px] font-medium uppercase tracking-[0.1em] text-[#98a2ad]">Scroll zoom</span><span className="h-1 w-1 rounded-full bg-[#c0c7ce]"/><span className="text-[8px] font-medium uppercase tracking-[0.1em] text-[#98a2ad]">Drag pan</span></div>}
       {!focusMode && libraryOpen && <aside data-testid="workspace-library-surface" className="absolute bottom-4 left-4 top-4 z-30 flex w-[min(300px,calc(100vw-32px))] flex-col overflow-hidden rounded-2xl border border-[#cbd4dc] bg-[#fbfcfd]/98 shadow-[0_20px_50px_rgba(24,37,58,0.18)] backdrop-blur">{library}</aside>}
       {!focusMode && inspectorOpen && <aside data-testid="workspace-inspector-surface" className="absolute right-4 top-4 z-30 flex max-h-[calc(100%-32px)] w-[min(330px,calc(100vw-32px))] flex-col overflow-hidden rounded-2xl border border-[#cbd4dc] bg-[#fbfcfd]/98 shadow-[0_20px_50px_rgba(24,37,58,0.18)] backdrop-blur">{inspector}</aside>}
-      {!focusMode && instrumentOpen && <section data-testid="workspace-instrument-surface" style={{ height: instrumentHeight }} className="absolute bottom-4 left-4 right-4 z-40 overflow-hidden rounded-2xl border border-[#cbd4dc] bg-[#fbfcfd]/99 shadow-[0_20px_50px_rgba(24,37,58,0.2)] backdrop-blur">{instrument}</section>}
-      {!focusMode && instrumentOpen && <div data-testid="instrument-resize-handle" role="separator" aria-label="Resize instrument panel" aria-orientation="horizontal" onPointerDown={beginResize} style={{ bottom: instrumentHeight + 8 }} className="absolute left-1/2 z-50 flex h-4 w-16 -translate-x-1/2 cursor-ns-resize items-center justify-center rounded-full border border-[#cbd3dc] bg-white/96 shadow-sm"><span className="h-1 w-7 rounded-full bg-[#9eabb8]" /></div>}
+      {!focusMode && showInstrument && <section data-testid="workspace-instrument-surface" style={{ height: instrumentHeight }} className="absolute bottom-4 left-4 right-4 z-40 overflow-hidden rounded-2xl border border-[#cbd4dc] bg-[#fbfcfd]/99 shadow-[0_20px_50px_rgba(24,37,58,0.2)] backdrop-blur">{instrument}</section>}
+      {!focusMode && showInstrument && <div data-testid="instrument-resize-handle" role="separator" aria-label="Resize instrument panel" aria-orientation="horizontal" onPointerDown={beginResize} style={{ bottom: instrumentHeight + 8 }} className="absolute left-1/2 z-50 flex h-4 w-16 -translate-x-1/2 cursor-ns-resize items-center justify-center rounded-full border border-[#cbd3dc] bg-white/96 shadow-sm"><span className="h-1 w-7 rounded-full bg-[#9eabb8]" /></div>}
     </div>
   </div>;
 }
