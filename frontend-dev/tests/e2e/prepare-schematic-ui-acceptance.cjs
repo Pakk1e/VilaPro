@@ -63,6 +63,10 @@ acceptance = acceptance.replace(
   'const seed = await addComponent(page, "Resistor", "Resistor 1"); await page.getByTestId("worlds-canvas").press("Escape"); const zoomOut = page.locator(".react-flow__controls-zoomout");',
 );
 acceptance = acceptance.replace(
+  'await moveNode(page, voltage, left + width * 0.30, top); await moveNode(page, resistor, left + width * 0.70, top); await moveNode(page, ground, left + width * 0.50, bottom); await assertNodesClearOfPalette([voltage, resistor, ground], palette);',
+  'await moveNode(page, voltage, left + width * 0.30, top); await moveNode(page, resistor, left + width * 0.70, top); await moveNode(page, ground, left + width * 0.50, bottom); await assertNodesClearOfPalette([voltage, resistor, ground], palette); await page.getByTestId("worlds-canvas").press("Escape");',
+);
+acceptance = acceptance.replace(
   'await handle(voltage, "p").dragTo(handle(resistor, "p")); await handle(resistor, "n").dragTo(handle(ground, "g")); await handle(voltage, "n").dragTo(handle(ground, "g"));',
   'await connectHandles(page, handle(voltage, "p"), handle(resistor, "p")); await connectHandles(page, handle(resistor, "n"), handle(ground, "g")); await connectHandles(page, handle(voltage, "n"), handle(ground, "g"));',
 );
