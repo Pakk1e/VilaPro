@@ -12,12 +12,13 @@ on:
       - "deploy/systemd/worlds-web.service"
       - ".github/workflows/deploy-worlds-dev.yml"
       - ".github/workflows/worlds-acceptance.yml"
+      - ".github/workflows/worlds-smoke.yml"
   workflow_dispatch:
     inputs:
       branch:
         description: Worlds branch to deploy
         required: true
-        default: v0.4/workspace-architecture
+        default: v0.4/dev-deploy
         type: string
 
 concurrency:
@@ -56,9 +57,18 @@ jobs:
           deployed_sha="$(git rev-parse HEAD)"
           echo "deployed_sha=$deployed_sha" >> "$GITHUB_OUTPUT"
 
+  smoke:
+    name: Worlds smoke acceptance
+    needs: deploy
+    uses: ./.github/workflows/worlds-smoke.yml
+    with:
+      branch: ${{ github.event_name == 'workflow_dispatch' && inputs.branch || github.ref_name }}
+      revision: ${{ needs.deploy.outputs.deployed_sha }}
+    secrets: inherit
+
   acceptance:
     name: Worlds browser acceptance
-    needs: deploy
+    needs: [deploy, smoke]
     uses: ./.github/workflows/worlds-acceptance.yml
     with:
       branch: ${{ github.event_name == 'workflow_dispatch' && inputs.branch || github.ref_name }}
