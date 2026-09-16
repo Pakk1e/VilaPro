@@ -19,6 +19,7 @@ const ReservationsPage = lazy(() => import("../applications/calendar/pages/Reser
 const AutomationsPage = lazy(() => import("../applications/calendar/pages/AutomationsPage"));
 const AdminPage = lazy(() => import("../platform/pages/AdminPage"));
 const WorldsShellPage = lazy(() => import("../applications/worlds/pages/WorldsShellPage"));
+const ElectricalDesignLabPage = lazy(() => import("../applications/worlds/pages/ElectricalDesignLabPage"));
 
 export default function AppRouter() {
     return (
@@ -101,6 +102,17 @@ export default function AppRouter() {
                             <RequireAuth>
                                 <RequireApproved>
                                     <WorldsShellPage />
+                                </RequireApproved>
+                            </RequireAuth>
+                        }
+                    />
+
+                    <Route
+                        path="/worlds/design-lab"
+                        element={
+                            <RequireAuth>
+                                <RequireApproved>
+                                    <ElectricalDesignLabPage />
                                 </RequireApproved>
                             </RequireAuth>
                         }
