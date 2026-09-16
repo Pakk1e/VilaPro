@@ -46,6 +46,19 @@ if (!acceptance.includes("async function connectHandles(page")) {
   const helperSource = 'async function connectHandles(page, source, target) { const sourceBox = await source.boundingBox(); const targetBox = await target.boundingBox(); if (!sourceBox || !targetBox) throw new Error("Unable to locate circuit handle."); await page.mouse.move(sourceBox.x + sourceBox.width / 2, sourceBox.y + sourceBox.height / 2); await page.mouse.down(); await page.waitForTimeout(50); await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height / 2, { steps: 12 }); await page.waitForTimeout(50); await page.mouse.up(); }\n';
   acceptance = acceptance.replace("function handle(node, id)", helperSource + "function handle(node, id)");
 }
+
+// The preparation script may already add this close operation. Collapse repeated copies so this normalizer is safe to run repeatedly.
+const libraryClose = 'const librarySurfaceAfterLayout = page.getByTestId("workspace-library-surface"); if (await librarySurfaceAfterLayout.isVisible().catch(() => false)) await librarySurfaceAfterLayout.getByRole("button", { name: "Close component tool" }).click();';
+acceptance = acceptance.replace(new RegExp(`(?:${libraryClose.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&")}\\s*){2,}`, "g"), `${libraryClose} `);
+
 fs.writeFileSync(acceptancePath, acceptance);
 
-console.log(`Normalized ${fs.readdirSync(root).filter((file) => file.endsWith(".spec.js")).length} schematic acceptance specs.`);
+const specs = fs.readdirSync(root).filter((file) => file.endsWith(".spec.js"));
+for (const name of specs) {
+  const text = fs.readFileSync(path.join(root, name), "utf8");
+  if (/\bensureLibrary\(page\)/.test(text) && !/function ensureLibrary\(page\)/.test(text)) {
+    throw new Error(`Normalization invariant failed: ${name} calls ensureLibrary(page) without a helper.`);
+  }
+}
+
+console.log(`Normalized ${specs.length} schematic acceptance specs.`);
