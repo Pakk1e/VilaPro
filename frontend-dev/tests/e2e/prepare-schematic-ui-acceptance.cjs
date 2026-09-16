@@ -4,6 +4,7 @@ const path = require("node:path");
 const root = path.resolve(__dirname);
 const specs = fs.readdirSync(root).filter((name) => name.endsWith(".spec.js"));
 
+const ensureLibraryHelper = 'async function ensureLibrary(page) { const surface = page.getByTestId("workspace-library-surface"); if (!(await surface.isVisible().catch(() => false))) await page.getByRole("button", { name: "Library" }).click(); }\n';
 const addComponentHelper = 'async function addComponent(page, name, label) { const palette = page.getByTestId("component-palette"); if (!(await palette.isVisible().catch(() => false))) await page.getByRole("button", { name: "Library" }).click(); await palette.getByRole("button", { name: new RegExp("^" + name + " Add to canvas$") }).click(); const canvas = page.getByTestId("worlds-canvas"); const canvasBox = await canvas.boundingBox(); if (!canvasBox) throw new Error("Unable to locate schematic canvas."); await page.mouse.click(canvasBox.x + canvasBox.width / 2, canvasBox.y + canvasBox.height / 2); const node = page.locator(".react-flow__node").filter({ hasText: label }); await expect(node).toBeVisible(); const librarySurface = page.getByTestId("workspace-library-surface"); if (await librarySurface.isVisible().catch(() => false)) await page.getByRole("button", { name: "Library" }).click(); return node; }';
 
 for (const name of specs) {
@@ -28,6 +29,11 @@ for (const name of specs) {
     'await expect(voltage.getByText("Sine", { exact: true })).toBeVisible();',
     'await expect(sourceProperties).toHaveValue("sine");',
   );
+  if (!text.includes("async function ensureLibrary(page)")) {
+    text = text.replace(/(function browserErrors\(page\) \{)/, `${ensureLibraryHelper}$1`);
+  }
+  text = text.replaceAll('const examples = page.getByTestId("world-examples");', 'await ensureLibrary(page); const examples = page.getByTestId("world-examples");');
+  text = text.replaceAll('page.getByTestId("world-examples").getByRole(', '(await ensureLibrary(page), page.getByTestId("world-examples")).getByRole(');
   if (name !== "electrical-ui-acceptance.spec.js") {
     text = text.replace(
       'async function addComponent(page, name, label) { await page.getByTestId("component-palette").getByRole("button", { name: new RegExp(`^${name} Add to canvas$`) }).click(); const node = page.locator(".react-flow__node").filter({ hasText: label }); await expect(node).toBeVisible(); return node; }',
