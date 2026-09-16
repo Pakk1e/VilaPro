@@ -35,6 +35,8 @@ The Worlds pipeline has four distinct costs:
 
 The 2026-09-16 audit of run `35117459060` showed that acceptance setup was already relatively small: frontend dependency installation took about 5.8 seconds, Playwright runner reuse about 10 ms, and Chromium verification about 0.8 seconds. The dominant cost was the browser suite and, after failure, uploading overlapping artifacts. The failed suite ran 27 tests with 3 workers and took about 3.6 minutes; 25 tests failed, mostly after 30-second interaction timeouts. Artifact collection then added roughly 2.5 minutes because the report and screenshots were uploaded separately and then uploaded again inside the failure bundle.
 
+A later run on `bc89ebb` provided a more precise measurement: the acceptance suite ran 29 tests with 4 workers and completed in 58.9 seconds after the fail-fast timeout change. The failure-diagnostics upload then transferred 77,454,296 bytes across 206 files and took about 69 seconds. The artifact was dominated by redundant browser media, including retained videos and a second custom screenshot tree.
+
 ### Current optimization rules
 
 - Use `setup-node` npm caching for hosted frontend CI, where the cache is ephemeral between jobs.
@@ -43,7 +45,8 @@ The 2026-09-16 audit of run `35117459060` showed that acceptance setup was alrea
 - Default full Worlds acceptance to 4 workers on the 8-thread runner; allow `WORLDS_E2E_WORKERS` to override this when benchmarking or diagnosing contention.
 - Run a two-test smoke suite before full acceptance so fundamental deployment/UI failures stop before the expensive suite starts.
 - Upload one combined failure-diagnostics artifact only when acceptance fails. Do not upload the same report/screenshots again as separate always-on artifacts.
-- Use artifact compression level `0` for the failure bundle because Playwright videos/traces/screenshots are already poor compression targets and upload speed is more valuable than archive size during debugging.
+- Keep failure evidence bounded: retain failure screenshots and Playwright traces, disable video recording in the full acceptance configuration, and upload the Playwright results/report plus acceptance log without the duplicate custom screenshot directory.
+- Use artifact compression level `0` for the failure bundle because the remaining Playwright screenshots/traces are already poor compression targets and upload speed is more valuable than archive size during debugging.
 - Separate frontend and Worlds backend CI so unrelated source changes do not consume both test jobs.
 - Path-filter Worlds deployment so documentation-only changes do not restart the DEV services.
 - Keep exact-revision acceptance after deployment so speed improvements do not weaken deployment-to-test correctness.
@@ -54,7 +57,7 @@ The 2026-09-16 audit of run `35117459060` showed that acceptance setup was alrea
 
 The next performance work should be evidence-driven:
 
-1. Fix remaining acceptance interaction regressions before optimizing worker count; repeated 30-second timeouts dominate failed-run latency.
+1. Fix remaining acceptance interaction regressions before optimizing worker count; repeated 15-second test ceilings and 3-second UI assertions should be replaced by more targeted prerequisite failures where the suite remains slow.
 2. Benchmark 2, 3, 4, and 5 full-suite workers after the suite is healthy and select the fastest stable setting.
 3. Measure the self-hosted runner's actual post-job time after removing `setup-node` npm caching; if cleanup is still significant, inspect the remaining action post steps rather than adding more caching layers.
 4. Evaluate whether the deployment build can safely consume a CI-produced frontend artifact; only do this if it preserves exact-revision deployment correctness.
