@@ -30,6 +30,18 @@ Important contracts include:
 
 Prefer stable contracts such as `data-testid`, accessible roles/names, and explicit graph-state assertions. Avoid assertions tied only to incidental CSS, exact pixel positions, or implementation details unless the visual geometry itself is the behavior under test.
 
+## Acceptance timeout policy
+
+Acceptance tests use **fail-fast UI timeouts** so a broken prerequisite does not consume the full legacy 30-second test timeout. The Playwright configuration currently uses:
+
+- **15 seconds per test** as the overall safety ceiling;
+- **3 seconds for ordinary Playwright expectations**;
+- explicit longer waits only for operations that can legitimately take longer, such as simulation result generation.
+
+The goal is to distinguish deterministic UI failures from legitimate backend/simulation latency. Do not solve slow failures by globally increasing the timeout. If a particular operation genuinely needs more time, give that operation a narrowly scoped timeout and document why.
+
+The acceptance workflow also runs with `--retries=0`, so a failed acceptance test is not repeated before the failure is reported.
+
 ## CI acceptance flow
 
 Worlds deployment first runs a small smoke suite against the exact deployed commit. The smoke suite covers application load, electrical-world identity, contextual Library access, basic component placement, and object-local inspection. If smoke fails, the expensive full acceptance suite is not started, giving fast feedback on fundamental deployment/UI breakage.
