@@ -2,7 +2,15 @@ name: VilaPro CI
 
 on:
   push:
+    paths:
+      - "worlds/**"
+      - "frontend-dev/**"
+      - ".github/workflows/worlds-tests.yml"
   pull_request:
+    paths:
+      - "worlds/**"
+      - "frontend-dev/**"
+      - ".github/workflows/worlds-tests.yml"
 
 jobs:
   worlds:
