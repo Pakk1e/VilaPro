@@ -39,7 +39,7 @@ export default function WorldNode({ id, data, selected }) {
   const value = formatValue(data?.properties?.value ?? data?.properties?.resistance ?? data?.properties?.capacitance ?? data?.properties?.inductance);
   return <div className="relative h-[116px] w-[180px] overflow-visible" onPointerDownCapture={handleNodePointerDown}>
     {selected && <div className="pointer-events-none absolute left-[15px] top-[5px] h-[100px] w-[150px] rounded-md border border-[#8ea1b4]/55 bg-[#e9eef3]/35" aria-hidden="true" />}
-    {ports.map(port => <Handle key={port.id} id={port.id} type="source" position={POSITION_MAP[port.position] ?? Position.Right} isConnectable className={`!h-2 !w-2 !border !border-[#fbfcfd] ${selected ? "!bg-[#3c5d7d]" : "!bg-[#26364d]"}`} onClick={event => handlePortClick(event, port)} title={`${port.label ?? port.id} — ${port.kind}`} />)}
+    {ports.map(port => <Handle key={port.id} id={port.id} type="source" position={POSITION_MAP[port.position] ?? Position.Right} isConnectable={10} className={`!h-2 !w-2 !border !border-[#fbfcfd] ${selected ? "!bg-[#3c5d7d]" : "!bg-[#26364d]"}`} onClick={event => handlePortClick(event, port)} title={`${port.label ?? port.id} — ${port.kind}`} />)}
     <svg viewBox="0 0 150 110" className="absolute left-[15px] top-0 h-[110px] w-[150px] overflow-visible" aria-hidden="true"><Symbol type={data?.componentType}/><text x="75" y="98" textAnchor="middle" fontSize="10" fontWeight="600" fill="#17253a">{reference}</text>{value&&<text x="75" y="109" textAnchor="middle" fontSize="9" fill={MUTED}>{value}</text>}</svg>
     {selected && <LocalInspector id={id} data={data} />}
   </div>;
