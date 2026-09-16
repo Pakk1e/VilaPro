@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 BASE_DIR="/home/park-pro/VilaPro"
-BRANCH="${WORLDS_DEPLOY_BRANCH:-v0.4/workspace-architecture}"
+BRANCH="${WORLDS_DEPLOY_BRANCH:-v0.4/dev-deploy}"
 FRONTEND_DIR="$BASE_DIR/frontend-dev"
 WEB_SERVICE="worlds-web.service"
 API_SERVICE="worlds-api.service"
