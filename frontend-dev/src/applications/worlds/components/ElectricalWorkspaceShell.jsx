@@ -16,15 +16,15 @@ export default function ElectricalWorkspaceShell({ children, library, inspector,
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [instrumentOpen, setInstrumentOpen] = useState(false);
-  const [instrumentHeight, setInstrumentHeight] = useState(280);
+  const [instrumentHeight, setInstrumentHeight] = useState(230);
   const resizingRef = useRef(false);
 
   useEffect(() => {
     const onPointerMove = event => { if (!resizingRef.current) return; const shell = document.querySelector('[data-testid="electrical-workspace"]'); if (!shell) return; const rect = shell.getBoundingClientRect(); setInstrumentHeight(Math.min(460, Math.max(180, rect.bottom - event.clientY - 28))); };
     const onPointerUp = () => { resizingRef.current = false; document.body.style.removeProperty("cursor"); document.body.style.removeProperty("user-select"); };
-    const onSelection = event => { if (event.detail?.selectedNode || event.detail?.selectedEdgeId || event.detail?.selectedTerminal || event.detail?.selectedResultEntity) setInspectorOpen(true); };
+    const onSelection = event => { const hasSelection = Boolean(event.detail?.selectedNode || event.detail?.selectedEdgeId || event.detail?.selectedTerminal || event.detail?.selectedResultEntity); setInspectorOpen(hasSelection); };
     const onComponentAdded = () => setLibraryOpen(false);
-    const onExampleLoaded = () => setLibraryOpen(false);
+    const onExampleLoaded = () => { setLibraryOpen(false); setInspectorOpen(false); };
     const onProbeAdded = event => { if (event.detail?.__replayed) return; setInstrumentOpen(true); setInspectorOpen(true); requestAnimationFrame(() => window.dispatchEvent(new CustomEvent("worlds:add-probe", { detail: { ...event.detail, __replayed: true } }))); };
     const onLibraryClose = () => setLibraryOpen(false);
     window.addEventListener("pointermove", onPointerMove); window.addEventListener("pointerup", onPointerUp); window.addEventListener("worlds:selection-change", onSelection); window.addEventListener("worlds:add-component", onComponentAdded); window.addEventListener("worlds:load-example", onExampleLoaded); window.addEventListener("worlds:add-probe", onProbeAdded); window.addEventListener("worlds:close-library", onLibraryClose);
