@@ -1,0 +1,115 @@
+name: Worlds Smoke Tests
+
+on:
+  workflow_call:
+    inputs:
+      branch:
+        description: Branch/ref to test
+        required: false
+        default: v0.4/dev-deploy
+        type: string
+      revision:
+        description: Exact deployed commit to test
+        required: false
+        type: string
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: Branch/ref to test
+        required: false
+        default: v0.4/dev-deploy
+        type: string
+      revision:
+        description: Optional exact commit to test
+        required: false
+        type: string
+
+concurrency:
+  group: worlds-smoke-${{ inputs.branch || github.ref_name }}-${{ inputs.revision || 'branch' }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    name: Worlds smoke acceptance
+    runs-on: [self-hosted, worlds-dev]
+    environment: worlds-dev
+    timeout-minutes: 10
+    env:
+      BASE_URL: https://worlds-dev.vadovsky-tech.com
+      WORLDS_E2E_EMAIL: ${{ secrets.WORLDS_E2E_EMAIL }}
+      WORLDS_E2E_PASSWORD: ${{ secrets.WORLDS_E2E_PASSWORD }}
+    steps:
+      - name: Checkout deployed revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.revision || inputs.branch || github.sha }}
+          clean: true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend-dev/package-lock.json
+
+      - name: Prepare acceptance suite
+        working-directory: frontend-dev
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tests/e2e/prepare-schematic-ui-acceptance.cjs
+
+      - name: Install frontend dependencies
+        working-directory: frontend-dev
+        run: npm ci --prefer-offline --no-audit --no-fund
+
+      - name: Ensure persistent Playwright test runner
+        working-directory: frontend-dev
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="1.63.0"
+          cache_root="$HOME/.cache/vilapro-playwright/$version"
+          package_root="$cache_root/node_modules/@playwright/test"
+          if [ ! -f "$package_root/package.json" ]; then
+            mkdir -p "$cache_root"
+            npm install --prefix "$cache_root" --no-save --package-lock=false --prefer-offline --no-audit --no-fund "@playwright/test@$version"
+          fi
+          rm -rf node_modules/@playwright/test node_modules/playwright node_modules/playwright-core
+          mkdir -p node_modules/@playwright node_modules/.bin
+          ln -s "$package_root" node_modules/@playwright/test
+          ln -s "$cache_root/node_modules/playwright" node_modules/playwright
+          ln -s "$cache_root/node_modules/playwright-core" node_modules/playwright-core
+          rm -f node_modules/.bin/playwright node_modules/.bin/playwright-core
+          ln -s "$cache_root/node_modules/.bin/playwright" node_modules/.bin/playwright
+          ln -s "$cache_root/node_modules/.bin/playwright-core" node_modules/.bin/playwright-core
+
+      - name: Verify Playwright Chromium
+        working-directory: frontend-dev
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx playwright install chromium
+          npx playwright --version
+
+      - name: Run smoke suite
+        working-directory: frontend-dev
+        shell: bash
+        run: |
+          set -o pipefail
+          npx playwright test tests/e2e/smoke-acceptance.spec.js --workers=2 --retries=0 --reporter=list 2>&1 | tee ../smoke-acceptance-run.log
+          exit "${PIPESTATUS[0]}"
+
+      - name: Upload smoke diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: worlds-smoke-failures
+          path: |
+            smoke-acceptance-run.log
+            frontend-dev/test-results
+            frontend-dev/playwright-report
+            testscreenshots/playwright
+          if-no-files-found: ignore
+          retention-days: 7
+          compression-level: 0
