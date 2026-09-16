@@ -1,4 +1,5 @@
 import { Handle, Position } from "@xyflow/react";
+import { worldDefinitions } from "../model/worldDefinitions";
 
 const POSITION_MAP = { left: Position.Left, right: Position.Right, top: Position.Top, bottom: Position.Bottom };
 const STROKE = "#26364d";
@@ -17,6 +18,18 @@ function Symbol({ type }) {
 }
 
 function formatValue(value) { if (value === undefined || value === null || value === "") return null; if (typeof value === "number") return Number.isFinite(value) ? String(value) : null; return String(value); }
+function propertyEntries(data) { const definition = data?.definitionKey ? worldDefinitions[data.definitionKey] : null; return Object.entries(definition?.properties ?? {}).slice(0, 2).map(([key, property]) => ({ key, property, value: data?.properties?.[key] ?? property.defaultValue ?? "" })); }
+function emitProbe(id, data, measurement) { window.dispatchEvent(new CustomEvent("worlds:add-probe", { detail: { entityType: "component", entityId: id, nodeId: id, terminalId: null, measurement, label: data?.label ?? "Component" } })); }
+
+function LocalInspector({ id, data }) {
+  const entries = propertyEntries(data);
+  const update = (property, value) => window.dispatchEvent(new CustomEvent("worlds:update-property", { detail: { nodeId: id, property, value } }));
+  return <div data-testid="object-local-inspector" className="nodrag nopan absolute left-[164px] top-[-8px] z-50 w-[238px] overflow-hidden rounded-xl border border-[#cbd5de] bg-white/98 shadow-[0_16px_38px_rgba(24,37,58,0.18)] backdrop-blur" onPointerDown={event => event.stopPropagation()} onClick={event => event.stopPropagation()}>
+    <div className="border-b border-[#e3e8ec] px-3.5 py-2.5"><div className="text-[7px] font-bold uppercase tracking-[0.16em] text-[#8a96a4]">Selected component</div><div className="mt-0.5 text-[12px] font-semibold text-[#1d2b40]">{data?.label ?? "Unnamed"}</div><div className="mt-0.5 text-[8px] font-medium text-[#748296]">{data?.componentType ?? "Component"}</div></div>
+    {entries.length > 0 && <div className="border-b border-[#e3e8ec] px-3.5 py-2.5"><div className="mb-2 text-[7px] font-bold uppercase tracking-[0.14em] text-[#8a96a4]">Properties</div><div className="space-y-2">{entries.map(({ key, property, value }) => <label key={key} className="block"><div className="mb-1 flex items-baseline justify-between gap-2"><span className="text-[8px] font-medium text-[#405067]">{property.label ?? key}</span>{property.unit && <span className="text-[7px] text-[#8a96a4]">{property.unit}</span>}</div>{property.type === "number" ? <input aria-label={`Object ${property.label ?? key}`} type="number" value={value} min={property.min} max={property.max} step={property.step ?? "any"} onChange={event => update(key, event.target.value === "" ? "" : Number(event.target.value))} className="nodrag h-7 w-full rounded-md border border-[#d1d9e0] bg-[#fbfcfd] px-2 font-mono text-[9px] text-[#1f3148] outline-none focus:border-[#7c91a6]"/> : <select aria-label={`Object ${property.label ?? key}`} value={value} onChange={event => update(key, event.target.value)} className="nodrag h-7 w-full rounded-md border border-[#d1d9e0] bg-[#fbfcfd] px-2 text-[9px] text-[#1f3148] outline-none focus:border-[#7c91a6]">{(property.options ?? []).map(option => <option key={option.value} value={option.value}>{option.label ?? option.value}</option>)}</select>}</label>)}</div></div>}
+    <div className="px-3.5 py-2.5"><div className="mb-1.5 text-[7px] font-bold uppercase tracking-[0.14em] text-[#8a96a4]">Measure</div><div className="flex flex-wrap gap-1.5"><button type="button" className="nodrag rounded-md border border-[#d1d9e0] bg-[#fbfcfd] px-2 py-1 text-[8px] font-semibold text-[#405067] hover:bg-white" onClick={() => emitProbe(id, data, "voltage")}>Voltage</button><button type="button" className="nodrag rounded-md border border-[#d1d9e0] bg-[#fbfcfd] px-2 py-1 text-[8px] font-semibold text-[#405067] hover:bg-white" onClick={() => emitProbe(id, data, "current")}>Current</button><button type="button" className="nodrag rounded-md border border-[#d1d9e0] bg-[#fbfcfd] px-2 py-1 text-[8px] font-semibold text-[#405067] hover:bg-white" onClick={() => emitProbe(id, data, "power")}>Power</button></div></div>
+  </div>;
+}
 
 export default function WorldNode({ id, data, selected }) {
   const ports = data?.ports ?? [];
@@ -28,5 +41,6 @@ export default function WorldNode({ id, data, selected }) {
     {selected && <div className="pointer-events-none absolute left-[15px] top-[5px] h-[100px] w-[150px] rounded-md border border-[#8ea1b4]/55 bg-[#e9eef3]/35" aria-hidden="true" />}
     {ports.map(port => <Handle key={port.id} id={port.id} type="source" position={POSITION_MAP[port.position] ?? Position.Right} isConnectable className={`!h-2 !w-2 !border !border-[#fbfcfd] ${selected ? "!bg-[#3c5d7d]" : "!bg-[#26364d]"}`} onClick={event => handlePortClick(event, port)} title={`${port.label ?? port.id} — ${port.kind}`} />)}
     <svg viewBox="0 0 150 110" className="absolute left-[15px] top-0 h-[110px] w-[150px] overflow-visible" aria-hidden="true"><Symbol type={data?.componentType}/><text x="75" y="98" textAnchor="middle" fontSize="10" fontWeight="600" fill="#17253a">{reference}</text>{value&&<text x="75" y="109" textAnchor="middle" fontSize="9" fill={MUTED}>{value}</text>}</svg>
+    {selected && <LocalInspector id={id} data={data} />}
   </div>;
 }
