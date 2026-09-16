@@ -32,7 +32,7 @@ The frontend supports both static and live simulation concepts. The Live workspa
 
 The current Electrical workspace carries an explicit, minimal context identity (`universeId`, `worldId`, `layerId`, `representationId`) without coupling that context to the World Graph or changing the Electrical simulation model. This is an extension point for future Worlds/Layers, not a multi-world implementation.
 
-The Electrical workspace has deterministic pre-created examples represented as editable World Graph templates. Current examples are Voltage divider, RC low-pass, Parallel resistors, RL transient, RLC transient, Diode rectifier, NPN transistor bias, NPN low-side switch, PNP high-side switch, NMOS low-side switch, PMOS high-side switch, and CMOS inverter. Examples are graph templates, not separate simulation engines; they exercise the same editor, serializer, backend, and analysis paths as user-built circuits.
+The Electrical workspace has deterministic pre-created examples represented as editable World Graph templates. Current examples are Voltage divider, RC low-pass, Parallel resistors, RL transient, RLC transient, Diode rectifier, NPN transistor bias, NPN low-side switch, PNP transistor high-side switch, NMOS low-side switch, PMOS high-side switch, and CMOS inverter. Examples are graph templates, not separate simulation engines; they exercise the same editor, serializer, backend, and analysis paths as user-built circuits.
 
 Electrical examples also carry explicit simulation presets in the example model. Static examples declare DC operating point; dynamic examples declare transient analysis with bounded, example-specific time ranges. The palette exposes the intended analysis, and loading an example applies that preset to the Simulation workspace through a tested configuration boundary.
 
@@ -134,3 +134,34 @@ The pre-created Electrical examples have real-backend browser acceptance coverag
 Live AC oscilloscope pacing uses the actual simulation-time rate reported by successive live snapshots instead of assuming one simulated second per wall-clock second. The clock is interpolated between backend snapshots so the rolling window remains continuously moving while respecting the simulation's slower live execution pace.
 
 The live schematic preview no longer overlays persistent live voltage/current boxes or current-direction arrows. The preview is kept as a schematic/context surface, while the Live oscilloscope and result explorer remain the measurement surfaces. The diode, NPN/PNP BJT, and NMOS/PMOS symbols are rendered as actual schematic symbols rather than generic component boxes.
+
+## Handoff checkpoint — 2026-09-16
+
+The current branch is `v0.4/dev-deploy`. The latest UI interaction commits are:
+
+- `2edecdfc518ffcd6d1ac137621fe254322a8154d` — route schematic node clicks into selection state
+- `413012912532f1980c8d0360a6b28968abdce738` — select schematic nodes on pointer down
+
+The direct-placement implementation is present in `WorldCanvas.jsx`: it uses a dedicated placement overlay rather than relying on ReactFlow pane clicks, tracks a placement ghost, places on canvas click, and supports Escape cancellation.
+
+The latest full deployed browser acceptance run for `2edecdf` completed with **19 passed / 7 failed**. The seven failures are interaction-regression failures caused by the new contextual Library/Inspector behavior, not seven independent simulation-engine failures:
+
+- T01, T05: legacy tests open Library and then attempt Inspector input without selecting/closing the Library as expected by the new interaction model.
+- T08: same contextual Inspector mismatch.
+- T09, T13, T16: legacy tests attempt to open Instruments while the Library surface is still intercepting pointer events.
+- UI Escape/Backspace test: it expected the Inspector to remain populated after the selected resistor was dismissed, conflicting with the new contextual-close behavior.
+
+The important result is that the dedicated UI acceptance test for component placement now passes on the same run. The failures need to be repaired before declaring the redesign acceptance-green. Do not revert contextual behavior merely to satisfy the old selectors; adapt the acceptance workflow to the new interaction model where appropriate.
+
+The most recent CI/deploy run for `4130129` was still pending at the time of this handoff. A new AI must check GitHub Actions before making assumptions about its result.
+
+### Next implementation order
+
+1. Verify the latest `4130129` CI/deploy/acceptance status.
+2. Fix the acceptance workflow regressions caused by contextual surface interception/selection; preserve the intended UX.
+3. Inspect fresh screenshots, especially empty workspace, first placement, selected component, wiring, simulation, and instrument states.
+4. Continue the real interaction redesign: object-local inspection, first-class wiring feedback, explicit Build/Simulate mode treatment, progressive analysis controls, and instrument presentation.
+5. Add or update deterministic UI acceptance around the new interaction model instead of preserving obsolete panel-centric assumptions.
+6. Re-run the complete relevant pipeline and only then update this document with a green revision.
+
+Never treat a passing DOM suite as sufficient for this milestone. Visual inspection is part of the acceptance gate.
