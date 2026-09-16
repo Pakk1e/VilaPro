@@ -32,7 +32,9 @@ Prefer stable contracts such as `data-testid`, accessible roles/names, and expli
 
 ## CI acceptance flow
 
-The Worlds acceptance workflow runs on the self-hosted `worlds-dev` runner. It installs frontend dependencies, ensures the Playwright browser environment, runs the acceptance suite, and retains diagnostic artifacts.
+Worlds deployment first runs a small smoke suite against the exact deployed commit. The smoke suite covers application load, electrical-world identity, contextual Library access, basic component placement, and object-local inspection. If smoke fails, the expensive full acceptance suite is not started, giving fast feedback on fundamental deployment/UI breakage.
+
+After smoke passes, the full Playwright acceptance workflow runs on the self-hosted `worlds-dev` runner. It verifies the broader interactive behavior and retains diagnostic artifacts on failure.
 
 On failure, inspect the retained:
 
@@ -44,6 +46,10 @@ On failure, inspect the retained:
 
 The exact deployed commit SHA should be propagated into post-deployment acceptance so the tested revision is unambiguous.
 
+## CI change filtering
+
+Frontend and Worlds backend CI are separate workflows and are triggered by their respective source paths. Documentation-only changes do not consume those test jobs. Deployment is also path-filtered to changes that can affect the deployed Worlds application or deployment behavior.
+
 ## Writing a new acceptance test
 
 1. Define the user-visible behavior being protected.
@@ -53,6 +59,12 @@ The exact deployed commit SHA should be propagated into post-deployment acceptan
 5. Assert both the visible result and, where appropriate, the canonical graph state.
 6. Keep setup deterministic and independent of another test's state.
 7. Run the focused test, then the relevant full suite.
+
+## Smoke-test rules
+
+Smoke tests must remain small, deterministic, and representative of the critical deployment path. Do not put detailed electrical calculations, long transient simulations, visual regression coverage, or edge cases into smoke coverage. Those belong in the full acceptance suite.
+
+Smoke failures should fail quickly rather than using long retries. Full acceptance remains comprehensive and must not be weakened merely to reduce runtime.
 
 ## Worlds-specific principles
 
