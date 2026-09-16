@@ -4,9 +4,9 @@ export default defineConfig({
     testDir: "./tests/e2e",
     outputDir: "../testscreenshots/playwright",
     globalSetup: "./tests/e2e/auth.setup.js",
-    timeout: 30_000,
+    timeout: 15_000,
     expect: {
-        timeout: 5_000,
+        timeout: 3_000,
     },
     fullyParallel: true,
     workers: undefined,
