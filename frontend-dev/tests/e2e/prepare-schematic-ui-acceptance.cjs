@@ -35,7 +35,7 @@ for (const name of specs) {
     );
     text = text.replace(
       'const voltage = await addComponent(page, "Voltage Source", "Voltage Source 1"); const resistor = await addComponent(page, "Resistor", "Resistor 1"); const ground = await addComponent(page, "Ground", "Ground 1");',
-      'const voltage = await addComponent(page, "Voltage Source", "Voltage Source 1"); const resistor = await addComponent(page, "Resistor", "Resistor 1"); const ground = await addComponent(page, "Ground", "Ground 1"); const librarySurfaceAfterAdd = page.getByTestId("workspace-library-surface"); if (await librarySurfaceAfterAdd.isVisible().catch(() => false)) await page.getByRole("button", { name: "Library" }).click();',
+      'const voltage = await addComponent(page, "Voltage Source", "Voltage Source 1"); const resistor = await addComponent(page, "Resistor", "Resistor 1"); const ground = await addComponent(page, "Ground", "Ground 1"); const librarySurfaceAfterAdd = page.getByTestId("workspace-library-surface"); if (await librarySurfaceAfterAdd.isVisible().catch(() => false)) await page.getByRole("button", { name: "Library" }).click(); const inspectorSurfaceAfterAdd = page.getByTestId("workspace-inspector-surface"); if (await inspectorSurfaceAfterAdd.isVisible().catch(() => false)) await page.getByRole("button", { name: "Inspector" }).click();',
     );
   }
   fs.writeFileSync(file, text);
@@ -57,7 +57,7 @@ acceptance = acceptance.replace(
 );
 acceptance = acceptance.replace(
   'const seed = await addComponent(page, "Resistor", "Resistor 1"); const zoomOut = page.locator(".react-flow__controls-zoomout");',
-  'const seed = await addComponent(page, "Resistor", "Resistor 1"); const librarySurface = page.getByTestId("workspace-library-surface"); if (await librarySurface.isVisible().catch(() => false)) await page.getByRole("button", { name: "Library" }).click(); const zoomOut = page.locator(".react-flow__controls-zoomout");',
+  'const seed = await addComponent(page, "Resistor", "Resistor 1"); const librarySurface = page.getByTestId("workspace-library-surface"); if (await librarySurface.isVisible().catch(() => false)) await page.getByRole("button", { name: "Library" }).click(); const inspectorSurface = page.getByTestId("workspace-inspector-surface"); if (await inspectorSurface.isVisible().catch(() => false)) await page.getByRole("button", { name: "Inspector" }).click(); const zoomOut = page.locator(".react-flow__controls-zoomout");',
 );
 acceptance = acceptance.replace(
   'await handle(voltage, "p").dragTo(handle(resistor, "p")); await handle(resistor, "n").dragTo(handle(ground, "g")); await handle(voltage, "n").dragTo(handle(ground, "g"));',
