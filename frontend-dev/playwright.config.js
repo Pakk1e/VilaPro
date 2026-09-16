@@ -21,7 +21,7 @@ export default defineConfig({
         browserName: "chromium",
         viewport: { width: 1440, height: 900 },
         screenshot: "only-on-failure",
-        trace: "retain-on-failure",
+        trace: globalThis.process?.env.WORLDS_E2E_TRACE === "1" ? "retain-on-failure" : "off",
         video: "off",
         serviceWorkers: "block",
         storageState: "playwright/.auth/user.json",
