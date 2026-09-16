@@ -24,6 +24,38 @@ For Worlds behavior changes, a successful build is not sufficient. Browser accep
 
 The post-deployment acceptance flow must test the exact deployed revision whenever the deployment workflow provides a commit SHA.
 
+## CI performance model
+
+The current Worlds pipeline has three distinct costs:
+
+1. **Deployment:** source synchronization, `npm ci`, Vite build, service restart, and health checks.
+2. **Acceptance setup:** checkout, Node setup, frontend dependency installation, and Playwright/Chromium preparation.
+3. **Browser acceptance:** the actual Playwright suite plus diagnostic artifact collection on failure.
+
+The 2026-09-16 audit of run `35117459060` showed that acceptance setup was already relatively small: frontend dependency installation took about 5.8 seconds, Playwright runner reuse about 10 ms, and Chromium verification about 0.8 seconds. The dominant cost was the browser suite and, after failure, uploading overlapping artifacts. The failed suite ran 27 tests with 3 workers and took about 3.6 minutes; 25 tests failed, mostly after 30-second interaction timeouts. Artifact collection then added roughly 2.5 minutes because the report and screenshots were uploaded separately and then uploaded again inside the failure bundle.
+
+### Current optimization rules
+
+- Use `setup-node` npm caching for acceptance dependencies.
+- Keep the persistent Playwright installation/browser cache on the self-hosted runner.
+- Default Worlds acceptance to 4 workers on the 8-thread runner; allow `WORLDS_E2E_WORKERS` to override this when benchmarking or diagnosing contention.
+- Upload one combined failure-diagnostics artifact only when acceptance fails. Do not upload the same report/screenshots again as separate always-on artifacts.
+- Use artifact compression level `0` for the failure bundle because Playwright videos/traces/screenshots are already poor compression targets and upload speed is more valuable than archive size during debugging.
+- Skip the general Worlds unit/frontend CI workflow for unrelated repository changes using workflow path filters.
+- Keep exact-revision acceptance after deployment so speed improvements do not weaken deployment-to-test correctness.
+
+### Further optimization targets
+
+The next performance work should be evidence-driven:
+
+1. Fix the current acceptance interaction regressions first; repeated 30-second timeouts dominate failed-run latency.
+2. Benchmark 3 versus 4 workers after the suite is healthy; increase workers only if the runner and DEV services remain stable.
+3. If the suite grows materially, shard Playwright across additional runners rather than overloading the single 8-thread host.
+4. Consider a small smoke suite immediately after deployment for fast feedback, while retaining the full acceptance suite as the release gate.
+5. Keep visual evidence focused on dedicated visual/release checks rather than generating large screenshot collections from every functional acceptance test.
+
+Do not optimize by weakening assertions, removing behavioral coverage, or hiding failures.
+
 ## Documentation update rule
 
 Update documentation in the same development cycle when a change affects:
@@ -48,6 +80,8 @@ Canonical project documentation lives elsewhere under `docs/` and is what future
 
 The active development branch is `v0.4/dev-deploy`. The deployment workflow checks out the requested revision on the self-hosted Worlds runner and the acceptance workflow verifies the deployed application.
 
+The deployment workflow delegates source synchronization to `scripts/deploy-worlds-dev.sh` so the same Git synchronization is not performed twice.
+
 Never treat files left on the server as the project source of truth.
 
 ## Failure handling
@@ -55,8 +89,8 @@ Never treat files left on the server as the project source of truth.
 When browser acceptance fails:
 
 1. identify the failing test and exact revision;
-2. inspect the Playwright report, screenshot, trace, test result, and acceptance log retained by CI;
-3. reproduce locally or on the runner only when the artifacts are insufficient;
+2. inspect the single Playwright failure-diagnostics artifact retained by CI;
+3. reproduce locally or on the runner only when the artifact is insufficient;
 4. diagnose the root cause before changing code;
 5. update the test if the product contract changed intentionally, otherwise fix the implementation;
 6. rerun the relevant acceptance coverage before declaring the change complete.
