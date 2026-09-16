@@ -1,70 +1,60 @@
-# Vadovsky Tech
+# VilaPro / Lab OS
 
-Personal website project hosted at https://www.vadovsky-tech.com
+VilaPro is the broader project repository containing the Vadovsky Tech application and the Lab OS experimental system-modeling work.
 
-## Overview
+## Lab OS Worlds
 
-This repository contains the source code for my personal website.
-The project includes a frontend application and a Node.js backend.
+Lab OS is a learning-oriented interactive sandbox for building, simulating, inspecting, and experimenting with systems at different levels of abstraction.
 
-Authentication is handled by a third-party service.
-This backend does not store or manage user credentials.
+The active Worlds implementation is the **Electrical World**: a schematic-first circuit workspace with editable components, semantic connections, simulation, results, and contextual inspection/instruments.
 
-## Tech Stack
+The long-term direction is a Universe containing multiple Worlds and meaningful abstraction Layers. See the canonical documentation before extending the architecture.
 
-### Frontend
-- React
-- Vite
-- JavaScript
+## Start here
 
-### Backend
-- Node.js
-- Express
-- SQLite
+For engineering work, begin with [`docs/START_HERE.md`](docs/START_HERE.md). It is the documentation router and identifies which document is authoritative for each kind of question.
 
-### Infrastructure
-- Linux server
-- Cloudflare (DNS / Proxy)
-- Tailscale (internal networking)
+Key references:
 
-## Project Structure
+- `docs/CURRENT_STATUS.md` — current implementation state and next priorities
+- `ARCHITECTURE.md` — engineering source of truth
+- `docs/worlds/interaction-model.md` — Worlds interaction conventions
+- `docs/worlds/acceptance-matrix.md` — browser acceptance contracts
+- `docs/development/development-workflow.md` — development and deployment workflow
+- `docs/development/testing.md` — testing and failure-diagnosis strategy
+- `docs/development/server-runner.md` — self-hosted CI runner contract
+- `docs/DECISIONS.md` and `docs/decisions/` — durable project decisions
 
-├── frontend/
-│ ├── src/
-│ └── package.json
-├── backend/
-│ ├── server.js
-│ ├── package.json
-│ └── .env.example
-└── README.md
+## Development model
 
+GitHub is the source of truth. The self-hosted Worlds runner is a build/deployment/browser-verification worker, not a second source tree.
 
+The normal loop is:
 
-## Environment Variables
+```text
+Read canonical docs
+  → inspect code/tests
+  → implement
+  → test
+  → build/deploy exact revision when required
+  → Worlds browser acceptance
+  → inspect evidence on failure
+  → update canonical docs when project truth changes
+```
 
-Backend uses environment variables defined in a `.env` file.
+Worlds UI changes require behavioral browser verification; a successful build alone is not considered sufficient.
 
-Example:
-PORT=5000
-TAILSCALE_IP=100.x.x.x
+## Repository areas
 
+- `frontend-dev/` — active frontend application and Worlds implementation
+- backend/project application directories — existing application services
+- `.github/workflows/` — CI/deployment workflows
+- `docs/` — canonical project, architecture, workflow, and acceptance documentation
 
-See `backend/.env.example` for reference.
+## Existing application stack
 
-## Installation
+The broader repository includes React/Vite frontend work and Node.js/Express services. Infrastructure currently includes a Linux server, Cloudflare, and Tailscale. Individual application areas may have additional dependencies; consult their package manifests and canonical documentation rather than assuming one universal stack.
 
-### Frontend
+## Documentation policy
 
-```bash
-cd frontend
-npm install
-npm run dev
-
-
-cd backend
-npm install
-npm start
-
-
-
-
+Do not maintain a second engineering source of truth in uploaded files, server-local notes, or external documentation platforms. Temporary implementation specifications may live under `docs/superpowers/`, but durable project knowledge belongs in the canonical `docs/` documents and architecture files.
