@@ -89,7 +89,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          npx playwright install chromium
+          chromium_path=$(node -e "const { chromium } = require('playwright'); process.stdout.write(chromium.executablePath())")
+          if [ -x "$chromium_path" ]; then
+            echo "Chromium already available: $chromium_path"
+          else
+            echo "Chromium missing; installing browser bundle..."
+            npx playwright install chromium
+          fi
           npx playwright --version
 
       - name: Run smoke suite
