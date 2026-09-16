@@ -389,3 +389,13 @@ This phase does not introduce:
 - persistent telemetry painted over the schematic
 
 The objective is a **substantially different way of working with the same electrical model**.
+
+## 16. Handoff checkpoint — 2026-09-16
+
+The direct-placement milestone is implemented. Component selection enters a temporary placement state, a dedicated canvas overlay tracks the placement pointer and renders the engineering-symbol ghost, canvas click places the instance, and Escape cancels. This avoids relying on ReactFlow pane-click propagation for the primary insertion workflow.
+
+The contextual Inspector behavior is intentional: it is closed when there is no selection and opens when a component/terminal/wire/result is selected. The Library is likewise an interaction surface that can intercept canvas actions while open; tests must close or transition it according to the new workflow rather than assuming all top-level controls are simultaneously clickable.
+
+The latest full acceptance run exposed this boundary clearly: 19 tests passed and 7 failed. The failures were primarily old acceptance flows attempting to manipulate the newly contextual UI while the Library remained open, plus one assertion that expected an Inspector to remain after selection had been cleared. These should be fixed in the acceptance workflow without undoing the contextual design.
+
+The next AI should treat the current implementation as a real interaction redesign in progress, not as a finished visual redesign. The next meaningful work is object-local inspection, first-class wiring feedback, explicit Build/Simulate mode treatment, progressive analysis controls, and instrument presentation. Avoid spending the next iteration only on panel widths, colors, border radii, or other superficial restyling.
