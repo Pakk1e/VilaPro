@@ -16,7 +16,7 @@ test("selected component exposes object-local inspection", async ({ page }) => {
   await expect(local).toBeVisible();
   await expect(local).toContainText("Resistor 1");
   await expect(local).toContainText("Resistance");
-  const resistance = local.getByRole("spinbutton", { name: "Object Resistance" });
+  const resistance = local.getByRole("spinbutton", { name: "Resistance" });
   await expect(resistance).toHaveValue("100");
   await resistance.fill("470");
   await expect.poll(async () => (await page.evaluate(() => window.__WORLDS_DEBUG__?.nodes?.find(node => node.data?.label === "Resistor 1")?.data?.properties?.resistance))).toBe(470);
