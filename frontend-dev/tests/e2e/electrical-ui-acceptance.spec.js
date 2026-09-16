@@ -7,6 +7,18 @@ function browserErrors(page) {
   return errors;
 }
 
+async function placeComponent(page, name, label) {
+  await page.getByTestId("component-palette").getByRole("button", { name: new RegExp(`${name} Add to canvas`) }).click();
+  await expect(page.getByTestId("placement-layer")).toBeVisible();
+  const canvas = page.getByTestId("worlds-canvas");
+  const box = await canvas.boundingBox();
+  if (!box) throw new Error("Unable to locate schematic canvas.");
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  const node = page.locator(".react-flow__node").filter({ hasText: label });
+  await expect(node).toBeVisible();
+  return node;
+}
+
 test.describe("Electrical workspace UI rework", () => {
   test("canvas-first workspace reveals contextual tools when needed", async ({ page }) => {
     const errors = browserErrors(page);
@@ -23,10 +35,7 @@ test.describe("Electrical workspace UI rework", () => {
     await page.getByLabel("Search components").fill("NMOS");
     await expect(page.getByTestId("component-palette").getByRole("button", { name: /NMOS Add to canvas/ })).toBeVisible();
     await expect(page.getByTestId("component-palette").getByRole("button", { name: /Resistor Add to canvas/ })).toHaveCount(0);
-    await page.getByTestId("component-palette").getByRole("button", { name: /NMOS Add to canvas/ }).click();
-
-    const nmos = page.locator(".react-flow__node").filter({ hasText: "NMOS 1" });
-    await expect(nmos).toBeVisible();
+    const nmos = await placeComponent(page, "NMOS", "NMOS 1");
     await expect(page.getByTestId("workspace-library-surface")).toHaveCount(0);
     await expect(page.getByTestId("workspace-inspector-surface")).toBeVisible();
     await expect(page.getByTestId("workspace-inspector")).toContainText("NMOS 1");
@@ -87,9 +96,7 @@ test.describe("Electrical workspace UI rework", () => {
     const errors = browserErrors(page);
     await page.goto("/worlds", { waitUntil: "networkidle" });
     await page.getByRole("button", { name: "Library" }).click();
-    await page.getByTestId("component-palette").getByRole("button", { name: /Resistor Add to canvas/ }).click();
-    const resistor = page.locator(".react-flow__node").filter({ hasText: "Resistor 1" });
-    await expect(resistor).toBeVisible();
+    const resistor = await placeComponent(page, "Resistor", "Resistor 1");
     await expect(page.getByTestId("workspace-inspector-surface")).toBeVisible();
     await page.getByTestId("worlds-canvas").press("Escape");
     await expect(page.getByTestId("workspace-inspector")).toContainText("Nothing selected");
@@ -104,14 +111,12 @@ test.describe("Electrical workspace UI rework", () => {
     const errors = browserErrors(page);
     await page.goto("/worlds", { waitUntil: "networkidle" });
     await page.getByRole("button", { name: "Library" }).click();
-    await page.getByTestId("component-palette").getByRole("button", { name: /Resistor Add to canvas/ }).click();
-    const resistor = page.locator(".react-flow__node").filter({ hasText: "Resistor 1" });
-    await expect(resistor).toBeVisible();
+    await placeComponent(page, "Resistor", "Resistor 1");
     await expect(page.getByTestId("workspace-inspector")).toContainText("Resistor 1");
     await page.getByTestId("workspace-inspector").getByRole("button", { name: "Clear selection" }).click();
     await expect(page.getByTestId("workspace-inspector")).toContainText("Nothing selected");
     await expect(await page.evaluate(() => window.__WORLDS_DEBUG__?.selectedNodeId)).toBeNull();
-    await expect(resistor).toBeVisible();
+    await expect(page.locator(".react-flow__node").filter({ hasText: "Resistor 1" })).toBeVisible();
     expect(errors).toEqual([]);
   });
 });
