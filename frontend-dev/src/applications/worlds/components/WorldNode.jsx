@@ -18,7 +18,7 @@ function Symbol({ type }) {
 }
 
 function formatValue(value) { if (value === undefined || value === null || value === "") return null; if (typeof value === "number") return Number.isFinite(value) ? String(value) : null; return String(value); }
-function propertyEntries(data) { const definition = data?.definitionKey ? worldDefinitions[data.definitionKey] : null; return Object.entries(definition?.properties ?? {}).slice(0, 2).map(([key, property]) => ({ key, property, value: data?.properties?.[key] ?? property.defaultValue ?? "" })); }
+function propertyEntries(data) { const definition = data?.definitionKey ? worldDefinitions[data.definitionKey] : null; return Object.entries(definition?.properties ?? {}).filter(([, property]) => !property?.showOnNode).slice(0, 2).map(([key, property]) => ({ key, property, value: data?.properties?.[key] ?? property.defaultValue ?? "" })); }
 function emitProbe(id, data, measurement) { window.dispatchEvent(new CustomEvent("worlds:add-probe", { detail: { entityType: "component", entityId: id, nodeId: id, terminalId: null, measurement, label: data?.label ?? "Component" } })); }
 
 function LocalInspector({ id, data }) {
