@@ -49,6 +49,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: frontend-dev/package-lock.json
 
       - name: Measure runner before acceptance setup
         shell: bash
@@ -131,7 +133,7 @@ jobs:
         run: |
           set -o pipefail
           started=$(date +%s%3N)
-          workers="${WORLDS_E2E_WORKERS:-3}"
+          workers="${WORLDS_E2E_WORKERS:-4}"
           echo "=== Worlds browser acceptance ==="
           echo "Requested revision: ${{ inputs.revision || inputs.branch || github.sha }}"
           echo "Checked out commit: $(git rev-parse HEAD)"
@@ -144,25 +146,7 @@ jobs:
           echo "Duration: $((ended - started))ms"
           exit "$status"
 
-      - name: Upload Playwright report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: worlds-acceptance-report
-          path: frontend-dev/playwright-report
-          if-no-files-found: ignore
-          retention-days: 14
-
-      - name: Upload acceptance UI screenshots
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: worlds-acceptance-screenshots
-          path: testscreenshots/playwright
-          if-no-files-found: ignore
-          retention-days: 14
-
-      - name: Upload failure artifacts
+      - name: Upload failure diagnostics
         if: failure()
         uses: actions/upload-artifact@v4
         with:
@@ -174,3 +158,4 @@ jobs:
             testscreenshots/playwright
           if-no-files-found: ignore
           retention-days: 14
+          compression-level: 0
