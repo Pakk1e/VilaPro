@@ -30,10 +30,12 @@ for (const name of specs) {
     'await expect(voltage.getByText("Sine", { exact: true })).toBeVisible();',
     'await expect(sourceProperties).toHaveValue("sine");',
   );
-  if (text.includes("ensureLibrary(page)") && !text.includes("async function ensureLibrary(page)")) {
+  if (text.includes("ensureLibrary(page)")) {
+    text = text.replace(/async function ensureLibrary\(page\) \{[^\n]*\}\n?/, "");
     text = ensureLibraryHelper + text;
   }
-  if (text.includes("addComponent(page,") && !text.includes("async function addComponent(page,")) {
+  if (text.includes("async function addComponent(page, name, label)")) {
+    text = text.replace(/async function addComponent\(page, name, label\) \{[^\n]*\}\n?/, "");
     text = addComponentHelper + text;
   }
   text = text.replaceAll('const examples = page.getByTestId("world-examples");', 'await ensureLibrary(page); const examples = page.getByTestId("world-examples");');
