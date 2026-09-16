@@ -44,23 +44,25 @@ The acceptance workflow also runs with `--retries=0`, so a failed acceptance tes
 
 ## Failure diagnostics policy
 
-Failure diagnostics are deliberately bounded because uploading browser recordings can cost more time than the failed test run itself. The default Worlds acceptance configuration keeps failure screenshots and Playwright traces, but disables video recording. The CI failure artifact contains the acceptance log, Playwright test results, and HTML report. The separate custom screenshot output directory is not uploaded because it duplicates failure evidence already retained by Playwright.
+Failure diagnostics are deliberately bounded because artifact transfer can cost more time than the failed test run itself. The normal full acceptance configuration disables video and keeps Playwright traces **off by default**. Failure screenshots remain enabled. Traces can be enabled for a focused diagnostic run with `WORLDS_E2E_TRACE=1` when a failure requires deeper browser timeline evidence.
 
-The diagnostic bundle is therefore intended to preserve the evidence needed to identify and reproduce a failure without making failure reporting itself a major pipeline bottleneck. If a failure specifically requires video evidence, enable video temporarily for a focused diagnostic run rather than restoring it to the full acceptance workflow.
+The CI failure artifact contains only the acceptance log and Playwright HTML report. Test-result directories and trace bundles are not uploaded by the normal full-suite workflow because they were measured to create a large transfer bottleneck. This keeps routine failure reporting fast while preserving screenshots in the HTML report. Focused trace-enabled runs can be used when the default evidence is insufficient.
+
+If a failure specifically requires video evidence, enable video temporarily for a focused diagnostic run rather than restoring it to the full acceptance workflow.
 
 ## CI acceptance flow
 
 Worlds deployment first runs a small smoke suite against the exact deployed commit. The smoke suite covers application load, electrical-world identity, contextual Library access, basic component placement, and object-local inspection. If smoke fails, the expensive full acceptance suite is not started, giving fast feedback on fundamental deployment/UI breakage.
 
-After smoke passes, the full Playwright acceptance workflow runs on the self-hosted `worlds-dev` runner. It verifies the broader interactive behavior and retains diagnostic artifacts on failure.
+After smoke passes, the full Playwright acceptance workflow runs on the self-hosted `worlds-dev` runner. It verifies the broader interactive behavior and retains bounded diagnostic artifacts on failure.
 
 On failure, inspect the retained:
 
 - Playwright HTML report
-- failure screenshots
-- traces
-- test results
+- failure screenshots included by the report
 - acceptance log
+
+For difficult browser-interaction failures, rerun the focused test with `WORLDS_E2E_TRACE=1` rather than making traces part of every full acceptance run.
 
 The exact deployed commit SHA should be propagated into post-deployment acceptance so the tested revision is unambiguous.
 
