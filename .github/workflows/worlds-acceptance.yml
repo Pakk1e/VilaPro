@@ -116,13 +116,19 @@ jobs:
           echo "Playwright runner setup duration=$((ended - started))ms"
           node -e "console.log('Playwright version:', require('@playwright/test/package.json').version)"
 
-      - name: Ensure Playwright Chromium
+      - name: Verify Playwright Chromium
         working-directory: frontend-dev
         shell: bash
         run: |
           set -euo pipefail
           started=$(date +%s%3N)
-          npx playwright install chromium
+          chromium_path=$(node -e "const { chromium } = require('playwright'); process.stdout.write(chromium.executablePath())")
+          if [ -x "$chromium_path" ]; then
+            echo "Chromium already available: $chromium_path"
+          else
+            echo "Chromium missing; installing browser bundle..."
+            npx playwright install chromium
+          fi
           ended=$(date +%s%3N)
           echo "Chromium ensure duration=$((ended - started))ms"
           npx playwright --version
