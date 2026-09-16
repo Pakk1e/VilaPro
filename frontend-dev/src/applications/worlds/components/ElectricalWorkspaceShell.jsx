@@ -11,7 +11,7 @@ function ChartIcon() { return <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" f
 function FocusIcon() { return <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.35"><path d="M5.5 2.5H2.5v3M10.5 2.5h3v3M5.5 13.5H2.5v-3M10.5 13.5h3v-3"/></svg>; }
 function CrosshairIcon() { return <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.35"><circle cx="8" cy="8" r="2.2"/><path d="M8 2.5v3M8 10.5v3M2.5 8h3M10.5 8h3"/></svg>; }
 
-export default function ElectricalWorkspaceShell({ children, library, inspector, instrument, headerCenter }) {
+export default function ElectricalWorkspaceShell({ children, library, inspector, instrument, headerCenter, workspace }) {
   const [focusMode, setFocusMode] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [inspectorOpen, setInspectorOpen] = useState(false);
@@ -30,6 +30,8 @@ export default function ElectricalWorkspaceShell({ children, library, inspector,
     window.addEventListener("pointermove", onPointerMove); window.addEventListener("pointerup", onPointerUp); window.addEventListener("worlds:selection-change", onSelection); window.addEventListener("worlds:add-component", onComponentAdded); window.addEventListener("worlds:load-example", onExampleLoaded); window.addEventListener("worlds:add-probe", onProbeAdded); window.addEventListener("worlds:close-library", onLibraryClose);
     return () => { window.removeEventListener("pointermove", onPointerMove); window.removeEventListener("pointerup", onPointerUp); window.removeEventListener("worlds:selection-change", onSelection); window.removeEventListener("worlds:add-component", onComponentAdded); window.removeEventListener("worlds:load-example", onExampleLoaded); window.removeEventListener("worlds:add-probe", onProbeAdded); window.removeEventListener("worlds:close-library", onLibraryClose); };
   }, []);
+
+  useEffect(() => { if (workspace === "simulation") setInstrumentOpen(true); }, [workspace]);
 
   const beginResize = event => { if (!instrumentOpen || focusMode) return; event.preventDefault(); resizingRef.current = true; document.body.style.cursor = "ns-resize"; document.body.style.userSelect = "none"; };
   const openLibrary = () => { setLibraryOpen(true); setInspectorOpen(false); };
