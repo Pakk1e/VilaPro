@@ -2,6 +2,17 @@ import { useEffect, useState } from "react";
 import { worldDefinitions } from "../model/worldDefinitions";
 import ComponentPropertiesPanel from "./ComponentPropertiesPanel";
 
+function getInitialSelection() {
+  const debug = window.__WORLDS_DEBUG__;
+  const selectedNode = debug?.selectedNodeId ? debug.nodes?.find(node => node.id === debug.selectedNodeId) ?? null : null;
+  return {
+    selectedNode,
+    selectedEdgeId: debug?.selectedEdgeId ?? null,
+    selectedTerminal: debug?.selectedTerminal ?? null,
+    selectedResultEntity: debug?.selectedResultEntity ?? null,
+  };
+}
+
 function addProbe(node, measurement, terminal = null) {
   if (!node) return;
   window.dispatchEvent(new CustomEvent("worlds:add-probe", { detail: { entityType: terminal ? "terminal" : "component", entityId: terminal ? `${node.id}:${terminal.id}` : node.id, nodeId: node.id, terminalId: terminal?.id ?? null, measurement, label: terminal ? `${node.data?.label ?? "Component"} · ${terminal.label ?? terminal.id}` : node.data?.label ?? "Component" } }));
@@ -28,7 +39,7 @@ function ClearSelectionButton({ onClick }) {
 }
 
 export default function WorkspaceInspector() {
-  const [selection, setSelection] = useState({ selectedNode: null, selectedEdgeId: null, selectedTerminal: null, selectedResultEntity: null });
+  const [selection, setSelection] = useState(getInitialSelection);
   const [probes, setProbes] = useState([]);
   useEffect(() => { const handler = event => setSelection(event.detail ?? {}); window.addEventListener("worlds:selection-change", handler); return () => window.removeEventListener("worlds:selection-change", handler); }, []);
   useEffect(() => { const handler = event => { const probe = event.detail; if (!probe?.entityId || !probe?.measurement) return; setProbes(current => current.some(item => item.entityId === probe.entityId && item.measurement === probe.measurement) ? current : [...current, probe]); }; const removeHandler = event => { const probe = event.detail; if (!probe?.entityId || !probe?.measurement) return; setProbes(current => current.filter(item => !(item.entityId === probe.entityId && item.measurement === probe.measurement))); }; window.addEventListener("worlds:add-probe", handler); window.addEventListener("worlds:remove-probe", removeHandler); return () => { window.removeEventListener("worlds:add-probe", handler); window.removeEventListener("worlds:remove-probe", removeHandler); }; }, []);
@@ -47,5 +58,5 @@ export default function WorkspaceInspector() {
 
   if (!node) return <div data-testid="workspace-inspector" className="flex h-full min-h-0 flex-col bg-[#fbfcfd]"><div className="flex flex-1 items-center justify-center px-8 text-center"><div><div className="mx-auto flex h-9 w-9 items-center justify-center rounded-full border border-[#dce2e8] bg-white text-[#8d99a6]">⌁</div><div className="mt-3 text-[10px] font-semibold text-[#667589]">Nothing selected</div><div className="mt-1 text-[8px] leading-4 text-[#9aa4af]">Select a component, terminal, wire, or result to inspect it.</div></div></div>{probes.length > 0 && <Section title="Active probes"><div className="space-y-1.5">{probes.map(probe => <ProbeRow key={`${probe.entityId}:${probe.measurement}`} label={probe.label} measurement={probe.measurement} onRemove={() => removeProbe(probe.entityId, probe.measurement)}/>)}</div></Section>}</div>;
 
-  return <div data-testid="workspace-inspector" className="flex h-full min-h-0 flex-col overflow-y-auto bg-[#fbfcfd]"><InspectorHeader eyebrow="Component" title={node.data?.label ?? "Unnamed"} meta={node.data?.componentType ?? "Component"}/><Section title="Properties"><ComponentPropertiesPanel definition={definition} properties={node.data?.properties ?? {}} onChange={update}/></Section><Section title="Measure"><div className="flex flex-wrap gap-1.5"><ProbeButton label="Voltage" onClick={() => addProbe(node, "voltage")}/><ProbeButton label="Current" onClick={() => addProbe(node, "current")}/><ProbeButton label="Power" onClick={() => addProbe(node, "power")}/></div><p className="mt-2 text-[8px] leading-4 text-[#8d98a5]">Add a quantity to Instruments for analysis and measurement.</p></Section><Section title="Ports"><div className="space-y-1.5">{(node.data?.ports ?? []).map(port => <div key={port.id} className="flex items-center justify-between rounded-md bg-white px-2.5 py-1.5 text-[9px]"><span className="font-medium text-[#405067]">{port.label ?? port.id}</span><span className="text-[8px] text-[#8d98a5]">{port.kind}</span></div>)}</div></Section>{probes.length > 0 && <Section title="Active probes"><div className="space-y-1.5">{probes.map(probe => <ProbeRow key={`${probe.entityId}:${probe.measurement}`} label={probe.label} measurement={probe.measurement} onRemove={() => removeProbe(probe.entityId, probe.measurement)}/>)}</div></Section>}<div className="mt-auto px-4 py-3"><ClearSelectionButton onClick={clearSelection}/></div></div>;
+  return <div data-testid="workspace-inspector" className="flex h-full min-h-0 flex-col overflow-y-auto bg-[#fbfcfd]"><InspectorHeader eyebrow="Component" title={node.data?.label ?? "Unnamed"} meta={node.data?.componentType ?? "Component"}/><Section title="Properties"><ComponentPropertiesPanel definition={definition} properties={node.data?.properties ?? {}} onChange={update}/></Section><Section title="Measure"><div className="flex flex-wrap gap-1.5"><ProbeButton label="Voltage" onClick={() => addProbe(node, "voltage")}/><ProbeButton label="Current" onClick={() => addProbe(node, "current")}/><ProbeButton label="Power" onClick={() => addProbe(node, "power")}/></div><p className="mt-2 text-[8px] leading-4 text-[#8d98a5]">Add a quantity to Instruments for analysis and measurement.</p></Section><Section title="Ports"><div className="space-y-1.5">{(node.data?.ports ?? []).map(port => <div key={port.id} className="flex items-center justify-between rounded-md bg-white px-2.5 py-1.5 text-[9px]"><span className="font-medium text-[#405067]">{port.label ?? port.id}</span><span className="text-[8px] text-[#8d98a5]">{port.kind}</span></div>)}</Section>{probes.length > 0 && <Section title="Active probes"><div className="space-y-1.5">{probes.map(probe => <ProbeRow key={`${probe.entityId}:${probe.measurement}`} label={probe.label} measurement={probe.measurement} onRemove={() => removeProbe(probe.entityId, probe.measurement)}/>)}</div></Section>}<div className="mt-auto px-4 py-3"><ClearSelectionButton onClick={clearSelection}/></div></div>;
 }
