@@ -46,6 +46,7 @@ The 2026-09-16 audit of run `35117459060` showed that acceptance setup was alrea
 - Separate frontend and Worlds backend CI so unrelated source changes do not consume both test jobs.
 - Path-filter Worlds deployment so documentation-only changes do not restart the DEV services.
 - Keep exact-revision acceptance after deployment so speed improvements do not weaken deployment-to-test correctness.
+- Check the Playwright Chromium executable path before invoking the browser installer; install only when the persistent runner does not already have the required browser binary.
 
 ### Further optimization targets
 
@@ -53,10 +54,9 @@ The next performance work should be evidence-driven:
 
 1. Fix the current acceptance interaction regressions first; repeated 30-second timeouts dominate failed-run latency.
 2. Benchmark 2, 3, 4, and 5 full-suite workers after the suite is healthy and select the fastest stable setting.
-3. Replace repeated `npx playwright install chromium` with a cheap browser availability check after persistent runner provisioning has been verified across repeated jobs.
-4. Evaluate whether the deployment build can safely consume a CI-produced frontend artifact; only do this if it preserves exact-revision deployment correctness.
-5. If the suite grows materially, shard Playwright across additional runners rather than overloading the single 8-thread host.
-6. Keep visual evidence focused on dedicated visual/release checks rather than generating large screenshot collections from every functional acceptance test.
+3. Evaluate whether the deployment build can safely consume a CI-produced frontend artifact; only do this if it preserves exact-revision deployment correctness.
+4. If the suite grows materially, shard Playwright across additional runners rather than overloading the single 8-thread host.
+5. Keep visual evidence focused on dedicated visual/release checks rather than generating large screenshot collections from every functional acceptance test.
 
 Do not optimize by weakening assertions, removing behavioral coverage, or hiding failures.
 
