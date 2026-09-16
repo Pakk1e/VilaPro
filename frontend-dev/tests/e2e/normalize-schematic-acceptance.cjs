@@ -49,7 +49,8 @@ if (!acceptance.includes("async function connectHandles(page")) {
 
 // The preparation script may already add this close operation. Collapse repeated copies so this normalizer is safe to run repeatedly.
 const libraryClose = 'const librarySurfaceAfterLayout = page.getByTestId("workspace-library-surface"); if (await librarySurfaceAfterLayout.isVisible().catch(() => false)) await librarySurfaceAfterLayout.getByRole("button", { name: "Close component tool" }).click();';
-acceptance = acceptance.replace(new RegExp(`(?:${libraryClose.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&")}\\s*){2,}`, "g"), `${libraryClose} `);
+const duplicateLibraryClose = `${libraryClose} ${libraryClose}`;
+while (acceptance.includes(duplicateLibraryClose)) acceptance = acceptance.replace(duplicateLibraryClose, libraryClose);
 
 fs.writeFileSync(acceptancePath, acceptance);
 
