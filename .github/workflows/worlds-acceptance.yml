@@ -160,7 +160,6 @@ jobs:
             acceptance-run.log
             frontend-dev/test-results
             frontend-dev/playwright-report
-            testscreenshots/playwright
           if-no-files-found: ignore
           retention-days: 14
           compression-level: 0
