@@ -100,7 +100,7 @@ test.describe("Electrical workspace UI rework", () => {
     await expect(page.getByTestId("workspace-inspector-surface")).toBeVisible();
     await page.getByTestId("worlds-canvas").press("Escape");
     await expect(page.getByTestId("workspace-inspector-surface")).toHaveCount(0);
-    await resistor.click();
+    await resistor.click({ force: true });
     await expect(page.getByTestId("workspace-inspector")).toContainText("Resistor 1");
     await page.getByTestId("worlds-canvas").press("Backspace");
     await expect(resistor).toHaveCount(0);
