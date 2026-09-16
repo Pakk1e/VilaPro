@@ -44,15 +44,10 @@ jobs:
           echo "Repository: /home/park-pro/VilaPro"
           echo "Branch:     $WORLDS_DEPLOY_BRANCH"
 
-          git fetch origin "$WORLDS_DEPLOY_BRANCH"
-          git checkout "$WORLDS_DEPLOY_BRANCH"
-          git pull --ff-only origin "$WORLDS_DEPLOY_BRANCH"
+          bash scripts/deploy-worlds-dev.sh
 
           deployed_sha="$(git rev-parse HEAD)"
-          echo "Deployed commit: $deployed_sha"
           echo "deployed_sha=$deployed_sha" >> "$GITHUB_OUTPUT"
-
-          bash scripts/deploy-worlds-dev.sh
 
   acceptance:
     name: Worlds browser acceptance
