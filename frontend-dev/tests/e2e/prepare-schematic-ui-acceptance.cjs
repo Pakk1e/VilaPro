@@ -16,6 +16,9 @@ for (const name of specs) {
   text = text.replaceAll('page.getByLabel("Step", { exact: true })', 'page.getByTestId("simulation-setup").getByLabel("Step", { exact: true })');
   text = text.replaceAll('toContainText("Simulation")', 'toContainText("Schematic")');
   text = text.replaceAll('getByTestId("component-inspector")', 'getByTestId("workspace-inspector")');
+  text = text.replaceAll('await voltage.click();', 'await voltage.click({ force: true });');
+  text = text.replaceAll('await resistor.click();', 'await resistor.click({ force: true });');
+  text = text.replaceAll('await seed.click();', 'await seed.click({ force: true });');
   text = text.replace(
     'const sourceProperties = page.getByTestId("workspace-inspector").locator("select").first();',
     'const inspectorSurface = page.getByTestId("workspace-inspector-surface"); if (!(await inspectorSurface.isVisible().catch(() => false))) await page.getByRole("button", { name: "Inspector" }).click(); const sourceProperties = page.getByTestId("workspace-inspector").getByRole("combobox").first();',
