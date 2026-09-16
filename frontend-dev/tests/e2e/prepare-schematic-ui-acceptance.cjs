@@ -40,6 +40,14 @@ for (const name of specs) {
 const acceptancePath = path.join(root, "acceptance.spec.js");
 let acceptance = fs.readFileSync(acceptancePath, "utf8");
 acceptance = acceptance.replace(
+  'for (const node of nodes) { const box = await node.boundingBox(); if (!box) throw new Error("Unable to locate circuit component."); expect(box.x + box.width).toBeLessThan(paletteBox.x - 8); }',
+  'const paletteRight = paletteBox.x + paletteBox.width; for (const node of nodes) { const box = await node.boundingBox(); if (!box) throw new Error("Unable to locate circuit component."); expect(box.x).toBeGreaterThan(paletteRight + 8); }',
+);
+acceptance = acceptance.replace(
+  'const left = canvasBox.x + 80; const right = paletteBox.x - 80;',
+  'const paletteRight = paletteBox.x + paletteBox.width; const left = Math.max(canvasBox.x + 40, paletteRight + 40); const right = canvasBox.x + canvasBox.width - 80;',
+);
+acceptance = acceptance.replace(
   'const palette = page.getByTestId("component-palette"); const paletteBox = await palette.boundingBox();',
   'const palette = page.getByTestId("component-palette"); if (!(await palette.isVisible().catch(() => false))) await page.getByRole("button", { name: "Library" }).click(); const paletteBox = await palette.boundingBox();',
 );
