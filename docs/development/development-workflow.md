@@ -14,7 +14,7 @@ The server used by CI is a worker. It must not become a second source tree or an
 4. Implement the smallest coherent change.
 5. Add or update automated tests for changed behavior.
 6. Commit and push to GitHub.
-7. Let GitHub Actions build, deploy, and run Worlds browser acceptance on the self-hosted `worlds-dev` runner.
+7. Let GitHub Actions run only the relevant CI workflows, deploy Worlds when deployable paths changed, run the fast smoke gate, and then run full Worlds browser acceptance on the self-hosted `worlds-dev` runner.
 8. Investigate failures using retained Playwright artifacts before making another change.
 9. Update canonical documentation when architecture, behavior, workflow, or project state changes.
 
@@ -22,26 +22,29 @@ The server used by CI is a worker. It must not become a second source tree or an
 
 For Worlds behavior changes, a successful build is not sufficient. Browser acceptance is the behavioral gate because the product is an interactive visual workspace.
 
-The post-deployment acceptance flow must test the exact deployed revision whenever the deployment workflow provides a commit SHA.
+The post-deployment acceptance flow must test the exact deployed revision whenever the deployment workflow provides a commit SHA. The smoke suite is an early failure gate; the full acceptance suite remains the comprehensive behavioral gate.
 
 ## CI performance model
 
-The current Worlds pipeline has three distinct costs:
+The Worlds pipeline has four distinct costs:
 
 1. **Deployment:** source synchronization, `npm ci`, Vite build, service restart, and health checks.
 2. **Acceptance setup:** checkout, Node setup, frontend dependency installation, and Playwright/Chromium preparation.
-3. **Browser acceptance:** the actual Playwright suite plus diagnostic artifact collection on failure.
+3. **Smoke acceptance:** a small deterministic set of critical deployment-path checks.
+4. **Full browser acceptance:** the comprehensive Playwright suite plus diagnostic artifact collection on failure.
 
 The 2026-09-16 audit of run `35117459060` showed that acceptance setup was already relatively small: frontend dependency installation took about 5.8 seconds, Playwright runner reuse about 10 ms, and Chromium verification about 0.8 seconds. The dominant cost was the browser suite and, after failure, uploading overlapping artifacts. The failed suite ran 27 tests with 3 workers and took about 3.6 minutes; 25 tests failed, mostly after 30-second interaction timeouts. Artifact collection then added roughly 2.5 minutes because the report and screenshots were uploaded separately and then uploaded again inside the failure bundle.
 
 ### Current optimization rules
 
 - Use `setup-node` npm caching for acceptance dependencies.
-- Keep the persistent Playwright installation/browser cache on the self-hosted runner.
-- Default Worlds acceptance to 4 workers on the 8-thread runner; allow `WORLDS_E2E_WORKERS` to override this when benchmarking or diagnosing contention.
+- Keep the persistent Playwright installation on the self-hosted runner.
+- Default full Worlds acceptance to 4 workers on the 8-thread runner; allow `WORLDS_E2E_WORKERS` to override this when benchmarking or diagnosing contention.
+- Run a two-test smoke suite before full acceptance so fundamental deployment/UI failures stop before the expensive suite starts.
 - Upload one combined failure-diagnostics artifact only when acceptance fails. Do not upload the same report/screenshots again as separate always-on artifacts.
 - Use artifact compression level `0` for the failure bundle because Playwright videos/traces/screenshots are already poor compression targets and upload speed is more valuable than archive size during debugging.
-- Skip the general Worlds unit/frontend CI workflow for unrelated repository changes using workflow path filters.
+- Separate frontend and Worlds backend CI so unrelated source changes do not consume both test jobs.
+- Path-filter Worlds deployment so documentation-only changes do not restart the DEV services.
 - Keep exact-revision acceptance after deployment so speed improvements do not weaken deployment-to-test correctness.
 
 ### Further optimization targets
@@ -49,10 +52,11 @@ The 2026-09-16 audit of run `35117459060` showed that acceptance setup was alrea
 The next performance work should be evidence-driven:
 
 1. Fix the current acceptance interaction regressions first; repeated 30-second timeouts dominate failed-run latency.
-2. Benchmark 3 versus 4 workers after the suite is healthy; increase workers only if the runner and DEV services remain stable.
-3. If the suite grows materially, shard Playwright across additional runners rather than overloading the single 8-thread host.
-4. Consider a small smoke suite immediately after deployment for fast feedback, while retaining the full acceptance suite as the release gate.
-5. Keep visual evidence focused on dedicated visual/release checks rather than generating large screenshot collections from every functional acceptance test.
+2. Benchmark 2, 3, 4, and 5 full-suite workers after the suite is healthy and select the fastest stable setting.
+3. Replace repeated `npx playwright install chromium` with a cheap browser availability check after persistent runner provisioning has been verified across repeated jobs.
+4. Evaluate whether the deployment build can safely consume a CI-produced frontend artifact; only do this if it preserves exact-revision deployment correctness.
+5. If the suite grows materially, shard Playwright across additional runners rather than overloading the single 8-thread host.
+6. Keep visual evidence focused on dedicated visual/release checks rather than generating large screenshot collections from every functional acceptance test.
 
 Do not optimize by weakening assertions, removing behavioral coverage, or hiding failures.
 
