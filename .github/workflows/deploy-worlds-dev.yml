@@ -5,6 +5,13 @@ on:
     branches:
       - v0.4/workspace-architecture
       - v0.4/dev-deploy
+    paths:
+      - "frontend-dev/**"
+      - "worlds/**"
+      - "scripts/deploy-worlds-dev.sh"
+      - "deploy/systemd/worlds-web.service"
+      - ".github/workflows/deploy-worlds-dev.yml"
+      - ".github/workflows/worlds-acceptance.yml"
   workflow_dispatch:
     inputs:
       branch:
