@@ -72,6 +72,7 @@ jobs:
           set -euo pipefail
           if [ -f frontend-dev/src/applications/worlds/components/ElectricalWorkspaceShell.jsx ]; then
             node frontend-dev/tests/e2e/prepare-schematic-ui-acceptance.cjs
+            node frontend-dev/tests/e2e/normalize-schematic-acceptance.cjs
           else
             echo "Legacy Worlds workspace detected; no UI rework compatibility patch required."
           fi
