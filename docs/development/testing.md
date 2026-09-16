@@ -42,6 +42,12 @@ The goal is to distinguish deterministic UI failures from legitimate backend/sim
 
 The acceptance workflow also runs with `--retries=0`, so a failed acceptance test is not repeated before the failure is reported.
 
+## Failure diagnostics policy
+
+Failure diagnostics are deliberately bounded because uploading browser recordings can cost more time than the failed test run itself. The default Worlds acceptance configuration keeps failure screenshots and Playwright traces, but disables video recording. The CI failure artifact contains the acceptance log, Playwright test results, and HTML report. The separate custom screenshot output directory is not uploaded because it duplicates failure evidence already retained by Playwright.
+
+The diagnostic bundle is therefore intended to preserve the evidence needed to identify and reproduce a failure without making failure reporting itself a major pipeline bottleneck. If a failure specifically requires video evidence, enable video temporarily for a focused diagnostic run rather than restoring it to the full acceptance workflow.
+
 ## CI acceptance flow
 
 Worlds deployment first runs a small smoke suite against the exact deployed commit. The smoke suite covers application load, electrical-world identity, contextual Library access, basic component placement, and object-local inspection. If smoke fails, the expensive full acceptance suite is not started, giving fast feedback on fundamental deployment/UI breakage.
@@ -51,7 +57,7 @@ After smoke passes, the full Playwright acceptance workflow runs on the self-hos
 On failure, inspect the retained:
 
 - Playwright HTML report
-- screenshots
+- failure screenshots
 - traces
 - test results
 - acceptance log
