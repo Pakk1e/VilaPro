@@ -25,6 +25,6 @@ test.describe("Worlds smoke acceptance", () => {
 
     const resistor = page.locator(".react-flow__node").filter({ hasText: "Resistor 1" });
     await expect(resistor).toBeVisible();
-    await expect(page.getByTestId("object-local-inspector")).toContainText("Resistor 1");
+    await expect(page.getByTestId("workspace-inspector")).toContainText("Resistor 1");
   });
 });
