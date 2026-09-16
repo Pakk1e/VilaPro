@@ -37,7 +37,8 @@ The 2026-09-16 audit of run `35117459060` showed that acceptance setup was alrea
 
 ### Current optimization rules
 
-- Use `setup-node` npm caching for acceptance dependencies.
+- Use `setup-node` npm caching for hosted frontend CI, where the cache is ephemeral between jobs.
+- On the persistent self-hosted `worlds-dev` runner, do not use `setup-node`'s npm cache in smoke/full acceptance; the runner already has a persistent npm cache and dependency installation uses `--prefer-offline`. This also avoids an unnecessary `setup-node` post-job cache-save step on the acceptance runner.
 - Keep the persistent Playwright installation on the self-hosted runner.
 - Default full Worlds acceptance to 4 workers on the 8-thread runner; allow `WORLDS_E2E_WORKERS` to override this when benchmarking or diagnosing contention.
 - Run a two-test smoke suite before full acceptance so fundamental deployment/UI failures stop before the expensive suite starts.
@@ -47,16 +48,18 @@ The 2026-09-16 audit of run `35117459060` showed that acceptance setup was alrea
 - Path-filter Worlds deployment so documentation-only changes do not restart the DEV services.
 - Keep exact-revision acceptance after deployment so speed improvements do not weaken deployment-to-test correctness.
 - Check the Playwright Chromium executable path before invoking the browser installer; install only when the persistent runner does not already have the required browser binary.
+- Keep smoke and full acceptance diagnostics bounded to failure cases; successful runs should not generate large artifact bundles.
 
 ### Further optimization targets
 
 The next performance work should be evidence-driven:
 
-1. Fix the current acceptance interaction regressions first; repeated 30-second timeouts dominate failed-run latency.
+1. Fix remaining acceptance interaction regressions before optimizing worker count; repeated 30-second timeouts dominate failed-run latency.
 2. Benchmark 2, 3, 4, and 5 full-suite workers after the suite is healthy and select the fastest stable setting.
-3. Evaluate whether the deployment build can safely consume a CI-produced frontend artifact; only do this if it preserves exact-revision deployment correctness.
-4. If the suite grows materially, shard Playwright across additional runners rather than overloading the single 8-thread host.
-5. Keep visual evidence focused on dedicated visual/release checks rather than generating large screenshot collections from every functional acceptance test.
+3. Measure the self-hosted runner's actual post-job time after removing `setup-node` npm caching; if cleanup is still significant, inspect the remaining action post steps rather than adding more caching layers.
+4. Evaluate whether the deployment build can safely consume a CI-produced frontend artifact; only do this if it preserves exact-revision deployment correctness.
+5. If the suite grows materially, shard Playwright across additional runners rather than overloading the single 8-thread host.
+6. Keep visual evidence focused on dedicated visual/release checks rather than generating large screenshot collections from every functional acceptance test.
 
 Do not optimize by weakening assertions, removing behavioral coverage, or hiding failures.
 
