@@ -142,11 +142,13 @@ export default function ElectricalDesignLabPage() {
             <span className="font-medium text-slate-600">{zoom}%</span><button type="button" onClick={() => setZoom((v) => Math.max(50, v - 10))}>−</button><button type="button" onClick={() => setZoom((v) => Math.min(200, v + 10))}>+</button>
           </div>
 
-          <svg className="pointer-events-none absolute inset-0 h-full w-full" aria-hidden="true">
-            <path d="M26% 46% H49% H67%" fill="none" stroke="#7c8794" strokeWidth="1.8" />
-            <circle cx="49%" cy="46%" r="4" fill="#fff" stroke="#7c8794" strokeWidth="1.5" />
-          </svg>
-          {components.map((component) => <SchematicNode key={component.id} component={component} selected={component.id === state.selectedComponent} onClick={() => choose(component.id)} />)}
+          <div data-testid="design-lab-schematic-viewport" className="absolute inset-0 origin-center transition-transform duration-200 ease-out" style={{ transform: `scale(${zoom / 100})` }}>
+            <svg className="pointer-events-none absolute inset-0 h-full w-full" aria-hidden="true">
+              <path d="M26% 46% H49% H67%" fill="none" stroke="#7c8794" strokeWidth="1.8" />
+              <circle cx="49%" cy="46%" r="4" fill="#fff" stroke="#7c8794" strokeWidth="1.5" />
+            </svg>
+            {components.map((component) => <SchematicNode key={component.id} component={component} selected={component.id === state.selectedComponent} onClick={() => choose(component.id)} />)}
+          </div>
 
           {state.selectedComponent && selected && (
             <div className="absolute left-1/2 top-[57%] z-30 flex -translate-x-1/2 items-center gap-1 rounded-xl border border-slate-200 bg-white/95 p-1 shadow-[0_10px_35px_rgba(15,23,42,0.12)] backdrop-blur-xl">
