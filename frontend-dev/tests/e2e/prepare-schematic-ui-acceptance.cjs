@@ -59,7 +59,7 @@ acceptance = acceptance.replace(
 );
 acceptance = acceptance.replace(
   'await moveNode(page, voltage, left + width * 0.30, top); await moveNode(page, resistor, left + width * 0.70, top); await moveNode(page, ground, left + width * 0.50, bottom); await assertNodesClearOfPalette([voltage, resistor, ground], palette);',
-  'await moveNode(page, voltage, left + width * 0.30, top); await moveNode(page, resistor, left + width * 0.70, top); await moveNode(page, ground, left + width * 0.50, bottom); await assertNodesClearOfPalette([voltage, resistor, ground], palette); const librarySurfaceAfterLayout = page.getByTestId("workspace-library-surface"); if (await librarySurfaceAfterLayout.isVisible().catch(() => false)) await librarySurfaceAfterLayout.getByRole("button", { name: "Close component tool" }).click();',
+  'await moveNode(page, voltage, left + width * 0.30, top); await moveNode(page, resistor, left + width * 0.70, top); await moveNode(page, ground, left + width * 0.50, bottom); await assertNodesClearOfPalette([voltage, resistor, ground], palette); const librarySurfaceAfterLayout = page.getByTestId("workspace-library-surface"); if (await librarySurfaceAfterLayout.isVisible().catch(() => false)) await librarySurfaceAfterLayout.getByRole("button", { name: "Close component tool" }).click(); await page.getByTestId("worlds-canvas").click({ position: { x: 120, y: 120 } });',
 );
 acceptance = acceptance.replace(
   'await handle(voltage, "p").dragTo(handle(resistor, "p")); await handle(resistor, "n").dragTo(handle(ground, "g")); await handle(voltage, "n").dragTo(handle(ground, "g"));',
@@ -75,7 +75,8 @@ fs.writeFileSync(acceptancePath, acceptance);
 const resultPath = path.join(root, "result-selection-acceptance.spec.js");
 if (fs.existsSync(resultPath)) {
   let result = fs.readFileSync(resultPath, "utf8");
-  result = result.replace('const highlightedComponent = schematic.locator(\'g.cursor-pointer\').filter({ hasText: "Resistor 1" });', 'const highlightedComponent = page.locator(".react-flow__node").filter({ hasText: "Resistor 1" });');
+  result = result.replace('const highlightedComponent = schematic.locator(\'g.cursor-pointer\').filter({ hasText: "Resistor 1" });', 'const highlightedComponent = schematic.locator(\'g.cursor-pointer\').filter({ hasText: "Resistor 1" });');
+  result = result.replace('const highlightedComponent = page.locator(".react-flow__node").filter({ hasText: "Resistor 1" });', 'const highlightedComponent = schematic.locator(\'g.cursor-pointer\').filter({ hasText: "Resistor 1" });');
   result = result.replace('  await expect(highlightedComponent.locator(\'rect[stroke="#c26a2e"]\')).toBeVisible();\n', '');
   result = result.replace('  await expect(page.getByText(/Result location · Resistor 1/)).toBeVisible();\n', '');
   fs.writeFileSync(resultPath, result);
@@ -90,6 +91,13 @@ if (fs.existsSync(uiPath)) {
   ui = ui.replace('await expect(page.getByTestId("workspace-canvas-surface")).toContainText("Schematic");', 'await expect(page.getByTestId("worlds-canvas")).toBeVisible();');
   ui = ui.replace('getByRole("button", { name: /R1/ })', 'getByRole("button", { name: /Resistor 1|R1/ })');
   fs.writeFileSync(uiPath, ui);
+}
+
+const mosfetPath = path.join(root, "mosfet-acceptance.spec.js");
+if (fs.existsSync(mosfetPath)) {
+  let mosfet = fs.readFileSync(mosfetPath, "utf8");
+  mosfet = mosfet.replace('await expect(page.locator(".react-flow__node").filter({ hasText: "NMOS 1" })).toBeVisible();', 'await expect(page.getByTestId("worlds-canvas").locator("text").filter({ hasText: "NMOS 1" })).toHaveCount(1);');
+  fs.writeFileSync(mosfetPath, mosfet);
 }
 
 console.log(`Prepared ${specs.length} acceptance spec files for the schematic-first workspace.`);
