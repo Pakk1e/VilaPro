@@ -227,7 +227,7 @@ export default function ElectricalDesignLabPage() {
       startState: state,
     };
     event.currentTarget.setPointerCapture?.(event.pointerId);
-    choose(componentId);
+    choose(componentId, event.shiftKey);
   };
 
   const handlePointerMove = (componentId, event) => {
