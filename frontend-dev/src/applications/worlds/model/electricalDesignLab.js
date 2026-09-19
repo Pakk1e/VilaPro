@@ -44,10 +44,14 @@ export function createDesignLabState() {
 
 export function deleteComponent(state, componentId) {
   if (!state.positions?.[componentId] || state.deletedComponents.includes(componentId)) return state;
+  const selectedComponents = (state.selectedComponents || []).filter((id) => id !== componentId);
   return {
     ...state,
-    selectedComponent: state.selectedComponent === componentId ? null : state.selectedComponent,
-    inspectorOpen: state.selectedComponent === componentId ? false : state.inspectorOpen,
+    selectedComponent: state.selectedComponent === componentId
+      ? selectedComponents[selectedComponents.length - 1] ?? null
+      : state.selectedComponent,
+    selectedComponents,
+    inspectorOpen: selectedComponents.length === 1 && state.selectedComponent === componentId,
     deletedComponents: [...state.deletedComponents, componentId],
     connections: state.connections.filter(
       (connection) =>
@@ -56,6 +60,44 @@ export function deleteComponent(state, componentId) {
     ),
     wireStart:
       state.wireStart?.componentId === componentId ? null : state.wireStart,
+  };
+}
+
+export function deleteSelectedComponents(state) {
+  const selected = state.selectedComponents?.length
+    ? state.selectedComponents
+    : state.selectedComponent
+      ? [state.selectedComponent]
+      : [];
+  if (!selected.length) return state;
+
+  const deleted = new Set(selected);
+  return {
+    ...state,
+    selectedComponent: null,
+    selectedComponents: [],
+    inspectorOpen: false,
+    deletedComponents: [
+      ...state.deletedComponents,
+      ...selected.filter((id) => !state.deletedComponents.includes(id)),
+    ],
+    connections: state.connections.filter(
+      (connection) =>
+        !deleted.has(connection.from.componentId) &&
+        !deleted.has(connection.to.componentId)
+    ),
+    wireStart:
+      state.wireStart && deleted.has(state.wireStart.componentId) ? null : state.wireStart,
+  };
+}
+
+export function clearSelection(state) {
+  if (!state.selectedComponent && !(state.selectedComponents || []).length && !state.inspectorOpen) return state;
+  return {
+    ...state,
+    selectedComponent: null,
+    selectedComponents: [],
+    inspectorOpen: false,
   };
 }
 
@@ -79,6 +121,7 @@ export function placeComponent(state, x, y) {
     placementKind: null,
     libraryOpen: false,
     selectedComponent: id,
+    selectedComponents: [id],
     inspectorOpen: true,
     positions: {
       ...state.positions,
@@ -167,6 +210,7 @@ export function connectPort(state, componentId, side) {
 }
 
 export function selectComponent(state, componentId, additive = false) {
+  if (componentId === null) return clearSelection(state);
   if (!state.positions?.[componentId]) return state;
   const current = state.selectedComponents || [];
   const selectedComponents = additive
