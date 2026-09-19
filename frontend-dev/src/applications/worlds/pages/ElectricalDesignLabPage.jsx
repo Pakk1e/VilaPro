@@ -161,7 +161,7 @@ export default function ElectricalDesignLabPage() {
   const toggle = (panel) => setState((current) => togglePanel(current, panel));
   const chooseTool = (tool) => setState((current) => setTool(current, tool));
   const beginPlacement = (kind) => setState((current) => startPlacement(current, kind));
-  const rotateSelected = () => commitEdit((current) => rotateComponent(current, current.selectedComponent));
+  const rotateSelected = () => commitEdit((current) => rotateComponent(current, current.selectedComponent));\n  const duplicateSelected = () => commitEdit((current) => duplicateSelectedComponents(current));
 
   const commitEdit = (updater) => {
     setState((current) => {
@@ -371,7 +371,7 @@ export default function ElectricalDesignLabPage() {
 
           {state.selectedComponent && selected && (
             <div className="absolute left-1/2 top-[57%] z-30 flex -translate-x-1/2 items-center gap-1 rounded-xl border border-slate-200 bg-white/95 p-1 shadow-[0_10px_35px_rgba(15,23,42,0.12)] backdrop-blur-xl">
-              <span className="px-2 text-[10px] font-semibold text-slate-700">{selected.id}</span><button type="button" className="rounded-md px-2 py-1 text-[10px] text-slate-500 hover:bg-slate-100">Duplicate</button><button type="button" onClick={rotateSelected} className="rounded-md px-2 py-1 text-[10px] text-slate-500 hover:bg-slate-100">Rotate</button><button type="button" onClick={() => choose(null)} className="grid h-6 w-6 place-items-center rounded-md text-slate-400 hover:bg-slate-100"><X size={13} /></button>
+              <span className="px-2 text-[10px] font-semibold text-slate-700">{selected.id}</span><button type="button" onClick={duplicateSelected} className="rounded-md px-2 py-1 text-[10px] text-slate-500 hover:bg-slate-100">Duplicate</button><button type="button" onClick={rotateSelected} className="rounded-md px-2 py-1 text-[10px] text-slate-500 hover:bg-slate-100">Rotate</button><button type="button" onClick={() => choose(null)} className="grid h-6 w-6 place-items-center rounded-md text-slate-400 hover:bg-slate-100"><X size={13} /></button>
             </div>
           )}
         </section>
