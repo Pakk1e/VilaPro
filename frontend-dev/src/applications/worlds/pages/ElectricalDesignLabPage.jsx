@@ -279,6 +279,11 @@ export default function ElectricalDesignLabPage() {
     if (key === "p") {
       event.preventDefault();
       chooseTool("pan");
+      return;
+    }
+    if (key === "g") {
+      event.preventDefault();
+      toggleGridSnap();
     }
   };
 
