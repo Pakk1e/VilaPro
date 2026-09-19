@@ -150,3 +150,14 @@ test("design lab rotates the selected component by 90 degrees", async ({ page })
 
   await expect(node).toHaveAttribute("data-rotation", "90");
 });
+
+test("design lab supports multi-selection with Shift-click", async ({ page }) => {
+  await page.goto("/worlds/design-lab", { waitUntil: "networkidle" });
+  const resistor = page.getByTestId("design-lab-node-R1");
+  const capacitor = page.getByTestId("design-lab-node-C1");
+
+  await resistor.click();
+  await capacitor.click({ modifiers: ["Shift"] });
+
+  await expect(page.getByTestId("design-lab-selection-count")).toHaveText("2 selected");
+});
