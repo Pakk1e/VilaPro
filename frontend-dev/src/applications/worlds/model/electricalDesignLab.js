@@ -26,6 +26,7 @@ export function createDesignLabState() {
     },
     wireStart: null,
     connections: [],
+    selectedConnection: null,
     deletedComponents: [],
     placedComponents: [],
     placementKind: null,
@@ -255,6 +256,26 @@ export function setTool(state, tool) {
   return { ...state, tool, wireStart: null };
 }
 
+export function selectConnection(state, connectionId) {
+  if (!connectionId) return { ...state, selectedConnection: null };
+  return {
+    ...state,
+    selectedConnection: connectionId,
+    selectedComponent: null,
+    selectedComponents: [],
+    inspectorOpen: false,
+  };
+}
+
+export function deleteSelectedConnection(state) {
+  if (!state.selectedConnection) return state;
+  return {
+    ...state,
+    connections: state.connections.filter((connection) => connection.id !== state.selectedConnection),
+    selectedConnection: null,
+  };
+}
+
 export function connectPort(state, componentId, side) {
   if (state.tool !== "wire") return state;
   if (!state.positions?.[componentId] || !["left", "right"].includes(side)) return state;
@@ -284,6 +305,7 @@ export function connectPort(state, componentId, side) {
     connections: [
       ...state.connections,
       {
+        id: `${start.componentId}-${start.side}-${componentId}-${side}-${state.connections.length + 1}`,
         from: start,
         to: { componentId, side },
       },
