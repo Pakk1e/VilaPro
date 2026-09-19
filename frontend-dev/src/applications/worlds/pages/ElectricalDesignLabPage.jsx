@@ -129,7 +129,7 @@ export default function ElectricalDesignLabPage() {
       ...component,
       x: `${state.positions[component.id].x}%`,
       y: `${state.positions[component.id].y}%`,
-    })), [state.deletedComponents, state.positions]);
+    })), [state.deletedComponents, state.placedComponents, state.positions]);
 
   const filtered = DESIGN_LAB_COMPONENTS.filter((item) => item.name.toLowerCase().includes(query.toLowerCase()));
   const selected = components.find((item) => item.id === state.selectedComponent);
