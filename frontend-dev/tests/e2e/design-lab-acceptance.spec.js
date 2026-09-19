@@ -139,3 +139,14 @@ test("design lab inspector edits a component value", async ({ page }) => {
   await expect(value).toHaveValue("470 Ω");
   await expect(node.getByText("470 Ω")).toBeVisible();
 });
+
+test("design lab rotates the selected component by 90 degrees", async ({ page }) => {
+  await page.goto("/worlds/design-lab", { waitUntil: "networkidle" });
+  const node = page.getByTestId("design-lab-node-R1");
+  await node.click();
+
+  await expect(page.getByRole("button", { name: "Rotate" })).toBeVisible();
+  await page.getByRole("button", { name: "Rotate" }).click();
+
+  await expect(node).toHaveAttribute("data-rotation", "90");
+});
