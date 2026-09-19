@@ -94,6 +94,7 @@ export function placeComponent(state, x, y) {
 
 export function updateComponentValue(state, componentId, value) {
   if (!state.positions?.[componentId] || typeof value !== "string") return state;
+  if (state.values?.[componentId] === value) return state;
   return {
     ...state,
     values: {
