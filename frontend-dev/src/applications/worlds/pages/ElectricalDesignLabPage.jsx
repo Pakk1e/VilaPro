@@ -221,6 +221,30 @@ export default function ElectricalDesignLabPage() {
   };
 
   const handleCanvasKeyDown = (event) => {
+    const target = event.target;
+    const typing = target instanceof HTMLElement &&
+      (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable);
+    if (typing) return;
+
+    const key = event.key.toLowerCase();
+    const modifier = event.ctrlKey || event.metaKey;
+
+    if (modifier && key === "z") {
+      event.preventDefault();
+      if (event.shiftKey) redo();
+      else undo();
+      return;
+    }
+    if (modifier && key === "y") {
+      event.preventDefault();
+      redo();
+      return;
+    }
+    if (modifier && key === "d") {
+      event.preventDefault();
+      duplicateSelected();
+      return;
+    }
     if (event.key === "Escape") {
       event.preventDefault();
       setState((current) => selectComponent(current, null));
@@ -229,6 +253,21 @@ export default function ElectricalDesignLabPage() {
     if ((event.key === "Backspace" || event.key === "Delete") && state.selectedComponents.length) {
       event.preventDefault();
       commitEdit((current) => deleteSelectedComponents(current));
+      return;
+    }
+    if (key === "v") {
+      event.preventDefault();
+      chooseTool("select");
+      return;
+    }
+    if (key === "w") {
+      event.preventDefault();
+      chooseTool("wire");
+      return;
+    }
+    if (key === "p") {
+      event.preventDefault();
+      chooseTool("pan");
     }
   };
 
@@ -377,7 +416,7 @@ export default function ElectricalDesignLabPage() {
 
       <div className="relative flex h-[calc(100vh-56px)] min-h-0">
         <nav className="z-40 flex w-14 shrink-0 flex-col items-center border-r border-slate-200/80 bg-white py-3">
-          <IconButton label="Select" active><MousePointer2 size={17} /></IconButton>
+          <IconButton label="Select" active={state.tool === "select"} onClick={() => chooseTool("select")}><MousePointer2 size={17} /></IconButton>
           <IconButton label="Pan" active={state.tool === "pan"} onClick={() => chooseTool("pan")}><Hand size={17} /></IconButton>
           <div className="my-3 h-px w-6 bg-slate-200" />
           <IconButton label="Library" active={state.libraryOpen} onClick={() => toggle("library")}><LibraryBig size={17} /></IconButton>
