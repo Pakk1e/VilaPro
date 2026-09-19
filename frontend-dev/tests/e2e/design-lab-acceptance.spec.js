@@ -74,10 +74,10 @@ test("design lab undo restores the last document edit and redo reapplies it", as
   await page.keyboard.press("Backspace");
   await expect(node).toBeHidden();
 
-  await canvas.getByRole("button", { name: "Undo" }).click();
+  await page.getByRole("button", { name: "Undo" }).click();
   await expect(node).toBeVisible();
 
-  await canvas.getByRole("button", { name: "Redo" }).click();
+  await page.getByRole("button", { name: "Redo" }).click();
   await expect(node).toBeHidden();
 });
 
@@ -100,7 +100,7 @@ test("design lab undo restores a moved component", async ({ page }) => {
     return after?.x ?? before.x;
   }, { timeout: 1000 }).toBeGreaterThan(before.x + 80);
 
-  await canvas.getByRole("button", { name: "Undo" }).click();
+  await page.getByRole("button", { name: "Undo" }).click();
   await expect.poll(async () => {
     const after = await node.boundingBox();
     return after?.x ?? before.x + 1000;
