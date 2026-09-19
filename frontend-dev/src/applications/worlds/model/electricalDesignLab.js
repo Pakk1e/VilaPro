@@ -431,10 +431,14 @@ export function moveComponentsFromSnapshot(state, startPositions, dx, dy) {
         ids.map((id) => {
           const start = startPositions[id];
           const raw = {
-            x: Math.max(5, Math.min(95, start.x + dx)),
-            y: Math.max(8, Math.min(92, start.y + dy)),
+            x: start.x + dx,
+            y: start.y + dy,
           };
-          return [id, snapPosition(raw, state.gridEnabled, state.gridSize)];
+          const snapped = snapPosition(raw, state.gridEnabled, state.gridSize);
+          return [id, {
+            x: Math.max(5, Math.min(95, snapped.x)),
+            y: Math.max(8, Math.min(92, snapped.y)),
+          }];
         })
       ),
     },
