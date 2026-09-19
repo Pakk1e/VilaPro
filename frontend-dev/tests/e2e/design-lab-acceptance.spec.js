@@ -26,8 +26,11 @@ test("design lab component can be repositioned on the schematic", async ({ page 
   const canvasBox = await canvas.boundingBox();
   if (!before || !canvasBox) throw new Error("Unable to measure design lab geometry.");
 
-  await node.dispatchEvent("pointerdown", { clientX: before.x + before.width / 2, clientY: before.y + before.height / 2, pointerId: 1, buttons: 1 });
-  await page.mouse.move(before.x + before.width / 2 + 120, before.y + before.height / 2, { steps: 4 });
+  const startX = before.x + before.width / 2;
+  const startY = before.y + before.height / 2;
+  await page.mouse.move(startX, startY);
+  await page.mouse.down();
+  await page.mouse.move(startX + 120, startY, { steps: 6 });
   await page.mouse.up();
 
   await expect.poll(async () => {
