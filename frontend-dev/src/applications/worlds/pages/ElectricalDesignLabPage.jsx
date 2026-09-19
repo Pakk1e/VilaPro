@@ -32,6 +32,8 @@ import {
   setMode,
   togglePanel,
   moveComponent,
+  setTool,
+  connectPort,
 } from "../model/electricalDesignLab.js";
 
 const MODE_LABELS = { design: "Design", simulate: "Simulate", analyze: "Analyze" };
@@ -61,26 +63,51 @@ function ComponentSymbol({ kind, selected }) {
   return <svg width="88" height="54" viewBox="0 0 88 54" aria-hidden="true"><path d="M2 27h22M64 27h22M43 45V9" fill="none" stroke={stroke} strokeWidth="2.2" strokeLinecap="round" /><circle cx="43" cy="27" r="19" fill="white" stroke={stroke} strokeWidth="2.2" /><path d="M43 17v20M38 22h10" fill="none" stroke={stroke} strokeWidth="2" strokeLinecap="round" /><circle cx="2" cy="27" r="3" fill={stroke} /><circle cx="86" cy="27" r="3" fill={stroke} /></svg>;
 }
 
-function SchematicNode({ component, selected, onClick, onPointerDown, onPointerMove, onPointerUp }) {
+function SchematicNode({ component, selected, tool, wireStart, onClick, onPointerDown, onPointerMove, onPointerUp, onPortClick }) {
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       data-testid={`design-lab-node-${component.id}`}
       onClick={onClick}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") onClick();
+      }}
       onPointerDown={(event) => onPointerDown(component.id, event)}
       onPointerMove={(event) => onPointerMove(component.id, event)}
       onPointerUp={(event) => onPointerUp(component.id, event)}
-      className={`absolute -translate-x-1/2 -translate-y-1/2 cursor-grab touch-none text-left active:cursor-grabbing ${selected ? "z-20" : "z-10"}`}
+      className={`absolute -translate-x-1/2 -translate-y-1/2 cursor-grab touch-none text-left outline-none active:cursor-grabbing ${selected ? "z-20" : "z-10"}`}
       style={{ left: component.x, top: component.y }}
     >
-      <div className={`rounded-xl px-3 py-2 transition ${selected ? "bg-white/95 ring-2 ring-blue-500/25 shadow-lg" : "hover:bg-white/70"}`}>
+      <div className={`relative rounded-xl px-3 py-2 transition ${selected ? "bg-white/95 ring-2 ring-blue-500/25 shadow-lg" : "hover:bg-white/70"}`}>
         <ComponentSymbol kind={component.kind} selected={selected} />
         <div className="mt-1 flex items-center justify-between gap-8 px-1 text-[11px]">
           <span className={`font-semibold ${selected ? "text-blue-600" : "text-slate-800"}`}>{component.id}</span>
           <span className="text-slate-400">{component.value}</span>
         </div>
+        {tool === "wire" && (
+          <>
+            {["left", "right"].map((side) => {
+              const active = wireStart?.componentId === component.id && wireStart.side === side;
+              return (
+                <button
+                  key={side}
+                  type="button"
+                  data-testid={`design-lab-port-${component.id}-${side}`}
+                  aria-label={`${component.id} ${side} port`}
+                  onPointerDown={(event) => event.stopPropagation()}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onPortClick(component.id, side);
+                  }}
+                  className={`absolute top-[30px] h-3 w-3 -translate-y-1/2 rounded-full border-2 border-white shadow-sm transition ${active ? "bg-blue-600 ring-4 ring-blue-100" : "bg-slate-500 hover:bg-blue-500"} ${side === "left" ? "-left-1.5" : "-right-1.5"}`}
+                />
+              );
+            })}
+          </>
+        )}
       </div>
-    </button>
+    </div>
   );
 }
 
@@ -103,6 +130,8 @@ export default function ElectricalDesignLabPage() {
   const changeMode = (mode) => setState((current) => setMode(current, mode));
   const choose = (id) => setState((current) => selectComponent(current, id));
   const toggle = (panel) => setState((current) => togglePanel(current, panel));
+  const chooseTool = (tool) => setState((current) => setTool(current, tool));
+  const choosePort = (componentId, side) => setState((current) => connectPort(current, componentId, side));
 
   const handlePointerDown = (componentId, event) => {
     if (event.button !== 0 || !canvasRef.current) return;
@@ -173,7 +202,7 @@ export default function ElectricalDesignLabPage() {
         <section ref={canvasRef} className="relative min-w-0 flex-1 overflow-hidden bg-[#fafbfc]" data-testid="design-lab-canvas">
           <div className="pointer-events-none absolute inset-0 opacity-60" style={{ backgroundImage: "radial-gradient(#cbd5e1 0.65px, transparent 0.65px)", backgroundSize: "24px 24px" }} />
           <div className="absolute left-1/2 top-5 z-30 flex -translate-x-1/2 items-center gap-0.5 rounded-xl border border-slate-200/90 bg-white/90 p-1 shadow-[0_8px_30px_rgba(15,23,42,0.08)] backdrop-blur-xl">
-            <IconButton label="Select tool" active><MousePointer2 size={15} /></IconButton><IconButton label="Wire tool"><Activity size={15} /></IconButton><IconButton label="Add component" onClick={() => toggle("library")}><Box size={15} /></IconButton><IconButton label="Junction"><CircleDot size={15} /></IconButton><div className="mx-1 h-5 w-px bg-slate-200" /><IconButton label="Fit schematic"><Crosshair size={15} /></IconButton>
+            <IconButton label="Select tool" active={state.tool === "select"} onClick={() => chooseTool("select")}><MousePointer2 size={15} /></IconButton><IconButton label="Wire tool" active={state.tool === "wire"} onClick={() => chooseTool("wire")}><Activity size={15} /></IconButton><IconButton label="Add component" onClick={() => toggle("library")}><Box size={15} /></IconButton><IconButton label="Junction"><CircleDot size={15} /></IconButton><div className="mx-1 h-5 w-px bg-slate-200" /><IconButton label="Fit schematic"><Crosshair size={15} /></IconButton>
           </div>
 
           <div className="absolute left-7 top-7 z-20 text-[11px] text-slate-400"><span className="font-medium text-slate-600">Untitled circuit</span><span className="mx-2">/</span> Schematic</div>
@@ -183,10 +212,38 @@ export default function ElectricalDesignLabPage() {
 
           <div data-testid="design-lab-schematic-viewport" className="absolute inset-0 origin-center transition-transform duration-200 ease-out" style={{ transform: `scale(${zoom / 100})` }}>
             <svg className="pointer-events-none absolute inset-0 h-full w-full" aria-hidden="true">
-              <path d="M26% 46% H49% H67%" fill="none" stroke="#7c8794" strokeWidth="1.8" />
-              <circle cx="49%" cy="46%" r="4" fill="#fff" stroke="#7c8794" strokeWidth="1.5" />
+              {state.connections.map((connection) => {
+                const from = components.find((item) => item.id === connection.from.componentId);
+                const to = components.find((item) => item.id === connection.to.componentId);
+                if (!from || !to) return null;
+                return (
+                  <line
+                    key={`${connection.from.componentId}-${connection.to.componentId}`}
+                    data-testid={`design-lab-connection-${connection.from.componentId}-${connection.to.componentId}`}
+                    x1={from.x}
+                    y1={from.y}
+                    x2={to.x}
+                    y2={to.y}
+                    stroke="#64748b"
+                    strokeWidth="2"
+                  />
+                );
+              })}
             </svg>
-            {components.map((component) => <SchematicNode key={component.id} component={component} selected={component.id === state.selectedComponent} onClick={() => choose(component.id)} onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} />)}
+            {components.map((component) => (
+              <SchematicNode
+                key={component.id}
+                component={component}
+                selected={component.id === state.selectedComponent}
+                tool={state.tool}
+                wireStart={state.wireStart}
+                onClick={() => choose(component.id)}
+                onPointerDown={handlePointerDown}
+                onPointerMove={handlePointerMove}
+                onPointerUp={handlePointerUp}
+                onPortClick={choosePort}
+              />
+            ))}
           </div>
 
           {state.selectedComponent && selected && (
