@@ -161,3 +161,29 @@ test("design lab supports multi-selection with Shift-click", async ({ page }) =>
 
   await expect(page.getByTestId("design-lab-selection-count")).toHaveText("2 selected");
 });
+
+test("design lab moves the selected group together", async ({ page }) => {
+  await page.goto("/worlds/design-lab", { waitUntil: "networkidle" });
+  const resistor = page.getByTestId("design-lab-node-R1");
+  const capacitor = page.getByTestId("design-lab-node-C1");
+
+  await resistor.click();
+  const capacitorBefore = await capacitor.boundingBox();
+  const resistorBefore = await resistor.boundingBox();
+  if (!capacitorBefore || !resistorBefore) throw new Error("Unable to measure selected group.");
+
+  await capacitor.click({ modifiers: ["Shift"] });
+  await expect(page.getByTestId("design-lab-selection-count")).toHaveText("2 selected");
+
+  const startX = resistorBefore.x + resistorBefore.width / 2;
+  const startY = resistorBefore.y + resistorBefore.height / 2;
+  await page.mouse.move(startX, startY);
+  await page.mouse.down();
+  await page.mouse.move(startX + 100, startY, { steps: 5 });
+  await page.mouse.up();
+
+  await expect.poll(async () => {
+    const after = await capacitor.boundingBox();
+    return after?.x ?? capacitorBefore.x;
+  }, { timeout: 1000 }).toBeGreaterThan(capacitorBefore.x + 60);
+});
