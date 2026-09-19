@@ -196,14 +196,26 @@ export function setMode(state, mode) {
 
 export function moveComponent(state, componentId, x, y) {
   if (!state.positions?.[componentId]) return state;
+  const selected = state.selectedComponents?.length > 1 && state.selectedComponents.includes(componentId)
+    ? state.selectedComponents
+    : [componentId];
+  const anchor = state.positions[componentId];
+  const dx = x - anchor.x;
+  const dy = y - anchor.y;
+
   return {
     ...state,
     positions: {
       ...state.positions,
-      [componentId]: {
-        x: Math.max(5, Math.min(95, x)),
-        y: Math.max(8, Math.min(92, y)),
-      },
+      ...Object.fromEntries(
+        selected.map((id) => {
+          const position = state.positions[id];
+          return [id, {
+            x: Math.max(5, Math.min(95, position.x + dx)),
+            y: Math.max(8, Math.min(92, position.y + dy)),
+          }];
+        })
+      ),
     },
   };
 }
