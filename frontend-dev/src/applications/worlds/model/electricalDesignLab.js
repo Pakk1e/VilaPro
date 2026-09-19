@@ -77,6 +77,7 @@ export function deleteSelectedComponents(state) {
     ...state,
     selectedComponent: null,
     selectedComponents: [],
+    selectedConnection: null,
     inspectorOpen: false,
     deletedComponents: [
       ...state.deletedComponents,
@@ -204,7 +205,8 @@ export function duplicateSelectedComponents(state) {
         idMap[connection.from.componentId] &&
         idMap[connection.to.componentId]
     )
-    .map((connection) => ({
+    .map((connection, index) => ({
+      id: `${idMap[connection.from.componentId]}-${connection.from.side}-${idMap[connection.to.componentId]}-${connection.to.side}-${state.connections.length + index + 1}`,
       from: {
         ...connection.from,
         componentId: idMap[connection.from.componentId],
