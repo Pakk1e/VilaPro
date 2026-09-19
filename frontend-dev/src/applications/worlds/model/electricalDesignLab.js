@@ -372,6 +372,43 @@ export function moveComponentsByDelta(state, componentIds, dx, dy) {
   };
 }
 
+export function alignSelectedComponents(state, axis) {
+  const ids = state.selectedComponents?.length ? state.selectedComponents : [];
+  if (ids.length < 2 || !["x", "y"].includes(axis)) return state;
+  const values = ids.map((id) => state.positions[id]?.[axis]).filter(Number.isFinite);
+  if (values.length !== ids.length) return state;
+  const target = values.reduce((sum, value) => sum + value, 0) / values.length;
+  return {
+    ...state,
+    positions: {
+      ...state.positions,
+      ...Object.fromEntries(ids.map((id) => [id, {
+        ...state.positions[id],
+        [axis]: snapCoordinate(target, state.gridSize),
+      }])),
+    },
+  };
+}
+
+export function distributeSelectedComponents(state, axis) {
+  const ids = state.selectedComponents?.length ? state.selectedComponents : [];
+  if (ids.length < 3 || !["x", "y"].includes(axis)) return state;
+  const sorted = [...ids].sort((a, b) => state.positions[a][axis] - state.positions[b][axis]);
+  const first = state.positions[sorted[0]][axis];
+  const last = state.positions[sorted[sorted.length - 1]][axis];
+  const step = (last - first) / (sorted.length - 1);
+  return {
+    ...state,
+    positions: {
+      ...state.positions,
+      ...Object.fromEntries(sorted.map((id, index) => [id, {
+        ...state.positions[id],
+        [axis]: snapCoordinate(first + step * index, state.gridSize),
+      }])),
+    },
+  };
+}
+
 export function nudgeSelectedComponents(state, dx, dy) {
   const ids = state.selectedComponents?.length
     ? state.selectedComponents
