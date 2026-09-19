@@ -403,7 +403,7 @@ export function distributeSelectedComponents(state, axis) {
       ...state.positions,
       ...Object.fromEntries(sorted.map((id, index) => [id, {
         ...state.positions[id],
-        [axis]: snapCoordinate(first + step * index, state.gridSize),
+        [axis]: first + step * index,
       }])),
     },
   };
