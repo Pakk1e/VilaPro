@@ -39,6 +39,7 @@ import {
   placeComponent,
   updateComponentValue,
   rotateComponent,
+  duplicateSelectedComponents,
 } from "../model/electricalDesignLab.js";
 
 const MODE_LABELS = { design: "Design", simulate: "Simulate", analyze: "Analyze" };
