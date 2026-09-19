@@ -81,7 +81,6 @@ test("design lab undo restores the last document edit and redo reapplies it", as
 
 test("design lab undo restores a moved component", async ({ page }) => {
   await page.goto("/worlds/design-lab", { waitUntil: "networkidle" });
-  const canvas = page.getByTestId("design-lab-canvas");
   const node = page.getByTestId("design-lab-node-R1");
   const before = await node.boundingBox();
   if (!before) throw new Error("Unable to measure design lab component.");
