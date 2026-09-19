@@ -28,6 +28,11 @@ export function createDesignLabState() {
     deletedComponents: [],
     placedComponents: [],
     placementKind: null,
+    values: {
+      V1: "5 V",
+      R1: "1 kΩ",
+      C1: "10 µF",
+    },
   };
 }
 
@@ -80,6 +85,21 @@ export function placeComponent(state, x, y) {
       ...state.placedComponents,
       { id, ...definition },
     ],
+    values: {
+      ...state.values,
+      [id]: definition.value,
+    },
+  };
+}
+
+export function updateComponentValue(state, componentId, value) {
+  if (!state.positions?.[componentId] || typeof value !== "string") return state;
+  return {
+    ...state,
+    values: {
+      ...state.values,
+      [componentId]: value,
+    },
   };
 }
 
