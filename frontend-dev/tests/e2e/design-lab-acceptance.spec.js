@@ -355,3 +355,33 @@ test("design lab selects and deletes a schematic wire", async ({ page }) => {
   await page.keyboard.press("Delete");
   await expect(wire).toBeHidden();
 });
+
+
+test("design lab snaps moved components to the schematic grid", async ({ page }) => {
+  await page.goto("/worlds/design-lab", { waitUntil: "networkidle" });
+  const node = page.getByTestId("design-lab-node-R1");
+  await node.click();
+
+  const box = await node.boundingBox();
+  if (!box) throw new Error("Unable to measure schematic node.");
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2 + 37, box.y + box.height / 2 + 19, { steps: 5 });
+  await page.mouse.up();
+
+  await expect(node).toHaveAttribute("style", /left: 55%/);
+  await expect(node).toHaveAttribute("style", /top: 50%/);
+});
+
+test("design lab toggles grid snapping with G", async ({ page }) => {
+  await page.goto("/worlds/design-lab", { waitUntil: "networkidle" });
+  const grid = page.getByRole("button", { name: "Grid snap" });
+  await expect(grid).toHaveClass(/bg-slate-100/);
+
+  await page.getByTestId("design-lab-canvas").focus();
+  await page.keyboard.press("g");
+  await expect(grid).not.toHaveClass(/bg-slate-100/);
+
+  await page.keyboard.press("g");
+  await expect(grid).toHaveClass(/bg-slate-100/);
+});
