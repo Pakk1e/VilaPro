@@ -34,6 +34,7 @@ import {
   moveComponent,
   setTool,
   connectPort,
+  deleteComponent,
 } from "../model/electricalDesignLab.js";
 
 const MODE_LABELS = { design: "Design", simulate: "Simulate", analyze: "Analyze" };
@@ -118,11 +119,13 @@ export default function ElectricalDesignLabPage() {
   const canvasRef = useRef(null);
   const dragRef = useRef(null);
 
-  const components = useMemo(() => DESIGN_LAB_COMPONENTS.map((component) => ({
-    ...component,
-    x: `${state.positions[component.id].x}%`,
-    y: `${state.positions[component.id].y}%`,
-  })), [state.positions]);
+  const components = useMemo(() => DESIGN_LAB_COMPONENTS
+    .filter((component) => !state.deletedComponents.includes(component.id))
+    .map((component) => ({
+      ...component,
+      x: `${state.positions[component.id].x}%`,
+      y: `${state.positions[component.id].y}%`,
+    })), [state.deletedComponents, state.positions]);
 
   const filtered = DESIGN_LAB_COMPONENTS.filter((item) => item.name.toLowerCase().includes(query.toLowerCase()));
   const selected = components.find((item) => item.id === state.selectedComponent);
@@ -132,6 +135,12 @@ export default function ElectricalDesignLabPage() {
   const toggle = (panel) => setState((current) => togglePanel(current, panel));
   const chooseTool = (tool) => setState((current) => setTool(current, tool));
   const choosePort = (componentId, side) => setState((current) => connectPort(current, componentId, side));
+  const handleCanvasKeyDown = (event) => {
+    if ((event.key === "Backspace" || event.key === "Delete") && state.selectedComponent) {
+      event.preventDefault();
+      setState((current) => deleteComponent(current, current.selectedComponent));
+    }
+  };
 
   const handlePointerDown = (componentId, event) => {
     if (event.button !== 0 || !canvasRef.current) return;
@@ -199,7 +208,7 @@ export default function ElectricalDesignLabPage() {
           <div className="mt-auto"><IconButton label="Workspace settings"><Settings2 size={17} /></IconButton></div>
         </nav>
 
-        <section ref={canvasRef} className="relative min-w-0 flex-1 overflow-hidden bg-[#fafbfc]" data-testid="design-lab-canvas">
+        <section ref={canvasRef} tabIndex={-1} onKeyDown={handleCanvasKeyDown} className="relative min-w-0 flex-1 overflow-hidden bg-[#fafbfc]" data-testid="design-lab-canvas">
           <div className="pointer-events-none absolute inset-0 opacity-60" style={{ backgroundImage: "radial-gradient(#cbd5e1 0.65px, transparent 0.65px)", backgroundSize: "24px 24px" }} />
           <div className="absolute left-1/2 top-5 z-30 flex -translate-x-1/2 items-center gap-0.5 rounded-xl border border-slate-200/90 bg-white/90 p-1 shadow-[0_8px_30px_rgba(15,23,42,0.08)] backdrop-blur-xl">
             <IconButton label="Select tool" active={state.tool === "select"} onClick={() => chooseTool("select")}><MousePointer2 size={15} /></IconButton><IconButton label="Wire tool" active={state.tool === "wire"} onClick={() => chooseTool("wire")}><Activity size={15} /></IconButton><IconButton label="Add component" onClick={() => toggle("library")}><Box size={15} /></IconButton><IconButton label="Junction"><CircleDot size={15} /></IconButton><div className="mx-1 h-5 w-px bg-slate-200" /><IconButton label="Fit schematic"><Crosshair size={15} /></IconButton>
