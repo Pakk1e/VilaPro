@@ -240,19 +240,20 @@ export function setMode(state, mode) {
 
 export function moveComponent(state, componentId, x, y) {
   if (!state.positions?.[componentId]) return state;
-  const selected = state.selectedComponents?.length > 1 && state.selectedComponents.includes(componentId)
-    ? state.selectedComponents
-    : [componentId];
   const anchor = state.positions[componentId];
-  const dx = x - anchor.x;
-  const dy = y - anchor.y;
+  return moveComponentsByDelta(state, [componentId], x - anchor.x, y - anchor.y);
+}
+
+export function moveComponentsByDelta(state, componentIds, dx, dy) {
+  const ids = componentIds.filter((id) => state.positions?.[id]);
+  if (!ids.length || (dx === 0 && dy === 0)) return state;
 
   return {
     ...state,
     positions: {
       ...state.positions,
       ...Object.fromEntries(
-        selected.map((id) => {
+        ids.map((id) => {
           const position = state.positions[id];
           return [id, {
             x: Math.max(5, Math.min(95, position.x + dx)),
