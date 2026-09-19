@@ -122,3 +122,20 @@ test("design lab places a new component from the library onto the canvas", async
   const placed = page.getByTestId("design-lab-node-R2");
   await expect(placed).toBeVisible();
 });
+
+test("design lab inspector edits a component value", async ({ page }) => {
+  await page.goto("/worlds/design-lab", { waitUntil: "networkidle" });
+  const node = page.getByTestId("design-lab-node-R1");
+  await node.click();
+
+  const inspector = page.getByTestId("design-lab-inspector");
+  await expect(inspector).toBeVisible();
+
+  const value = inspector.getByTestId("design-lab-property-value");
+  await expect(value).toHaveValue("1 kΩ");
+  await value.fill("470 Ω");
+  await value.blur();
+
+  await expect(value).toHaveValue("470 Ω");
+  await expect(inspector.getByText("470 Ω")).toBeVisible();
+});
