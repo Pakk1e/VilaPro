@@ -35,6 +35,8 @@ import {
   moveComponentsByDelta,
   moveComponentsFromSnapshot,
   nudgeSelectedComponents,
+  alignSelectedComponents,
+  distributeSelectedComponents,
   toggleGrid,
   setTool,
   connectPort,
@@ -172,6 +174,8 @@ export default function ElectricalDesignLabPage() {
   const toggle = (panel) => setState((current) => togglePanel(current, panel));
   const chooseTool = (tool) => setState((current) => setTool(current, tool));
   const toggleGridSnap = () => setState((current) => toggleGrid(current));
+  const alignSelected = (axis) => commitEdit((current) => alignSelectedComponents(current, axis));
+  const distributeSelected = (axis) => commitEdit((current) => distributeSelectedComponents(current, axis));
   const beginPlacement = (kind) => setState((current) => startPlacement(current, kind));
   const rotateSelected = () => commitEdit((current) => rotateComponent(current, current.selectedComponent));
   const duplicateSelected = () => commitEdit((current) => duplicateSelectedComponents(current));
@@ -469,7 +473,7 @@ export default function ElectricalDesignLabPage() {
           )}
 
           <div className="absolute left-1/2 top-5 z-30 flex -translate-x-1/2 items-center gap-0.5 rounded-xl border border-slate-200/90 bg-white/90 p-1 shadow-[0_8px_30px_rgba(15,23,42,0.08)] backdrop-blur-xl">
-            <IconButton label="Select tool" active={state.tool === "select"} onClick={() => chooseTool("select")}><MousePointer2 size={15} /></IconButton><IconButton label="Wire tool" active={state.tool === "wire"} onClick={() => chooseTool("wire")}><Activity size={15} /></IconButton><IconButton label="Add component" onClick={() => toggle("library")}><Box size={15} /></IconButton><IconButton label="Junction"><CircleDot size={15} /></IconButton><IconButton label="Grid snap" active={state.gridEnabled} onClick={toggleGridSnap}><Grid2X2 size={15} /></IconButton><div className="mx-1 h-5 w-px bg-slate-200" /><IconButton label="Fit schematic"><Crosshair size={15} /></IconButton>
+            <IconButton label="Select tool" active={state.tool === "select"} onClick={() => chooseTool("select")}><MousePointer2 size={15} /></IconButton><IconButton label="Wire tool" active={state.tool === "wire"} onClick={() => chooseTool("wire")}><Activity size={15} /></IconButton><IconButton label="Add component" onClick={() => toggle("library")}><Box size={15} /></IconButton><IconButton label="Junction"><CircleDot size={15} /></IconButton><IconButton label="Grid snap" active={state.gridEnabled} onClick={toggleGridSnap}><Grid2X2 size={15} /></IconButton><IconButton label="Align horizontal" onClick={() => alignSelected("y")}><SlidersHorizontal size={15} /></IconButton><IconButton label="Distribute horizontal" onClick={() => distributeSelected("x")}><Waves size={15} /></IconButton><div className="mx-1 h-5 w-px bg-slate-200" /><IconButton label="Fit schematic"><Crosshair size={15} /></IconButton>
           </div>
 
           <div className="absolute left-7 top-7 z-20 text-[11px] text-slate-400"><span className="font-medium text-slate-600">Untitled circuit</span><span className="mx-2">/</span> Schematic</div>
