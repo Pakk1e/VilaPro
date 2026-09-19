@@ -378,7 +378,7 @@ export default function ElectricalDesignLabPage() {
       startState: state,
     };
     event.currentTarget.setPointerCapture?.(event.pointerId);
-    choose(componentId, event.shiftKey);
+    choose(componentId, event.shiftKey || selection.includes(componentId));
   };
 
   const handlePointerMove = (componentId, event) => {
@@ -514,7 +514,7 @@ export default function ElectricalDesignLabPage() {
           )}
 
           <div className="absolute left-1/2 top-5 z-30 flex -translate-x-1/2 items-center gap-0.5 rounded-xl border border-slate-200/90 bg-white/90 p-1 shadow-[0_8px_30px_rgba(15,23,42,0.08)] backdrop-blur-xl">
-            <IconButton label="Select tool" active={state.tool === "select"} onClick={() => chooseTool("select")}><MousePointer2 size={15} /></IconButton><IconButton label="Wire tool" active={state.tool === "wire"} onClick={() => chooseTool("wire")}><Activity size={15} /></IconButton><IconButton label="Add component" onClick={() => toggle("library")}><Box size={15} /></IconButton><IconButton label="Junction"><CircleDot size={15} /></IconButton><IconButton label="Grid snap" active={state.gridEnabled} onClick={toggleGridSnap}><Grid2X2 size={15} /></IconButton><IconButton label="Align horizontal" onClick={() => alignSelected("y")}><SlidersHorizontal size={15} /></IconButton><IconButton label="Distribute horizontal" onClick={() => distributeSelected("x")}><Waves size={15} /></IconButton><div className="mx-1 h-5 w-px bg-slate-200" /><IconButton label="Fit schematic"><Crosshair size={15} /></IconButton>
+            <IconButton label="Select tool" active={state.tool === "select"} onClick={() => chooseTool("select")}><MousePointer2 size={15} /></IconButton><IconButton label="Pan" active={state.tool === "pan"} onClick={() => chooseTool("pan")}><Hand size={15} /></IconButton><IconButton label="Wire tool" active={state.tool === "wire"} onClick={() => chooseTool("wire")}><Activity size={15} /></IconButton><IconButton label="Add component" onClick={() => toggle("library")}><Box size={15} /></IconButton><IconButton label="Junction"><CircleDot size={15} /></IconButton><IconButton label="Grid snap" active={state.gridEnabled} onClick={toggleGridSnap}><Grid2X2 size={15} /></IconButton><IconButton label="Align horizontal" onClick={() => alignSelected("y")}><SlidersHorizontal size={15} /></IconButton><IconButton label="Distribute horizontal" onClick={() => distributeSelected("x")}><Waves size={15} /></IconButton><div className="mx-1 h-5 w-px bg-slate-200" /><IconButton label="Fit schematic"><Crosshair size={15} /></IconButton>
           </div>
 
           <div className="absolute left-7 top-7 z-20 text-[11px] text-slate-400"><span className="font-medium text-slate-600">Untitled circuit</span><span className="mx-2">/</span> Schematic</div>
@@ -550,7 +550,7 @@ export default function ElectricalDesignLabPage() {
                     )}
                     fill="none"
                     stroke="#64748b"
-                    strokeWidth="0.18"
+                    strokeWidth="0.55"
                     strokeLinecap="round"
                     strokeLinejoin="round"
                   />
