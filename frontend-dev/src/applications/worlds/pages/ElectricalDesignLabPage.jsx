@@ -161,7 +161,8 @@ export default function ElectricalDesignLabPage() {
   const toggle = (panel) => setState((current) => togglePanel(current, panel));
   const chooseTool = (tool) => setState((current) => setTool(current, tool));
   const beginPlacement = (kind) => setState((current) => startPlacement(current, kind));
-  const rotateSelected = () => commitEdit((current) => rotateComponent(current, current.selectedComponent));\n  const duplicateSelected = () => commitEdit((current) => duplicateSelectedComponents(current));
+  const rotateSelected = () => commitEdit((current) => rotateComponent(current, current.selectedComponent));
+  const duplicateSelected = () => commitEdit((current) => duplicateSelectedComponents(current));
 
   const commitEdit = (updater) => {
     setState((current) => {
