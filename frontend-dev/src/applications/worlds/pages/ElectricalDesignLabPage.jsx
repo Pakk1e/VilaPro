@@ -302,6 +302,57 @@ export default function ElectricalDesignLabPage() {
     }
   };
 
+  const handleCanvasPointerDown = (event) => {
+    if (event.button !== 0 || !canvasRef.current) return;
+    if (state.tool === "pan") {
+      marqueeRef.current = { type: "pan", startClientX: event.clientX, startClientY: event.clientY, startPan: pan };
+      event.currentTarget.setPointerCapture?.(event.pointerId);
+      return;
+    }
+    if (state.placementKind || event.target.closest?.("button,[role='button']")) return;
+    const rect = canvasRef.current.getBoundingClientRect();
+    marqueeRef.current = { type: "marquee", startClientX: event.clientX, startClientY: event.clientY, rect };
+    suppressCanvasClickRef.current = true;
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    setMarquee({ x: event.clientX - rect.left, y: event.clientY - rect.top, width: 0, height: 0 });
+  };
+
+  const handleCanvasPointerMove = (event) => {
+    const active = marqueeRef.current;
+    if (!active) return;
+    if (active.type === "pan") {
+      setPan({ x: active.startPan.x + event.clientX - active.startClientX, y: active.startPan.y + event.clientY - active.startClientY });
+      return;
+    }
+    const rect = active.rect;
+    setMarquee({ x: Math.min(active.startClientX, event.clientX) - rect.left, y: Math.min(active.startClientY, event.clientY) - rect.top, width: Math.abs(event.clientX - active.startClientX), height: Math.abs(event.clientY - active.startClientY) });
+  };
+
+  const handleCanvasPointerUp = (event) => {
+    const active = marqueeRef.current;
+    if (!active) return;
+    event.currentTarget.releasePointerCapture?.(event.pointerId);
+    marqueeRef.current = null;
+    if (active.type === "pan") return;
+    const rect = active.rect;
+    const left = Math.min(active.startClientX, event.clientX);
+    const right = Math.max(active.startClientX, event.clientX);
+    const top = Math.min(active.startClientY, event.clientY);
+    const bottom = Math.max(active.startClientY, event.clientY);
+    const scale = zoom / 100;
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+    const ids = components.filter((component) => {
+      const x = Number.parseFloat(component.x);
+      const y = Number.parseFloat(component.y);
+      const screenX = centerX + (rect.width * x / 100 - rect.width / 2) * scale + pan.x;
+      const screenY = centerY + (rect.height * y / 100 - rect.height / 2) * scale + pan.y;
+      return screenX >= left && screenX <= right && screenY >= top && screenY <= bottom;
+    }).map((component) => component.id);
+    setState((current) => selectComponents(current, ids));
+    setMarquee(null);
+  };
+
   return (
     <main data-testid="electrical-design-lab" className="h-screen min-h-[720px] w-full overflow-hidden bg-[#f7f8fa] text-[#17212b] selection:bg-blue-100">
       <header className="flex h-14 items-center border-b border-slate-200/80 bg-white/95 px-4 backdrop-blur-xl">
