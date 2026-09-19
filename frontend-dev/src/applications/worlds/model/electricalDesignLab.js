@@ -355,7 +355,6 @@ export function moveComponent(state, componentId, x, y) {
 export function moveComponentsByDelta(state, componentIds, dx, dy) {
   const ids = componentIds.filter((id) => state.positions?.[id]);
   if (!ids.length || (dx === 0 && dy === 0)) return state;
-
   return {
     ...state,
     positions: {
@@ -367,6 +366,27 @@ export function moveComponentsByDelta(state, componentIds, dx, dy) {
             x: Math.max(5, Math.min(95, position.x + dx)),
             y: Math.max(8, Math.min(92, position.y + dy)),
           }];
+        })
+      ),
+    },
+  };
+}
+
+export function moveComponentsFromSnapshot(state, startPositions, dx, dy) {
+  const ids = Object.keys(startPositions || {}).filter((id) => state.positions?.[id]);
+  if (!ids.length) return state;
+  return {
+    ...state,
+    positions: {
+      ...state.positions,
+      ...Object.fromEntries(
+        ids.map((id) => {
+          const start = startPositions[id];
+          const raw = {
+            x: Math.max(5, Math.min(95, start.x + dx)),
+            y: Math.max(8, Math.min(92, start.y + dy)),
+          };
+          return [id, snapPosition(raw, state.gridEnabled, state.gridSize)];
         })
       ),
     },
