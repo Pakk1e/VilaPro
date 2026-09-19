@@ -33,6 +33,11 @@ export function createDesignLabState() {
       R1: "1 kΩ",
       C1: "10 µF",
     },
+    rotations: {
+      V1: 0,
+      R1: 0,
+      C1: 0,
+    },
   };
 }
 
@@ -88,6 +93,21 @@ export function placeComponent(state, x, y) {
     values: {
       ...state.values,
       [id]: definition.value,
+    },
+    rotations: {
+      ...state.rotations,
+      [id]: 0,
+    },
+  };
+}
+
+export function rotateComponent(state, componentId) {
+  if (!state.positions?.[componentId]) return state;
+  return {
+    ...state,
+    rotations: {
+      ...state.rotations,
+      [componentId]: ((state.rotations?.[componentId] || 0) + 90) % 360,
     },
   };
 }
