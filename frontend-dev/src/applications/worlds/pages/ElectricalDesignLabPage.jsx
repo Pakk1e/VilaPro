@@ -142,7 +142,7 @@ export default function ElectricalDesignLabPage() {
             <span className="font-medium text-slate-600">{zoom}%</span><button type="button" onClick={() => setZoom((v) => Math.max(50, v - 10))}>−</button><button type="button" onClick={() => setZoom((v) => Math.min(200, v + 10))}>+</button>
           </div>
 
-          <div data-testid="design-lab-schematic-viewport" className="absolute transition-[zoom] duration-200 ease-out" style={{ left: "50%", top: "50%", width: `${10000 / zoom}%`, height: `${10000 / zoom}%`, transform: "translate(-50%, -50%)", zoom: zoom / 100 }}>
+          <div data-testid="design-lab-schematic-viewport" className="absolute inset-0 origin-center transition-transform duration-200 ease-out" style={{ transform: `scale(${zoom / 100})` }}>
             <svg className="pointer-events-none absolute inset-0 h-full w-full" aria-hidden="true">
               <path d="M26% 46% H49% H67%" fill="none" stroke="#7c8794" strokeWidth="1.8" />
               <circle cx="49%" cy="46%" r="4" fill="#fff" stroke="#7c8794" strokeWidth="1.5" />
