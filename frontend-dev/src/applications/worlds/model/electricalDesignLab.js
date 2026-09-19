@@ -15,6 +15,7 @@ export function createDesignLabState() {
     mode: "design",
     tool: "select",
     selectedComponent: null,
+    selectedComponents: [],
     libraryOpen: false,
     inspectorOpen: false,
     resultsOpen: false,
@@ -165,11 +166,20 @@ export function connectPort(state, componentId, side) {
   };
 }
 
-export function selectComponent(state, componentId) {
+export function selectComponent(state, componentId, additive = false) {
+  if (!state.positions?.[componentId]) return state;
+  const current = state.selectedComponents || [];
+  const selectedComponents = additive
+    ? current.includes(componentId)
+      ? current.filter((id) => id !== componentId)
+      : [...current, componentId]
+    : [componentId];
+
   return {
     ...state,
-    selectedComponent: componentId,
-    inspectorOpen: Boolean(componentId),
+    selectedComponent: selectedComponents[selectedComponents.length - 1] ?? null,
+    selectedComponents,
+    inspectorOpen: selectedComponents.length === 1,
   };
 }
 
