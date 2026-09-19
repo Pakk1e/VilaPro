@@ -232,7 +232,7 @@ export default function ElectricalDesignLabPage() {
         </div>
         <div className="flex min-w-[250px] items-center justify-end gap-1">
           <span className="mr-3 flex items-center gap-1.5 text-[10px] text-slate-400"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />Saved</span>
-          <IconButton label="Undo" onClick={undo} active={historyRef.current.length > 0}><Undo2 size={15} /></IconButton><IconButton label="Redo" onClick={redo} active={futureRef.current.length > 0}><Redo2 size={15} /></IconButton>
+          <IconButton label="Undo" onClick={undo}><Undo2 size={15} /></IconButton><IconButton label="Redo" onClick={redo}><Redo2 size={15} /></IconButton>
           <div className="mx-2 h-5 w-px bg-slate-200" />
           <IconButton label="Settings"><Settings2 size={16} /></IconButton><IconButton label="Help"><HelpCircle size={16} /></IconButton>
           <div className="ml-2 grid h-7 w-7 place-items-center rounded-full bg-slate-200 text-[10px] font-semibold">JV</div>
