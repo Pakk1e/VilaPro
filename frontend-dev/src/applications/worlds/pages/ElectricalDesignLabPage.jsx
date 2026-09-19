@@ -32,7 +32,6 @@ import {
   selectComponents,
   setMode,
   togglePanel,
-  moveComponentsByDelta,
   moveComponentsFromSnapshot,
   nudgeSelectedComponents,
   alignSelectedComponents,
@@ -132,7 +131,6 @@ function connectionPath(from, to, components = []) {
 }
 
 function SchematicNode({ component, selected, tool, wireStart, rotation, onPointerDown, onPointerMove, onPointerUp, onPortClick }) {
-  const isSource = component.kind === "source";
   return (
     <div
       role="button"
