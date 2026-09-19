@@ -35,6 +35,8 @@ import {
   moveComponentsByDelta,
   setTool,
   connectPort,
+  selectConnection,
+  deleteSelectedConnection,
   deleteSelectedComponents,
   startPlacement,
   placeComponent,
@@ -199,6 +201,7 @@ export default function ElectricalDesignLabPage() {
   };
 
   const choosePort = (componentId, side) => commitEdit((current) => connectPort(current, componentId, side));
+  const chooseConnection = (connectionId) => setState((current) => selectConnection(current, connectionId));
   const handleCanvasClick = (event) => {
     if (suppressCanvasClickRef.current) {
       suppressCanvasClickRef.current = false;
@@ -248,6 +251,11 @@ export default function ElectricalDesignLabPage() {
     if (event.key === "Escape") {
       event.preventDefault();
       setState((current) => selectComponent(current, null));
+      return;
+    }
+    if ((event.key === "Backspace" || event.key === "Delete") && state.selectedConnection) {
+      event.preventDefault();
+      commitEdit((current) => deleteSelectedConnection(current));
       return;
     }
     if ((event.key === "Backspace" || event.key === "Delete") && state.selectedComponents.length) {
@@ -452,7 +460,7 @@ export default function ElectricalDesignLabPage() {
 
 
           <div data-testid="design-lab-schematic-viewport" className="absolute inset-0 origin-center transition-transform duration-200 ease-out" style={{ transform: `translate3d(${pan.x}px, ${pan.y}px, 0) scale(${zoom / 100})` }}>
-            <svg className="pointer-events-none absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+            <svg className="absolute inset-0 h-full w-full pointer-events-none" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
               {state.connections.map((connection) => {
                 const from = components.find((item) => item.id === connection.from.componentId);
                 const to = components.find((item) => item.id === connection.to.componentId);
@@ -463,6 +471,12 @@ export default function ElectricalDesignLabPage() {
                     data-testid={`design-lab-connection-${connection.from.componentId}-${connection.to.componentId}`}
                     data-from-side={connection.from.side}
                     data-to-side={connection.to.side}
+                    data-selected={state.selectedConnection === connection.id ? "true" : "false"}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      chooseConnection(connection.id);
+                    }}
+                    style={{ pointerEvents: "stroke", cursor: "pointer" }}
                     d={connectionPath(
                       { x: from.x, y: from.y, side: connection.from.side },
                       { x: to.x, y: to.y, side: connection.to.side }
