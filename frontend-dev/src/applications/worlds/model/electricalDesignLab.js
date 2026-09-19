@@ -35,6 +35,8 @@ export function createDesignLabState() {
       R1: "1 kΩ",
       C1: "10 µF",
     },
+    gridEnabled: true,
+    gridSize: 2,
     rotations: {
       V1: 0,
       R1: 0,
@@ -368,5 +370,23 @@ export function moveComponentsByDelta(state, componentIds, dx, dy) {
         })
       ),
     },
+  };
+}
+
+
+export function toggleGrid(state) {
+  return { ...state, gridEnabled: !state.gridEnabled };
+}
+
+export function snapCoordinate(value, gridSize = 2) {
+  if (!Number.isFinite(value)) return value;
+  return Math.round(value / gridSize) * gridSize;
+}
+
+export function snapPosition(position, gridEnabled, gridSize = 2) {
+  if (!position || !gridEnabled) return position;
+  return {
+    x: snapCoordinate(position.x, gridSize),
+    y: snapCoordinate(position.y, gridSize),
   };
 }
