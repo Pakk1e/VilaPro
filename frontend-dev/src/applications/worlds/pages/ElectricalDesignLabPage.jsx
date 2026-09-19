@@ -234,6 +234,11 @@ export default function ElectricalDesignLabPage() {
 
   const handlePointerDown = (componentId, event) => {
     if (event.button !== 0 || !canvasRef.current) return;
+    if (state.tool === "pan") {
+      marqueeRef.current = { type: "pan", startClientX: event.clientX, startClientY: event.clientY, startPan: pan };
+      event.currentTarget.setPointerCapture?.(event.pointerId);
+      return;
+    }
     const position = state.positions[componentId];
     if (!position) return;
     const rect = canvasRef.current.getBoundingClientRect();
@@ -264,6 +269,11 @@ export default function ElectricalDesignLabPage() {
   };
 
   const handlePointerMove = (componentId, event) => {
+    if (marqueeRef.current?.type === "pan") {
+      const active = marqueeRef.current;
+      setPan({ x: active.startPan.x + event.clientX - active.startClientX, y: active.startPan.y + event.clientY - active.startClientY });
+      return;
+    }
     const drag = dragRef.current;
     if (!drag || drag.componentId !== componentId) return;
     const deltaX = ((event.clientX - drag.startClientX) / (drag.width * drag.zoom)) * 100;
@@ -272,6 +282,11 @@ export default function ElectricalDesignLabPage() {
   };
 
   const handlePointerUp = (componentId, event) => {
+    if (marqueeRef.current?.type === "pan") {
+      event.currentTarget.releasePointerCapture?.(event.pointerId);
+      marqueeRef.current = null;
+      return;
+    }
     if (dragRef.current?.componentId !== componentId) return;
     event.currentTarget.releasePointerCapture?.(event.pointerId);
     const drag = dragRef.current;
