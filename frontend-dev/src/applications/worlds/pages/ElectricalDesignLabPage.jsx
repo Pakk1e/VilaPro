@@ -411,7 +411,6 @@ export default function ElectricalDesignLabPage() {
 
           {marquee && <div data-testid="design-lab-marquee" className="pointer-events-none absolute z-20 border border-blue-400 bg-blue-500/10" style={{ left: marquee.x, top: marquee.y, width: marquee.width, height: marquee.height }} />}
 
-          {marquee && <div data-testid="design-lab-marquee" className="pointer-events-none absolute z-20 border border-blue-400 bg-blue-500/10" style={{ left: marquee.x, top: marquee.y, width: marquee.width, height: marquee.height }} />}
 
           <div data-testid="design-lab-schematic-viewport" className="absolute inset-0 origin-center transition-transform duration-200 ease-out" style={{ transform: `translate3d(${pan.x}px, ${pan.y}px, 0) scale(${zoom / 100})` }}>
             <svg className="pointer-events-none absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
