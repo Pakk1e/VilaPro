@@ -153,7 +153,7 @@ test("design lab duplicates a selected connected group with its internal wire", 
   await canvas.getByRole("button", { name: "Wire tool" }).click();
   await page.getByTestId("design-lab-port-R1-right").click();
   await page.getByTestId("design-lab-port-C1-left").click();
-  await expect(page.getByTestId("design-lab-connection-R1-C1")).toBeVisible();
+  await expect(page.getByTestId("design-lab-connection-R1-C1")).toHaveAttribute("data-from-side", "right");
 
   await page.getByRole("button", { name: "Select tool" }).click();
   await page.getByTestId("design-lab-node-R1").click();
