@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   Activity,
   Box,
@@ -31,6 +31,7 @@ import {
   selectComponent,
   setMode,
   togglePanel,
+  moveComponent,
 } from "../model/electricalDesignLab.js";
 
 const MODE_LABELS = { design: "Design", simulate: "Simulate", analyze: "Analyze" };
@@ -60,13 +61,16 @@ function ComponentSymbol({ kind, selected }) {
   return <svg width="88" height="54" viewBox="0 0 88 54" aria-hidden="true"><path d="M2 27h22M64 27h22M43 45V9" fill="none" stroke={stroke} strokeWidth="2.2" strokeLinecap="round" /><circle cx="43" cy="27" r="19" fill="white" stroke={stroke} strokeWidth="2.2" /><path d="M43 17v20M38 22h10" fill="none" stroke={stroke} strokeWidth="2" strokeLinecap="round" /><circle cx="2" cy="27" r="3" fill={stroke} /><circle cx="86" cy="27" r="3" fill={stroke} /></svg>;
 }
 
-function SchematicNode({ component, selected, onClick }) {
+function SchematicNode({ component, selected, onClick, onPointerDown, onPointerMove, onPointerUp }) {
   return (
     <button
       type="button"
       data-testid={`design-lab-node-${component.id}`}
       onClick={onClick}
-      className={`absolute -translate-x-1/2 -translate-y-1/2 text-left ${selected ? "z-20" : "z-10"}`}
+      onPointerDown={(event) => onPointerDown(component.id, event)}
+      onPointerMove={(event) => onPointerMove(component.id, event)}
+      onPointerUp={(event) => onPointerUp(component.id, event)}
+      className={`absolute -translate-x-1/2 -translate-y-1/2 cursor-grab touch-none text-left active:cursor-grabbing ${selected ? "z-20" : "z-10"}`}
       style={{ left: component.x, top: component.y }}
     >
       <div className={`rounded-xl px-3 py-2 transition ${selected ? "bg-white/95 ring-2 ring-blue-500/25 shadow-lg" : "hover:bg-white/70"}`}>
@@ -84,12 +88,14 @@ export default function ElectricalDesignLabPage() {
   const [state, setState] = useState(createDesignLabState);
   const [query, setQuery] = useState("");
   const [zoom, setZoom] = useState(100);
+  const canvasRef = useRef(null);
+  const dragRef = useRef(null);
 
-  const components = useMemo(() => [
-    { ...DESIGN_LAB_COMPONENTS[0], x: "26%", y: "46%" },
-    { ...DESIGN_LAB_COMPONENTS[1], x: "49%", y: "46%" },
-    { ...DESIGN_LAB_COMPONENTS[2], x: "67%", y: "46%" },
-  ], []);
+  const components = useMemo(() => DESIGN_LAB_COMPONENTS.map((component) => ({
+    ...component,
+    x: `${state.positions[component.id].x}%`,
+    y: `${state.positions[component.id].y}%`,
+  })), [state.positions]);
 
   const filtered = DESIGN_LAB_COMPONENTS.filter((item) => item.name.toLowerCase().includes(query.toLowerCase()));
   const selected = components.find((item) => item.id === state.selectedComponent);
@@ -97,6 +103,39 @@ export default function ElectricalDesignLabPage() {
   const changeMode = (mode) => setState((current) => setMode(current, mode));
   const choose = (id) => setState((current) => selectComponent(current, id));
   const toggle = (panel) => setState((current) => togglePanel(current, panel));
+
+  const handlePointerDown = (componentId, event) => {
+    if (event.button !== 0 || !canvasRef.current) return;
+    const position = state.positions[componentId];
+    if (!position) return;
+    const rect = canvasRef.current.getBoundingClientRect();
+    dragRef.current = {
+      componentId,
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      startX: position.x,
+      startY: position.y,
+      width: rect.width,
+      height: rect.height,
+      zoom: zoom / 100,
+    };
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    choose(componentId);
+  };
+
+  const handlePointerMove = (componentId, event) => {
+    const drag = dragRef.current;
+    if (!drag || drag.componentId !== componentId) return;
+    const deltaX = ((event.clientX - drag.startClientX) / (drag.width * drag.zoom)) * 100;
+    const deltaY = ((event.clientY - drag.startClientY) / (drag.height * drag.zoom)) * 100;
+    setState((current) => moveComponent(current, componentId, drag.startX + deltaX, drag.startY + deltaY));
+  };
+
+  const handlePointerUp = (componentId, event) => {
+    if (dragRef.current?.componentId !== componentId) return;
+    event.currentTarget.releasePointerCapture?.(event.pointerId);
+    dragRef.current = null;
+  };
 
   return (
     <main data-testid="electrical-design-lab" className="h-screen min-h-[720px] w-full overflow-hidden bg-[#f7f8fa] text-[#17212b] selection:bg-blue-100">
@@ -131,7 +170,7 @@ export default function ElectricalDesignLabPage() {
           <div className="mt-auto"><IconButton label="Workspace settings"><Settings2 size={17} /></IconButton></div>
         </nav>
 
-        <section className="relative min-w-0 flex-1 overflow-hidden bg-[#fafbfc]" data-testid="design-lab-canvas">
+        <section ref={canvasRef} className="relative min-w-0 flex-1 overflow-hidden bg-[#fafbfc]" data-testid="design-lab-canvas">
           <div className="pointer-events-none absolute inset-0 opacity-60" style={{ backgroundImage: "radial-gradient(#cbd5e1 0.65px, transparent 0.65px)", backgroundSize: "24px 24px" }} />
           <div className="absolute left-1/2 top-5 z-30 flex -translate-x-1/2 items-center gap-0.5 rounded-xl border border-slate-200/90 bg-white/90 p-1 shadow-[0_8px_30px_rgba(15,23,42,0.08)] backdrop-blur-xl">
             <IconButton label="Select tool" active><MousePointer2 size={15} /></IconButton><IconButton label="Wire tool"><Activity size={15} /></IconButton><IconButton label="Add component" onClick={() => toggle("library")}><Box size={15} /></IconButton><IconButton label="Junction"><CircleDot size={15} /></IconButton><div className="mx-1 h-5 w-px bg-slate-200" /><IconButton label="Fit schematic"><Crosshair size={15} /></IconButton>
@@ -147,7 +186,7 @@ export default function ElectricalDesignLabPage() {
               <path d="M26% 46% H49% H67%" fill="none" stroke="#7c8794" strokeWidth="1.8" />
               <circle cx="49%" cy="46%" r="4" fill="#fff" stroke="#7c8794" strokeWidth="1.5" />
             </svg>
-            {components.map((component) => <SchematicNode key={component.id} component={component} selected={component.id === state.selectedComponent} onClick={() => choose(component.id)} />)}
+            {components.map((component) => <SchematicNode key={component.id} component={component} selected={component.id === state.selectedComponent} onClick={() => choose(component.id)} onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} />)}
           </div>
 
           {state.selectedComponent && selected && (
