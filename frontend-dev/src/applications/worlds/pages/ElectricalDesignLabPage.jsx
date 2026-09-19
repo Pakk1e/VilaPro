@@ -82,16 +82,17 @@ function connectionPath(from, to) {
   return `M ${startX} ${startY} H ${middleX} V ${endY} H ${endX}`;
 }
 
-function SchematicNode({ component, selected, tool, wireStart, rotation, onClick, onPointerDown, onPointerMove, onPointerUp, onPortClick }) {
+function SchematicNode({ component, selected, tool, wireStart, rotation, onPointerDown, onPointerMove, onPointerUp, onPortClick }) {
   return (
     <div
       role="button"
       tabIndex={0}
       data-testid={`design-lab-node-${component.id}`}
       data-rotation={rotation}
-      onClick={onClick}
       onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") onClick();
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+        }
       }}
       onPointerDown={(event) => onPointerDown(component.id, event)}
       onPointerMove={(event) => onPointerMove(component.id, event)}
@@ -343,7 +344,7 @@ export default function ElectricalDesignLabPage() {
                 tool={state.tool}
                 rotation={state.rotations[component.id] || 0}
                 wireStart={state.wireStart}
-                onClick={(event) => choose(component.id, event.shiftKey)}
+
                 onPointerDown={handlePointerDown}
                 onPointerMove={handlePointerMove}
                 onPointerUp={handlePointerUp}
