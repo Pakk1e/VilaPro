@@ -111,9 +111,9 @@ test("design lab places a new component from the library onto the canvas", async
   await expect(canvas).toBeVisible();
 
   await canvas.getByRole("button", { name: "Add component" }).click();
-  await expect(canvas.getByText("Component library")).toBeVisible();
+  await expect(page.getByText("Component library")).toBeVisible();
 
-  await canvas.getByRole("button", { name: /Resistor/ }).click();
+  await page.getByRole("button", { name: /Resistor/ }).click();
   await expect(canvas.getByText("Click on the schematic to place Resistor")).toBeVisible();
 
   await canvas.click({ position: { x: 520, y: 360 } });
