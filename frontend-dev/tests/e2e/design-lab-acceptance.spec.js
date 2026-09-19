@@ -50,5 +50,7 @@ test("design lab wire tool creates a connection between component ports", async 
   await page.getByTestId("design-lab-port-R1-right").click();
   await page.getByTestId("design-lab-port-C1-left").click();
 
-  await expect(page.getByTestId("design-lab-connection-R1-C1")).toBeVisible();
+  const connection = page.getByTestId("design-lab-connection-R1-C1");
+  await expect(connection).toHaveAttribute("x1", "49%");
+  await expect(connection).toHaveAttribute("x2", "67%");
 });
