@@ -104,3 +104,20 @@ test("design lab undo restores a moved component", async ({ page }) => {
     return after?.x ?? before.x + 1000;
   }, { timeout: 1000 }).toBeLessThan(before.x + 20);
 });
+
+test("design lab places a new component from the library onto the canvas", async ({ page }) => {
+  await page.goto("/worlds/design-lab", { waitUntil: "networkidle" });
+  const canvas = page.getByTestId("design-lab-canvas");
+  await expect(canvas).toBeVisible();
+
+  await canvas.getByRole("button", { name: "Add component" }).click();
+  await expect(canvas.getByText("Component library")).toBeVisible();
+
+  await canvas.getByRole("button", { name: /Resistor/ }).click();
+  await expect(canvas.getByText("Click on the schematic to place Resistor")).toBeVisible();
+
+  await canvas.click({ position: { x: 520, y: 360 } });
+
+  const placed = page.getByTestId("design-lab-node-R2");
+  await expect(placed).toBeVisible();
+});
