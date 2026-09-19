@@ -144,17 +144,17 @@ function SchematicNode({ component, selected, tool, wireStart, rotation, onPoint
       onPointerMove={(event) => onPointerMove(component.id, event)}
       onPointerUp={(event) => onPointerUp(component.id, event)}
       className={`absolute -translate-x-1/2 -translate-y-1/2 touch-none text-left outline-none ${selected ? "z-20" : "z-10"}`}
-      style={{ left: component.x, top: component.y, width: "12%" }}
+      style={{ left: component.x, top: component.y, width: "12%", height: "86px" }}
     >
       <div
         className={`relative w-full rounded-xl transition ${selected ? "bg-white/95 ring-2 ring-blue-500/25 shadow-lg" : "hover:bg-white/70"}`}
         style={{ transform: `rotate(${rotation}deg)` }}
       >
-        <div className="relative w-full" style={{ height: 0 }}>
-          <div className="absolute left-0 top-0 w-full -translate-y-1/2">
+        <div className="relative h-full w-full">
+          <div className="absolute left-0 top-1/2 w-full -translate-y-1/2">
             <ComponentSymbol kind={component.kind} selected={selected} showPorts={false} />
           </div>
-          <div className="absolute left-0 top-0 w-full translate-y-[calc(50%+26px)] text-center">
+          <div className="absolute left-0 top-1/2 w-full translate-y-[18px] text-center">
             <div className={`text-[11px] font-semibold ${selected ? "text-blue-600" : "text-slate-800"}`}>{component.id}</div>
             <div className="mt-0.5 text-[10px] text-slate-400">{component.value}</div>
           </div>
@@ -173,7 +173,7 @@ function SchematicNode({ component, selected, tool, wireStart, rotation, onPoint
                       event.stopPropagation();
                       onPortClick(component.id, side);
                     }}
-                    className={`absolute top-0 h-3 w-3 -translate-y-1/2 rounded-full border-2 border-white shadow-sm transition ${active ? "bg-blue-600 ring-4 ring-blue-100" : "bg-slate-500 hover:bg-blue-500"} ${side === "left" ? "-left-1.5" : "-right-1.5"}`}
+                    className={`absolute top-1/2 h-3 w-3 -translate-y-1/2 rounded-full border-2 border-white shadow-sm transition ${active ? "bg-blue-600 ring-4 ring-blue-100" : "bg-slate-500 hover:bg-blue-500"} ${side === "left" ? "-left-1.5" : "-right-1.5"}`}
                   />
                 );
               })}
