@@ -389,7 +389,11 @@ export default function ElectricalDesignLabPage() {
       startState: state,
     };
     event.currentTarget.setPointerCapture?.(event.pointerId);
-    if (event.shiftKey) {\n      choose(componentId, true);\n    } else if (!selection.includes(componentId)) {\n      choose(componentId, false);\n    }
+    if (event.shiftKey) {
+      choose(componentId, true);
+    } else if (!selection.includes(componentId)) {
+      choose(componentId, false);
+    }
   };
 
   const handlePointerMove = (componentId, event) => {
