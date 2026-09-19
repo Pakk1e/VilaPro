@@ -10,7 +10,8 @@ test("design lab zoom changes schematic scale", async ({ page }) => {
   if (!before) throw new Error("Unable to measure design lab component.");
   await canvas.getByRole("button", { name: "+" }).click();
   await expect(canvas.getByText("110%")).toBeVisible();
-  const after = await node.boundingBox();
-  if (!after) throw new Error("Unable to measure zoomed design lab component.");
-  expect(after.width).toBeGreaterThan(before.width);
+  await expect.poll(async () => {
+    const box = await node.boundingBox();
+    return box?.width ?? 0;
+  }, { timeout: 1000 }).toBeGreaterThan(before.width);
 });
