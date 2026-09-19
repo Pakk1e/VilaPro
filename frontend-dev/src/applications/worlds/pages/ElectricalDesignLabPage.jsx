@@ -378,7 +378,7 @@ export default function ElectricalDesignLabPage() {
       startState: state,
     };
     event.currentTarget.setPointerCapture?.(event.pointerId);
-    choose(componentId, event.shiftKey || selection.includes(componentId));
+    if (event.shiftKey) {\n      choose(componentId, true);\n    } else if (!selection.includes(componentId)) {\n      choose(componentId, false);\n    }
   };
 
   const handlePointerMove = (componentId, event) => {
@@ -491,7 +491,7 @@ export default function ElectricalDesignLabPage() {
       <div className="relative flex h-[calc(100vh-56px)] min-h-0">
         <nav className="z-40 flex w-14 shrink-0 flex-col items-center border-r border-slate-200/80 bg-white py-3">
           <IconButton label="Select" active={state.tool === "select"} onClick={() => chooseTool("select")}><MousePointer2 size={17} /></IconButton>
-          <IconButton label="Pan" active={state.tool === "pan"} onClick={() => chooseTool("pan")}><Hand size={17} /></IconButton>
+          <IconButton label="Pan navigation" active={state.tool === "pan"} onClick={() => chooseTool("pan")}><Hand size={17} /></IconButton>
           <div className="my-3 h-px w-6 bg-slate-200" />
           <IconButton label="Library" active={state.libraryOpen} onClick={() => toggle("library")}><LibraryBig size={17} /></IconButton>
           <IconButton label="Inspector" active={state.inspectorOpen} onClick={() => toggle("inspector")}><SlidersHorizontal size={17} /></IconButton>
@@ -531,8 +531,13 @@ export default function ElectricalDesignLabPage() {
                 const from = components.find((item) => item.id === connection.from.componentId);
                 const to = components.find((item) => item.id === connection.to.componentId);
                 if (!from || !to) return null;
+                const path = connectionPath(
+                  { id: from.id, x: from.x, y: from.y, side: connection.from.side },
+                  { id: to.id, x: to.x, y: to.y, side: connection.to.side },
+                  components
+                );
                 return (
-                  <path
+                  <g
                     key={`${connection.from.componentId}-${connection.from.side}-${connection.to.componentId}-${connection.to.side}`}
                     data-testid={`design-lab-connection-${connection.from.componentId}-${connection.to.componentId}`}
                     data-from-side={connection.from.side}
@@ -542,20 +547,19 @@ export default function ElectricalDesignLabPage() {
                       event.stopPropagation();
                       chooseConnection(connection.id);
                     }}
-                    style={{ pointerEvents: "stroke", cursor: "pointer" }}
-                    d={connectionPath(
-                      { id: from.id, x: from.x, y: from.y, side: connection.from.side },
-                      { id: to.id, x: to.x, y: to.y, side: connection.to.side },
-                      components
-                    )}
-                    fill="none"
-                    stroke="#64748b"
-                    strokeWidth="0.55"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                );
-              })}
+                    style={{ cursor: "pointer" }}
+                  >
+                    <path
+                      d={path}
+                      fill="none"
+                      stroke="#64748b"
+                      strokeWidth="0.8"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      style={{ pointerEvents: "stroke" }}
+                    />
+                  </g>
+                );             })}
             </svg>
             {components.map((component) => (
               <SchematicNode
