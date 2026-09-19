@@ -142,7 +142,6 @@ test("design lab inspector edits a component value", async ({ page }) => {
 
 test("design lab duplicates a selected connected group with its internal wire", async ({ page }) => {
   await page.goto("/worlds/design-lab", { waitUntil: "networkidle" });
-  const canvas = page.getByTestId("design-lab-canvas");
   const resistor = page.getByTestId("design-lab-node-R1");
   const capacitor = page.getByTestId("design-lab-node-C1");
 
