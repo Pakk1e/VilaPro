@@ -37,6 +37,7 @@ import {
   deleteComponent,
   startPlacement,
   placeComponent,
+  updateComponentValue,
 } from "../model/electricalDesignLab.js";
 
 const MODE_LABELS = { design: "Design", simulate: "Simulate", analyze: "Analyze" };
@@ -141,6 +142,7 @@ export default function ElectricalDesignLabPage() {
     .filter((component) => !state.deletedComponents.includes(component.id))
     .map((component) => ({
       ...component,
+      value: state.values[component.id] ?? component.value,
       x: `${state.positions[component.id].x}%`,
       y: `${state.positions[component.id].y}%`,
     })), [state.deletedComponents, state.placedComponents, state.positions]);
@@ -358,7 +360,7 @@ export default function ElectricalDesignLabPage() {
         {state.inspectorOpen && selected && (
           <aside data-testid="design-lab-inspector" className="absolute right-4 top-4 z-50 w-[300px] overflow-hidden rounded-2xl border border-slate-200 bg-white/95 shadow-[0_18px_55px_rgba(15,23,42,0.14)] backdrop-blur-xl">
             <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3"><div><div className="text-[12px] font-semibold">{selected.id} · {selected.name}</div><div className="mt-0.5 text-[10px] text-slate-400">Component properties</div></div><button type="button" onClick={() => toggle("inspector")} className="grid h-7 w-7 place-items-center rounded-md text-slate-400 hover:bg-slate-100"><X size={14} /></button></div>
-            <div className="space-y-5 p-4"><div><label className="text-[10px] font-medium text-slate-500">Reference</label><div className="mt-1.5 flex h-8 items-center rounded-lg border border-slate-200 px-2.5 text-[11px]">{selected.id}</div></div><div><label className="text-[10px] font-medium text-slate-500">Value</label><div className="mt-1.5 flex h-8 items-center justify-between rounded-lg border border-slate-200 px-2.5 text-[11px]"><span>{selected.value}</span><span className="text-slate-400">Edit</span></div></div><div className="rounded-xl bg-slate-50 p-3"><div className="flex items-center gap-2 text-[10px] font-semibold text-slate-600"><Grid2X2 size={13} /> Geometry</div><div className="mt-3 grid grid-cols-2 gap-2 text-[10px] text-slate-400"><div>X <span className="float-right text-slate-600">49.0%</span></div><div>Y <span className="float-right text-slate-600">46.0%</span></div></div></div></div>
+            <div className="space-y-5 p-4"><div><label className="text-[10px] font-medium text-slate-500">Reference</label><div className="mt-1.5 flex h-8 items-center rounded-lg border border-slate-200 px-2.5 text-[11px]">{selected.id}</div></div><div><label className="text-[10px] font-medium text-slate-500">Value</label><input key={selected.id} data-testid="design-lab-property-value" aria-label="Component value" defaultValue={selected.value} onBlur={(event) => commitEdit((current) => updateComponentValue(current, selected.id, event.target.value))} className="mt-1.5 h-8 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-[11px] outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100" /></div><div className="rounded-xl bg-slate-50 p-3"><div className="flex items-center gap-2 text-[10px] font-semibold text-slate-600"><Grid2X2 size={13} /> Geometry</div><div className="mt-3 grid grid-cols-2 gap-2 text-[10px] text-slate-400"><div>X <span className="float-right text-slate-600">49.0%</span></div><div>Y <span className="float-right text-slate-600">46.0%</span></div></div></div></div>
           </aside>
         )}
 
