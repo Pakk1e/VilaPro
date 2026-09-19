@@ -378,7 +378,7 @@ export default function ElectricalDesignLabPage() {
       <div className="relative flex h-[calc(100vh-56px)] min-h-0">
         <nav className="z-40 flex w-14 shrink-0 flex-col items-center border-r border-slate-200/80 bg-white py-3">
           <IconButton label="Select" active><MousePointer2 size={17} /></IconButton>
-          <IconButton label="Pan"><Hand size={17} /></IconButton>
+          <IconButton label="Pan" active={state.tool === "pan"} onClick={() => chooseTool("pan")}><Hand size={17} /></IconButton>
           <div className="my-3 h-px w-6 bg-slate-200" />
           <IconButton label="Library" active={state.libraryOpen} onClick={() => toggle("library")}><LibraryBig size={17} /></IconButton>
           <IconButton label="Inspector" active={state.inspectorOpen} onClick={() => toggle("inspector")}><SlidersHorizontal size={17} /></IconButton>
@@ -386,7 +386,7 @@ export default function ElectricalDesignLabPage() {
           <div className="mt-auto"><IconButton label="Workspace settings"><Settings2 size={17} /></IconButton></div>
         </nav>
 
-        <section ref={canvasRef} tabIndex={-1} onClick={handleCanvasClick} onKeyDown={handleCanvasKeyDown} className="relative min-w-0 flex-1 overflow-hidden bg-[#fafbfc]" data-testid="design-lab-canvas">
+        <section ref={canvasRef} tabIndex={-1} onClick={handleCanvasClick} onPointerDown={handleCanvasPointerDown} onPointerMove={handleCanvasPointerMove} onPointerUp={handleCanvasPointerUp} onKeyDown={handleCanvasKeyDown} className="relative min-w-0 flex-1 overflow-hidden bg-[#fafbfc]" data-testid="design-lab-canvas">
           <div className="pointer-events-none absolute inset-0 opacity-60" style={{ backgroundImage: "radial-gradient(#cbd5e1 0.65px, transparent 0.65px)", backgroundSize: "24px 24px" }} />
           {state.selectedComponents.length > 1 && (
             <div data-testid="design-lab-selection-count" className="absolute right-5 top-20 z-30 rounded-lg border border-slate-200 bg-white/95 px-3 py-1.5 text-[10px] font-medium text-slate-600 shadow-sm backdrop-blur-xl">
@@ -409,7 +409,9 @@ export default function ElectricalDesignLabPage() {
             <span className="font-medium text-slate-600">{zoom}%</span><button type="button" onClick={() => setZoom((v) => Math.max(50, v - 10))}>−</button><button type="button" onClick={() => setZoom((v) => Math.min(200, v + 10))}>+</button>
           </div>
 
-          <div data-testid="design-lab-schematic-viewport" className="absolute inset-0 origin-center transition-transform duration-200 ease-out" style={{ transform: `scale(${zoom / 100})` }}>
+          {marquee && <div data-testid="design-lab-marquee" className="pointer-events-none absolute z-20 border border-blue-400 bg-blue-500/10" style={{ left: marquee.x, top: marquee.y, width: marquee.width, height: marquee.height }} />}
+
+          <div data-testid="design-lab-schematic-viewport" className="absolute inset-0 origin-center transition-transform duration-200 ease-out" style={{ transform: `translate3d(${pan.x}px, ${pan.y}px, 0) scale(${zoom / 100})` }}>
             <svg className="pointer-events-none absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
               {state.connections.map((connection) => {
                 const from = components.find((item) => item.id === connection.from.componentId);
