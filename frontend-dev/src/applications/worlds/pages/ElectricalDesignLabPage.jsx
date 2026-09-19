@@ -66,6 +66,20 @@ function ComponentSymbol({ kind, selected }) {
   return <svg width="88" height="54" viewBox="0 0 88 54" aria-hidden="true"><path d="M2 27h22M64 27h22M43 45V9" fill="none" stroke={stroke} strokeWidth="2.2" strokeLinecap="round" /><circle cx="43" cy="27" r="19" fill="white" stroke={stroke} strokeWidth="2.2" /><path d="M43 17v20M38 22h10" fill="none" stroke={stroke} strokeWidth="2" strokeLinecap="round" /><circle cx="2" cy="27" r="3" fill={stroke} /><circle cx="86" cy="27" r="3" fill={stroke} /></svg>;
 }
 
+function connectionPath(from, to) {
+  const startX = Number.parseFloat(from.x) + (from.side === "right" ? 3 : -3);
+  const startY = Number.parseFloat(from.y);
+  const endX = Number.parseFloat(to.x) + (to.side === "right" ? 3 : -3);
+  const endY = Number.parseFloat(to.y);
+  const middleX = Number(((startX + endX) / 2).toFixed(2));
+
+  if (startY === endY) {
+    return `M ${startX} ${startY} H ${endX}`;
+  }
+
+  return `M ${startX} ${startY} H ${middleX} V ${endY} H ${endX}`;
+}
+
 function SchematicNode({ component, selected, tool, wireStart, onClick, onPointerDown, onPointerMove, onPointerUp, onPortClick }) {
   return (
     <div
@@ -283,21 +297,26 @@ export default function ElectricalDesignLabPage() {
           </div>
 
           <div data-testid="design-lab-schematic-viewport" className="absolute inset-0 origin-center transition-transform duration-200 ease-out" style={{ transform: `scale(${zoom / 100})` }}>
-            <svg className="pointer-events-none absolute inset-0 h-full w-full" aria-hidden="true">
+            <svg className="pointer-events-none absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
               {state.connections.map((connection) => {
                 const from = components.find((item) => item.id === connection.from.componentId);
                 const to = components.find((item) => item.id === connection.to.componentId);
                 if (!from || !to) return null;
                 return (
-                  <line
-                    key={`${connection.from.componentId}-${connection.to.componentId}`}
+                  <path
+                    key={`${connection.from.componentId}-${connection.from.side}-${connection.to.componentId}-${connection.to.side}`}
                     data-testid={`design-lab-connection-${connection.from.componentId}-${connection.to.componentId}`}
-                    x1={from.x}
-                    y1={from.y}
-                    x2={to.x}
-                    y2={to.y}
+                    data-from-side={connection.from.side}
+                    data-to-side={connection.to.side}
+                    d={connectionPath(
+                      { x: from.x, y: from.y, side: connection.from.side },
+                      { x: to.x, y: to.y, side: connection.to.side }
+                    )}
+                    fill="none"
                     stroke="#64748b"
-                    strokeWidth="2"
+                    strokeWidth="0.18"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
                   />
                 );
               })}
