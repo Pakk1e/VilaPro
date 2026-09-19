@@ -35,6 +35,8 @@ import {
   setTool,
   connectPort,
   deleteComponent,
+  startPlacement,
+  placeComponent,
 } from "../model/electricalDesignLab.js";
 
 const MODE_LABELS = { design: "Design", simulate: "Simulate", analyze: "Analyze" };
@@ -121,7 +123,7 @@ export default function ElectricalDesignLabPage() {
   const historyRef = useRef([]);
   const futureRef = useRef([]);
 
-  const components = useMemo(() => DESIGN_LAB_COMPONENTS
+  const components = useMemo(() => [...DESIGN_LAB_COMPONENTS, ...state.placedComponents]
     .filter((component) => !state.deletedComponents.includes(component.id))
     .map((component) => ({
       ...component,
@@ -136,6 +138,7 @@ export default function ElectricalDesignLabPage() {
   const choose = (id) => setState((current) => selectComponent(current, id));
   const toggle = (panel) => setState((current) => togglePanel(current, panel));
   const chooseTool = (tool) => setState((current) => setTool(current, tool));
+  const beginPlacement = (kind) => setState((current) => startPlacement(current, kind));
 
   const commitEdit = (updater) => {
     setState((current) => {
@@ -166,6 +169,17 @@ export default function ElectricalDesignLabPage() {
   };
 
   const choosePort = (componentId, side) => commitEdit((current) => connectPort(current, componentId, side));
+  const handleCanvasClick = (event) => {
+    if (!state.placementKind || event.target !== event.currentTarget || !canvasRef.current) return;
+    const rect = canvasRef.current.getBoundingClientRect();
+    const scale = zoom / 100;
+    const centerX = rect.width / 2;
+    const centerY = rect.height / 2;
+    const x = ((event.clientX - rect.left - centerX) / scale + centerX) / rect.width * 100;
+    const y = ((event.clientY - rect.top - centerY) / scale + centerY) / rect.height * 100;
+    commitEdit((current) => placeComponent(current, x, y));
+  };
+
   const handleCanvasKeyDown = (event) => {
     if ((event.key === "Backspace" || event.key === "Delete") && state.selectedComponent) {
       event.preventDefault();
@@ -250,8 +264,14 @@ export default function ElectricalDesignLabPage() {
           <div className="mt-auto"><IconButton label="Workspace settings"><Settings2 size={17} /></IconButton></div>
         </nav>
 
-        <section ref={canvasRef} tabIndex={-1} onKeyDown={handleCanvasKeyDown} className="relative min-w-0 flex-1 overflow-hidden bg-[#fafbfc]" data-testid="design-lab-canvas">
+        <section ref={canvasRef} tabIndex={-1} onClick={handleCanvasClick} onKeyDown={handleCanvasKeyDown} className="relative min-w-0 flex-1 overflow-hidden bg-[#fafbfc]" data-testid="design-lab-canvas">
           <div className="pointer-events-none absolute inset-0 opacity-60" style={{ backgroundImage: "radial-gradient(#cbd5e1 0.65px, transparent 0.65px)", backgroundSize: "24px 24px" }} />
+          {state.placementKind && (
+            <div className="absolute left-1/2 top-20 z-30 -translate-x-1/2 rounded-lg border border-blue-200 bg-white/95 px-3 py-1.5 text-[10px] font-medium text-blue-700 shadow-sm backdrop-blur-xl">
+              Click on the schematic to place {state.placementKind === "source" ? "Voltage Source" : state.placementKind === "resistor" ? "Resistor" : "Capacitor"}
+            </div>
+          )}
+
           <div className="absolute left-1/2 top-5 z-30 flex -translate-x-1/2 items-center gap-0.5 rounded-xl border border-slate-200/90 bg-white/90 p-1 shadow-[0_8px_30px_rgba(15,23,42,0.08)] backdrop-blur-xl">
             <IconButton label="Select tool" active={state.tool === "select"} onClick={() => chooseTool("select")}><MousePointer2 size={15} /></IconButton><IconButton label="Wire tool" active={state.tool === "wire"} onClick={() => chooseTool("wire")}><Activity size={15} /></IconButton><IconButton label="Add component" onClick={() => toggle("library")}><Box size={15} /></IconButton><IconButton label="Junction"><CircleDot size={15} /></IconButton><div className="mx-1 h-5 w-px bg-slate-200" /><IconButton label="Fit schematic"><Crosshair size={15} /></IconButton>
           </div>
@@ -310,7 +330,7 @@ export default function ElectricalDesignLabPage() {
             <div className="p-3"><div className="flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3"><Search size={14} className="text-slate-400" /><input aria-label="Search components" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search components" className="w-full bg-transparent text-[11px] outline-none placeholder:text-slate-400" /></div></div>
             <div className="max-h-[430px] overflow-auto px-2 pb-3">
               <div className="px-2 pb-2 pt-1 text-[9px] font-semibold uppercase tracking-[0.12em] text-slate-400">Basic</div>
-              {filtered.map((component) => <button key={component.id} type="button" onClick={() => choose(component.id)} className="flex w-full items-center gap-3 rounded-xl px-2 py-2.5 text-left hover:bg-slate-50"><div className="grid h-10 w-12 place-items-center rounded-lg bg-slate-50"><ComponentSymbol kind={component.kind} /></div><div className="min-w-0"><div className="text-[11px] font-medium text-slate-800">{component.name}</div><div className="mt-0.5 text-[10px] text-slate-400">{component.value}</div></div><Sparkles size={12} className="ml-auto text-slate-300" /></button>)}
+              {filtered.map((component) => <button key={component.id} type="button" onClick={() => beginPlacement(component.kind)} className="flex w-full items-center gap-3 rounded-xl px-2 py-2.5 text-left hover:bg-slate-50"><div className="grid h-10 w-12 place-items-center rounded-lg bg-slate-50"><ComponentSymbol kind={component.kind} /></div><div className="min-w-0"><div className="text-[11px] font-medium text-slate-800">{component.name}</div><div className="mt-0.5 text-[10px] text-slate-400">{component.value}</div></div><Sparkles size={12} className="ml-auto text-slate-300" /></button>)}
             </div>
           </aside>
         )}
