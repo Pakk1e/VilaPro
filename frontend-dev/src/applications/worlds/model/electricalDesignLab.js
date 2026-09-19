@@ -91,6 +91,16 @@ export function deleteSelectedComponents(state) {
   };
 }
 
+export function selectComponents(state, componentIds) {
+  const ids = [...new Set(componentIds)].filter((id) => state.positions?.[id]);
+  return {
+    ...state,
+    selectedComponent: ids[ids.length - 1] ?? null,
+    selectedComponents: ids,
+    inspectorOpen: ids.length === 1,
+  };
+}
+
 export function clearSelection(state) {
   if (!state.selectedComponent && !(state.selectedComponents || []).length && !state.inspectorOpen) return state;
   return {
@@ -241,7 +251,7 @@ export function updateComponentValue(state, componentId, value) {
 }
 
 export function setTool(state, tool) {
-  if (!["select", "wire"].includes(tool)) return state;
+  if (!["select", "wire", "pan"].includes(tool)) return state;
   return { ...state, tool, wireStart: null };
 }
 
