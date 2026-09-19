@@ -38,6 +38,7 @@ import {
   startPlacement,
   placeComponent,
   updateComponentValue,
+  rotateComponent,
 } from "../model/electricalDesignLab.js";
 
 const MODE_LABELS = { design: "Design", simulate: "Simulate", analyze: "Analyze" };
@@ -81,12 +82,13 @@ function connectionPath(from, to) {
   return `M ${startX} ${startY} H ${middleX} V ${endY} H ${endX}`;
 }
 
-function SchematicNode({ component, selected, tool, wireStart, onClick, onPointerDown, onPointerMove, onPointerUp, onPortClick }) {
+function SchematicNode({ component, selected, tool, wireStart, rotation, onClick, onPointerDown, onPointerMove, onPointerUp, onPortClick }) {
   return (
     <div
       role="button"
       tabIndex={0}
       data-testid={`design-lab-node-${component.id}`}
+      data-rotation={rotation}
       onClick={onClick}
       onKeyDown={(event) => {
         if (event.key === "Enter" || event.key === " ") onClick();
@@ -97,7 +99,10 @@ function SchematicNode({ component, selected, tool, wireStart, onClick, onPointe
       className={`absolute -translate-x-1/2 -translate-y-1/2 cursor-grab touch-none text-left outline-none active:cursor-grabbing ${selected ? "z-20" : "z-10"}`}
       style={{ left: component.x, top: component.y }}
     >
-      <div className={`relative rounded-xl px-3 py-2 transition ${selected ? "bg-white/95 ring-2 ring-blue-500/25 shadow-lg" : "hover:bg-white/70"}`}>
+      <div
+        className={`relative rounded-xl px-3 py-2 transition ${selected ? "bg-white/95 ring-2 ring-blue-500/25 shadow-lg" : "hover:bg-white/70"}`}
+        style={{ transform: `rotate(${rotation}deg)` }}
+      >
         <ComponentSymbol kind={component.kind} selected={selected} />
         <div className="mt-1 flex items-center justify-between gap-8 px-1 text-[11px]">
           <span className={`font-semibold ${selected ? "text-blue-600" : "text-slate-800"}`}>{component.id}</span>
@@ -155,6 +160,7 @@ export default function ElectricalDesignLabPage() {
   const toggle = (panel) => setState((current) => togglePanel(current, panel));
   const chooseTool = (tool) => setState((current) => setTool(current, tool));
   const beginPlacement = (kind) => setState((current) => startPlacement(current, kind));
+  const rotateSelected = () => commitEdit((current) => rotateComponent(current, current.selectedComponent));
 
   const commitEdit = (updater) => {
     setState((current) => {
@@ -329,6 +335,7 @@ export default function ElectricalDesignLabPage() {
                 component={component}
                 selected={component.id === state.selectedComponent}
                 tool={state.tool}
+                rotation={state.rotations[component.id] || 0}
                 wireStart={state.wireStart}
                 onClick={() => choose(component.id)}
                 onPointerDown={handlePointerDown}
@@ -341,7 +348,7 @@ export default function ElectricalDesignLabPage() {
 
           {state.selectedComponent && selected && (
             <div className="absolute left-1/2 top-[57%] z-30 flex -translate-x-1/2 items-center gap-1 rounded-xl border border-slate-200 bg-white/95 p-1 shadow-[0_10px_35px_rgba(15,23,42,0.12)] backdrop-blur-xl">
-              <span className="px-2 text-[10px] font-semibold text-slate-700">{selected.id}</span><button type="button" className="rounded-md px-2 py-1 text-[10px] text-slate-500 hover:bg-slate-100">Duplicate</button><button type="button" className="rounded-md px-2 py-1 text-[10px] text-slate-500 hover:bg-slate-100">Rotate</button><button type="button" onClick={() => choose(null)} className="grid h-6 w-6 place-items-center rounded-md text-slate-400 hover:bg-slate-100"><X size={13} /></button>
+              <span className="px-2 text-[10px] font-semibold text-slate-700">{selected.id}</span><button type="button" className="rounded-md px-2 py-1 text-[10px] text-slate-500 hover:bg-slate-100">Duplicate</button><button type="button" onClick={rotateSelected} className="rounded-md px-2 py-1 text-[10px] text-slate-500 hover:bg-slate-100">Rotate</button><button type="button" onClick={() => choose(null)} className="grid h-6 w-6 place-items-center rounded-md text-slate-400 hover:bg-slate-100"><X size={13} /></button>
             </div>
           )}
         </section>
