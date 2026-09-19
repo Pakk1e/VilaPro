@@ -372,6 +372,17 @@ export function moveComponentsByDelta(state, componentIds, dx, dy) {
   };
 }
 
+export function nudgeSelectedComponents(state, dx, dy) {
+  const ids = state.selectedComponents?.length
+    ? state.selectedComponents
+    : state.selectedComponent
+      ? [state.selectedComponent]
+      : [];
+  if (!ids.length) return state;
+  const step = state.gridEnabled ? state.gridSize : 1;
+  return moveComponentsByDelta(state, ids, dx * step, dy * step);
+}
+
 export function moveComponentsFromSnapshot(state, startPositions, dx, dy) {
   const ids = Object.keys(startPositions || {}).filter((id) => state.positions?.[id]);
   if (!ids.length) return state;
