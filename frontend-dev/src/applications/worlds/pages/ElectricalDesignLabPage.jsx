@@ -34,7 +34,7 @@ import {
   moveComponent,
   setTool,
   connectPort,
-  deleteComponent,
+  deleteSelectedComponents,
   startPlacement,
   placeComponent,
   updateComponentValue,
@@ -205,9 +205,14 @@ export default function ElectricalDesignLabPage() {
   };
 
   const handleCanvasKeyDown = (event) => {
-    if ((event.key === "Backspace" || event.key === "Delete") && state.selectedComponent) {
+    if (event.key === "Escape") {
       event.preventDefault();
-      commitEdit((current) => deleteComponent(current, current.selectedComponent));
+      setState((current) => selectComponent(current, null));
+      return;
+    }
+    if ((event.key === "Backspace" || event.key === "Delete") && state.selectedComponents.length) {
+      event.preventDefault();
+      commitEdit((current) => deleteSelectedComponents(current));
     }
   };
 
@@ -340,7 +345,7 @@ export default function ElectricalDesignLabPage() {
               <SchematicNode
                 key={component.id}
                 component={component}
-                selected={component.id === state.selectedComponent}
+                selected={state.selectedComponents.includes(component.id)}
                 tool={state.tool}
                 rotation={state.rotations[component.id] || 0}
                 wireStart={state.wireStart}
