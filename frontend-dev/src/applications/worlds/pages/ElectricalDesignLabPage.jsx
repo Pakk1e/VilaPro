@@ -31,7 +31,7 @@ import {
   selectComponent,
   setMode,
   togglePanel,
-  moveComponent,
+  moveComponentsByDelta,
   setTool,
   connectPort,
   deleteSelectedComponents,
@@ -221,8 +221,18 @@ export default function ElectricalDesignLabPage() {
     const position = state.positions[componentId];
     if (!position) return;
     const rect = canvasRef.current.getBoundingClientRect();
+    const selection = state.selectedComponents || [];
+    const dragSelection = event.shiftKey
+      ? (selection.includes(componentId) ? selection.filter((id) => id !== componentId) : [...selection, componentId])
+      : (selection.includes(componentId) ? selection : [componentId]);
+    const startPositions = Object.fromEntries(
+      dragSelection
+        .filter((id) => state.positions[id])
+        .map((id) => [id, state.positions[id]])
+    );
     dragRef.current = {
       componentId,
+      dragSelection,
       startClientX: event.clientX,
       startClientY: event.clientY,
       startX: position.x,
@@ -230,6 +240,7 @@ export default function ElectricalDesignLabPage() {
       width: rect.width,
       height: rect.height,
       zoom: zoom / 100,
+      startPositions,
       startState: state,
     };
     event.currentTarget.setPointerCapture?.(event.pointerId);
@@ -241,7 +252,7 @@ export default function ElectricalDesignLabPage() {
     if (!drag || drag.componentId !== componentId) return;
     const deltaX = ((event.clientX - drag.startClientX) / (drag.width * drag.zoom)) * 100;
     const deltaY = ((event.clientY - drag.startClientY) / (drag.height * drag.zoom)) * 100;
-    setState((current) => moveComponent(current, componentId, drag.startX + deltaX, drag.startY + deltaY));
+    setState((current) => moveComponentsByDelta(current, drag.dragSelection, deltaX, deltaY));
   };
 
   const handlePointerUp = (componentId, event) => {
