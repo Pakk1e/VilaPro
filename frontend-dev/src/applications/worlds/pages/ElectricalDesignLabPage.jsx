@@ -133,8 +133,6 @@ function connectionPath(from, to, components = []) {
 
 function SchematicNode({ component, selected, tool, wireStart, rotation, onPointerDown, onPointerMove, onPointerUp, onPortClick }) {
   const isSource = component.kind === "source";
-  const symbolHeight = isSource ? "61.4%" : "52.3%";
-
   return (
     <div
       role="button"
@@ -548,8 +546,9 @@ export default function ElectricalDesignLabPage() {
                     }}
                     style={{ pointerEvents: "stroke", cursor: "pointer" }}
                     d={connectionPath(
-                      { x: from.x, y: from.y, side: connection.from.side },
-                      { x: to.x, y: to.y, side: connection.to.side }
+                      { id: from.id, x: from.x, y: from.y, side: connection.from.side },
+                      { id: to.id, x: to.x, y: to.y, side: connection.to.side },
+                      components
                     )}
                     fill="none"
                     stroke="#64748b"
