@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity,
   Box,
@@ -339,11 +339,22 @@ export default function ElectricalDesignLabPage() {
       chooseTool("pan");
       return;
     }
-    if (key === "g") {
+  };
+
+  useEffect(() => {
+    const handleGlobalGridShortcut = (event) => {
+      const target = event.target;
+      if (
+        target instanceof HTMLElement &&
+        (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)
+      ) return;
+      if (event.key.toLowerCase() !== "g") return;
       event.preventDefault();
       toggleGridSnap();
-    }
-  };
+    };
+    window.addEventListener("keydown", handleGlobalGridShortcut);
+    return () => window.removeEventListener("keydown", handleGlobalGridShortcut);
+  });
 
   const handlePointerDown = (componentId, event) => {
     if (event.button !== 0 || !canvasRef.current) return;
