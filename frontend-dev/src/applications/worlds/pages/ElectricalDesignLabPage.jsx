@@ -170,7 +170,8 @@ export default function ElectricalDesignLabPage() {
 
   const choosePort = (componentId, side) => commitEdit((current) => connectPort(current, componentId, side));
   const handleCanvasClick = (event) => {
-    if (!state.placementKind || event.target !== event.currentTarget || !canvasRef.current) return;
+    if (!state.placementKind || !canvasRef.current) return;
+    if (event.target.closest?.("button,[role='button']")) return;
     const rect = canvasRef.current.getBoundingClientRect();
     const scale = zoom / 100;
     const centerX = rect.width / 2;
