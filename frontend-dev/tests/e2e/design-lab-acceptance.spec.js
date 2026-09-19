@@ -140,6 +140,33 @@ test("design lab inspector edits a component value", async ({ page }) => {
   await expect(node.getByText("470 Ω")).toBeVisible();
 });
 
+test("design lab duplicates a selected connected group with its internal wire", async ({ page }) => {
+  await page.goto("/worlds/design-lab", { waitUntil: "networkidle" });
+  const canvas = page.getByTestId("design-lab-canvas");
+  const resistor = page.getByTestId("design-lab-node-R1");
+  const capacitor = page.getByTestId("design-lab-node-C1");
+
+  await resistor.click();
+  await capacitor.click({ modifiers: ["Shift"] });
+  await expect(page.getByTestId("design-lab-selection-count")).toHaveText("2 selected");
+
+  await canvas.getByRole("button", { name: "Wire tool" }).click();
+  await page.getByTestId("design-lab-port-R1-right").click();
+  await page.getByTestId("design-lab-port-C1-left").click();
+  await expect(page.getByTestId("design-lab-connection-R1-C1")).toBeVisible();
+
+  await page.getByRole("button", { name: "Select tool" }).click();
+  await page.getByTestId("design-lab-node-R1").click();
+  await page.getByTestId("design-lab-node-C1").click({ modifiers: ["Shift"] });
+  await page.getByRole("button", { name: "Duplicate" }).click();
+
+  await expect(page.getByTestId("design-lab-node-R2")).toBeVisible();
+  await expect(page.getByTestId("design-lab-node-C2")).toBeVisible();
+  await expect(page.getByTestId("design-lab-connection-R2-C2")).toHaveAttribute("data-from-side", "right");
+  await expect(page.getByTestId("design-lab-connection-R2-C2")).toHaveAttribute("data-to-side", "left");
+  await expect(page.getByTestId("design-lab-selection-count")).toHaveText("2 selected");
+});
+
 test("design lab rotates the selected component by 90 degrees", async ({ page }) => {
   await page.goto("/worlds/design-lab", { waitUntil: "networkidle" });
   const node = page.getByTestId("design-lab-node-R1");
