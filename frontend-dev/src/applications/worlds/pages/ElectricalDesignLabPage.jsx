@@ -156,7 +156,7 @@ export default function ElectricalDesignLabPage() {
   const selected = components.find((item) => item.id === state.selectedComponent);
 
   const changeMode = (mode) => setState((current) => setMode(current, mode));
-  const choose = (id) => setState((current) => selectComponent(current, id));
+  const choose = (id, additive = false) => setState((current) => selectComponent(current, id, additive));
   const toggle = (panel) => setState((current) => togglePanel(current, panel));
   const chooseTool = (tool) => setState((current) => setTool(current, tool));
   const beginPlacement = (kind) => setState((current) => startPlacement(current, kind));
@@ -289,6 +289,12 @@ export default function ElectricalDesignLabPage() {
 
         <section ref={canvasRef} tabIndex={-1} onClick={handleCanvasClick} onKeyDown={handleCanvasKeyDown} className="relative min-w-0 flex-1 overflow-hidden bg-[#fafbfc]" data-testid="design-lab-canvas">
           <div className="pointer-events-none absolute inset-0 opacity-60" style={{ backgroundImage: "radial-gradient(#cbd5e1 0.65px, transparent 0.65px)", backgroundSize: "24px 24px" }} />
+          {state.selectedComponents.length > 1 && (
+            <div data-testid="design-lab-selection-count" className="absolute right-5 top-20 z-30 rounded-lg border border-slate-200 bg-white/95 px-3 py-1.5 text-[10px] font-medium text-slate-600 shadow-sm backdrop-blur-xl">
+              {state.selectedComponents.length} selected
+            </div>
+          )}
+
           {state.placementKind && (
             <div className="absolute left-1/2 top-20 z-30 -translate-x-1/2 rounded-lg border border-blue-200 bg-white/95 px-3 py-1.5 text-[10px] font-medium text-blue-700 shadow-sm backdrop-blur-xl">
               Click on the schematic to place {state.placementKind === "source" ? "Voltage Source" : state.placementKind === "resistor" ? "Resistor" : "Capacitor"}
@@ -337,7 +343,7 @@ export default function ElectricalDesignLabPage() {
                 tool={state.tool}
                 rotation={state.rotations[component.id] || 0}
                 wireStart={state.wireStart}
-                onClick={() => choose(component.id)}
+                onClick={(event) => choose(component.id, event.shiftKey)}
                 onPointerDown={handlePointerDown}
                 onPointerMove={handlePointerMove}
                 onPointerUp={handlePointerUp}
