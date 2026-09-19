@@ -398,3 +398,28 @@ test("design lab toggles grid snapping with G", async ({ page }) => {
   await page.keyboard.press("g");
   await expect(grid).toHaveClass(/bg-slate-100/);
 });
+
+
+test("design lab nudges a selected component with arrow keys", async ({ page }) => {
+  await page.goto("/worlds/design-lab", { waitUntil: "networkidle" });
+  const canvas = page.getByTestId("design-lab-canvas");
+  const node = page.getByTestId("design-lab-node-R1");
+
+  await node.click();
+  const before = await node.boundingBox();
+  if (!before) throw new Error("Unable to measure schematic node.");
+
+  await canvas.focus();
+  await page.keyboard.press("ArrowRight");
+
+  await expect.poll(async () => {
+    const after = await node.boundingBox();
+    return after?.x ?? before.x;
+  }).toBeGreaterThan(before.x + 1);
+
+  await page.keyboard.press("Shift+ArrowRight");
+  await expect.poll(async () => {
+    const after = await node.boundingBox();
+    return after?.x ?? before.x;
+  }).toBeGreaterThan(before.x + 10);
+});
