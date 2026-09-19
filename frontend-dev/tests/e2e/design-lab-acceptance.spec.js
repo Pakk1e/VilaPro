@@ -19,7 +19,6 @@ test("design lab zoom changes schematic scale", async ({ page }) => {
 
 test("design lab component can be repositioned on the schematic", async ({ page }) => {
   await page.goto("/worlds/design-lab", { waitUntil: "networkidle" });
-  const canvas = page.getByTestId("design-lab-canvas");
   const node = page.getByTestId("design-lab-node-R1");
   await expect(node).toBeVisible();
   const before = await node.boundingBox();
@@ -67,7 +66,6 @@ test("design lab removes the selected component with Backspace", async ({ page }
 
 test("design lab undo restores the last document edit and redo reapplies it", async ({ page }) => {
   await page.goto("/worlds/design-lab", { waitUntil: "networkidle" });
-  const canvas = page.getByTestId("design-lab-canvas");
   const node = page.getByTestId("design-lab-node-C1");
 
   await node.click();
