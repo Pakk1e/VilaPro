@@ -38,3 +38,17 @@ test("design lab component can be repositioned on the schematic", async ({ page 
     return after?.x ?? before.x;
   }, { timeout: 1000 }).toBeGreaterThan(before.x + 80);
 });
+
+
+test("design lab wire tool creates a connection between component ports", async ({ page }) => {
+  await page.goto("/worlds/design-lab", { waitUntil: "networkidle" });
+  const canvas = page.getByTestId("design-lab-canvas");
+  await expect(canvas).toBeVisible();
+  await canvas.getByRole("button", { name: "Wire tool" }).click();
+  await expect(canvas.getByRole("button", { name: "Wire tool" })).toHaveAttribute("aria-label", "Wire tool");
+
+  await page.getByTestId("design-lab-port-R1-right").click();
+  await page.getByTestId("design-lab-port-C1-left").click();
+
+  await expect(page.getByTestId("design-lab-connection-R1-C1")).toBeVisible();
+});
