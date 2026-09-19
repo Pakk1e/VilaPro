@@ -7,6 +7,7 @@ export const DESIGN_LAB_COMPONENTS = [
 export function createDesignLabState() {
   return {
     mode: "design",
+    tool: "select",
     selectedComponent: null,
     libraryOpen: false,
     inspectorOpen: false,
@@ -16,6 +17,49 @@ export function createDesignLabState() {
       R1: { x: 49, y: 46 },
       C1: { x: 67, y: 46 },
     },
+    wireStart: null,
+    connections: [],
+  };
+}
+
+export function setTool(state, tool) {
+  if (!["select", "wire"].includes(tool)) return state;
+  return { ...state, tool, wireStart: null };
+}
+
+export function connectPort(state, componentId, side) {
+  if (state.tool !== "wire") return state;
+  if (!state.positions?.[componentId] || !["left", "right"].includes(side)) return state;
+
+  if (!state.wireStart) {
+    return { ...state, wireStart: { componentId, side } };
+  }
+
+  const start = state.wireStart;
+  if (start.componentId === componentId && start.side === side) {
+    return { ...state, wireStart: null };
+  }
+
+  const duplicate = state.connections.some(
+    (connection) =>
+      connection.from.componentId === start.componentId &&
+      connection.from.side === start.side &&
+      connection.to.componentId === componentId &&
+      connection.to.side === side
+  );
+
+  if (duplicate) return { ...state, wireStart: null };
+
+  return {
+    ...state,
+    wireStart: null,
+    connections: [
+      ...state.connections,
+      {
+        from: start,
+        to: { componentId, side },
+      },
+    ],
   };
 }
 
