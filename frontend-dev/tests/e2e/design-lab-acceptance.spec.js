@@ -54,3 +54,13 @@ test("design lab wire tool creates a connection between component ports", async 
   await expect(connection).toHaveAttribute("x1", "49%");
   await expect(connection).toHaveAttribute("x2", "67%");
 });
+
+
+test("design lab removes the selected component with Backspace", async ({ page }) => {
+  await page.goto("/worlds/design-lab", { waitUntil: "networkidle" });
+  const node = page.getByTestId("design-lab-node-C1");
+  await node.click();
+  await expect(node).toBeVisible();
+  await page.keyboard.press("Backspace");
+  await expect(node).toBeHidden();
+});
