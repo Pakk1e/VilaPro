@@ -118,6 +118,8 @@ export default function ElectricalDesignLabPage() {
   const [zoom, setZoom] = useState(100);
   const canvasRef = useRef(null);
   const dragRef = useRef(null);
+  const historyRef = useRef([]);
+  const futureRef = useRef([]);
 
   const components = useMemo(() => DESIGN_LAB_COMPONENTS
     .filter((component) => !state.deletedComponents.includes(component.id))
@@ -134,11 +136,40 @@ export default function ElectricalDesignLabPage() {
   const choose = (id) => setState((current) => selectComponent(current, id));
   const toggle = (panel) => setState((current) => togglePanel(current, panel));
   const chooseTool = (tool) => setState((current) => setTool(current, tool));
-  const choosePort = (componentId, side) => setState((current) => connectPort(current, componentId, side));
+
+  const commitEdit = (updater) => {
+    setState((current) => {
+      const next = updater(current);
+      if (next === current) return current;
+      historyRef.current.push(current);
+      futureRef.current = [];
+      return next;
+    });
+  };
+
+  const undo = () => {
+    setState((current) => {
+      const previous = historyRef.current.pop();
+      if (!previous) return current;
+      futureRef.current.push(current);
+      return previous;
+    });
+  };
+
+  const redo = () => {
+    setState((current) => {
+      const next = futureRef.current.pop();
+      if (!next) return current;
+      historyRef.current.push(current);
+      return next;
+    });
+  };
+
+  const choosePort = (componentId, side) => commitEdit((current) => connectPort(current, componentId, side));
   const handleCanvasKeyDown = (event) => {
     if ((event.key === "Backspace" || event.key === "Delete") && state.selectedComponent) {
       event.preventDefault();
-      setState((current) => deleteComponent(current, current.selectedComponent));
+      commitEdit((current) => deleteComponent(current, current.selectedComponent));
     }
   };
 
@@ -156,6 +187,7 @@ export default function ElectricalDesignLabPage() {
       width: rect.width,
       height: rect.height,
       zoom: zoom / 100,
+      startState: state,
     };
     event.currentTarget.setPointerCapture?.(event.pointerId);
     choose(componentId);
@@ -172,7 +204,17 @@ export default function ElectricalDesignLabPage() {
   const handlePointerUp = (componentId, event) => {
     if (dragRef.current?.componentId !== componentId) return;
     event.currentTarget.releasePointerCapture?.(event.pointerId);
+    const drag = dragRef.current;
     dragRef.current = null;
+    if (!drag) return;
+    const finalPosition = state.positions[componentId];
+    if (
+      finalPosition &&
+      (finalPosition.x !== drag.startX || finalPosition.y !== drag.startY)
+    ) {
+      historyRef.current.push(drag.startState);
+      futureRef.current = [];
+    }
   };
 
   return (
@@ -190,7 +232,7 @@ export default function ElectricalDesignLabPage() {
         </div>
         <div className="flex min-w-[250px] items-center justify-end gap-1">
           <span className="mr-3 flex items-center gap-1.5 text-[10px] text-slate-400"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />Saved</span>
-          <IconButton label="Undo"><Undo2 size={15} /></IconButton><IconButton label="Redo"><Redo2 size={15} /></IconButton>
+          <IconButton label="Undo" onClick={undo} active={historyRef.current.length > 0}><Undo2 size={15} /></IconButton><IconButton label="Redo" onClick={redo} active={futureRef.current.length > 0}><Redo2 size={15} /></IconButton>
           <div className="mx-2 h-5 w-px bg-slate-200" />
           <IconButton label="Settings"><Settings2 size={16} /></IconButton><IconButton label="Help"><HelpCircle size={16} /></IconButton>
           <div className="ml-2 grid h-7 w-7 place-items-center rounded-full bg-slate-200 text-[10px] font-semibold">JV</div>
