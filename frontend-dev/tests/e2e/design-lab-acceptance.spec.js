@@ -137,5 +137,5 @@ test("design lab inspector edits a component value", async ({ page }) => {
   await value.blur();
 
   await expect(value).toHaveValue("470 Ω");
-  await expect(inspector.getByText("470 Ω")).toBeVisible();
+  await expect(node.getByText("470 Ω")).toBeVisible();
 });
