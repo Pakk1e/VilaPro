@@ -335,3 +335,23 @@ test("design lab ignores document shortcuts while editing component values", asy
   await value.press("Control+d");
   await expect(page.getByTestId("design-lab-node-R2")).toBeHidden();
 });
+
+
+test("design lab selects and deletes a schematic wire", async ({ page }) => {
+  await page.goto("/worlds/design-lab", { waitUntil: "networkidle" });
+  const canvas = page.getByTestId("design-lab-canvas");
+  await canvas.getByRole("button", { name: "Wire tool" }).click();
+  await page.getByTestId("design-lab-port-R1-right").click();
+  await page.getByTestId("design-lab-port-C1-left").click();
+
+  const wire = page.getByTestId("design-lab-connection-R1-C1");
+  await expect(wire).toBeVisible();
+
+  const box = await wire.boundingBox();
+  if (!box) throw new Error("Unable to measure schematic wire.");
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  await expect(wire).toHaveAttribute("data-selected", "true");
+
+  await page.keyboard.press("Delete");
+  await expect(wire).toBeHidden();
+});
