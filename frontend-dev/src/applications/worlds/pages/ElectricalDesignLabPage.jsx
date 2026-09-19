@@ -34,6 +34,7 @@ import {
   togglePanel,
   moveComponentsByDelta,
   moveComponentsFromSnapshot,
+  nudgeSelectedComponents,
   toggleGrid,
   setTool,
   connectPort,
@@ -259,6 +260,18 @@ export default function ElectricalDesignLabPage() {
     if ((event.key === "Backspace" || event.key === "Delete") && state.selectedConnection) {
       event.preventDefault();
       commitEdit((current) => deleteSelectedConnection(current));
+      return;
+    }
+    if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key) && state.selectedComponents.length) {
+      event.preventDefault();
+      const multiplier = event.shiftKey ? 10 : 1;
+      const direction = {
+        ArrowLeft: [-1, 0],
+        ArrowRight: [1, 0],
+        ArrowUp: [0, -1],
+        ArrowDown: [0, 1],
+      }[event.key];
+      commitEdit((current) => nudgeSelectedComponents(current, direction[0] * multiplier, direction[1] * multiplier));
       return;
     }
     if ((event.key === "Backspace" || event.key === "Delete") && state.selectedComponents.length) {
