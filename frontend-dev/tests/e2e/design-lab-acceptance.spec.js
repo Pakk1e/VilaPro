@@ -423,3 +423,41 @@ test("design lab nudges a selected component with arrow keys", async ({ page }) 
     return after?.x ?? before.x;
   }).toBeGreaterThan(before.x + 10);
 });
+
+
+test("design lab aligns a selected group", async ({ page }) => {
+  await page.goto("/worlds/design-lab", { waitUntil: "networkidle" });
+  const resistor = page.getByTestId("design-lab-node-R1");
+  const capacitor = page.getByTestId("design-lab-node-C1");
+  await resistor.click();
+  await capacitor.click({ modifiers: ["Shift"] });
+
+  await page.getByRole("button", { name: "Align horizontal" }).click();
+
+  const rStyle = await resistor.getAttribute("style");
+  const cStyle = await capacitor.getAttribute("style");
+  const rTop = Number.parseFloat(rStyle?.match(/top:\s*([0-9.]+)%/)?.[1] ?? "NaN");
+  const cTop = Number.parseFloat(cStyle?.match(/top:\s*([0-9.]+)%/)?.[1] ?? "NaN");
+  expect(rTop).toBe(cTop);
+});
+
+test("design lab distributes three selected components", async ({ page }) => {
+  await page.goto("/worlds/design-lab", { waitUntil: "networkidle" });
+  const resistor = page.getByTestId("design-lab-node-R1");
+  const capacitor = page.getByTestId("design-lab-node-C1");
+
+  await resistor.click();
+  await capacitor.click({ modifiers: ["Shift"] });
+  await page.getByRole("button", { name: "Add component" }).click();
+  await page.getByRole("button", { name: /Resistor/ }).click();
+  await page.getByTestId("design-lab-canvas").click({ position: { x: 600, y: 450 } });
+  const placed = page.getByTestId("design-lab-node-R2");
+  await expect(placed).toBeVisible();
+  await placed.click({ modifiers: ["Shift"] });
+
+  await page.getByRole("button", { name: "Distribute horizontal" }).click();
+
+  const styles = await Promise.all([resistor, placed, capacitor].map((node) => node.getAttribute("style")));
+  const xs = styles.map((style) => Number.parseFloat(style?.match(/left:\s*([0-9.]+)%/)?.[1] ?? "NaN")).sort((a,b) => a-b);
+  expect(xs[1] - xs[0]).toBeCloseTo(xs[2] - xs[1], 0);
+});
