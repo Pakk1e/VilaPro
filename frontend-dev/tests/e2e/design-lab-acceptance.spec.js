@@ -162,6 +162,36 @@ test("design lab supports multi-selection with Shift-click", async ({ page }) =>
   await expect(page.getByTestId("design-lab-selection-count")).toHaveText("2 selected");
 });
 
+test("design lab deletes all selected components together", async ({ page }) => {
+  await page.goto("/worlds/design-lab", { waitUntil: "networkidle" });
+  const resistor = page.getByTestId("design-lab-node-R1");
+  const capacitor = page.getByTestId("design-lab-node-C1");
+
+  await resistor.click();
+  await capacitor.click({ modifiers: ["Shift"] });
+  await expect(page.getByTestId("design-lab-selection-count")).toHaveText("2 selected");
+
+  await page.keyboard.press("Delete");
+
+  await expect(resistor).toBeHidden();
+  await expect(capacitor).toBeHidden();
+});
+
+test("design lab clears multi-selection with Escape", async ({ page }) => {
+  await page.goto("/worlds/design-lab", { waitUntil: "networkidle" });
+  const resistor = page.getByTestId("design-lab-node-R1");
+  const capacitor = page.getByTestId("design-lab-node-C1");
+
+  await resistor.click();
+  await capacitor.click({ modifiers: ["Shift"] });
+  await expect(page.getByTestId("design-lab-selection-count")).toHaveText("2 selected");
+
+  await page.keyboard.press("Escape");
+
+  await expect(page.getByTestId("design-lab-selection-count")).toBeHidden();
+  await expect(page.getByRole("button", { name: "Rotate" })).toBeHidden();
+});
+
 test("design lab moves the selected group together", async ({ page }) => {
   await page.goto("/worlds/design-lab", { waitUntil: "networkidle" });
   const resistor = page.getByTestId("design-lab-node-R1");
