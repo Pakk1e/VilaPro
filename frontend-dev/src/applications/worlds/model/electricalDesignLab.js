@@ -145,6 +145,78 @@ export function placeComponent(state, x, y) {
   };
 }
 
+export function duplicateSelectedComponents(state) {
+  const selected = state.selectedComponents?.length
+    ? state.selectedComponents
+    : state.selectedComponent
+      ? [state.selectedComponent]
+      : [];
+  const sourceIds = selected.filter((id) => state.positions?.[id]);
+  if (!sourceIds.length) return state;
+
+  const usedIds = new Set(Object.keys(state.positions || {}));
+  const nextIdFor = (component) => {
+    const prefix = component.kind === "source" ? "V" : component.kind === "resistor" ? "R" : "C";
+    let index = 1;
+    while (usedIds.has(prefix + index)) index += 1;
+    const id = prefix + index;
+    usedIds.add(id);
+    return id;
+  };
+
+  const sourceComponents = sourceIds.map((id) =>
+    [...DESIGN_LAB_COMPONENTS, ...state.placedComponents].find((component) => component.id === id)
+  ).filter(Boolean);
+
+  const idMap = {};
+  const newPositions = { ...state.positions };
+  const newValues = { ...state.values };
+  const newRotations = { ...state.rotations };
+  const newPlacedComponents = [...state.placedComponents];
+
+  sourceComponents.forEach((component) => {
+    const nextId = nextIdFor(component);
+    idMap[component.id] = nextId;
+    const position = state.positions[component.id];
+    newPositions[nextId] = {
+      x: Math.max(5, Math.min(95, position.x + 6)),
+      y: Math.max(8, Math.min(92, position.y + 6)),
+    };
+    newValues[nextId] = state.values[component.id] ?? component.value;
+    newRotations[nextId] = state.rotations[component.id] || 0;
+    newPlacedComponents.push({ ...component, id: nextId });
+  });
+
+  const duplicatedConnections = state.connections
+    .filter(
+      (connection) =>
+        idMap[connection.from.componentId] &&
+        idMap[connection.to.componentId]
+    )
+    .map((connection) => ({
+      from: {
+        ...connection.from,
+        componentId: idMap[connection.from.componentId],
+      },
+      to: {
+        ...connection.to,
+        componentId: idMap[connection.to.componentId],
+      },
+    }));
+
+  return {
+    ...state,
+    positions: newPositions,
+    values: newValues,
+    rotations: newRotations,
+    placedComponents: newPlacedComponents,
+    connections: [...state.connections, ...duplicatedConnections],
+    selectedComponent: idMap[sourceIds[sourceIds.length - 1]],
+    selectedComponents: sourceIds.map((id) => idMap[id]),
+    inspectorOpen: sourceIds.length === 1,
+  };
+}
+
 export function rotateComponent(state, componentId) {
   if (!state.positions?.[componentId]) return state;
   return {
