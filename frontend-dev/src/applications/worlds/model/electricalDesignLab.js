@@ -4,6 +4,12 @@ export const DESIGN_LAB_COMPONENTS = [
   { id: "C1", kind: "capacitor", name: "Capacitor", value: "10 µF" },
 ];
 
+export const DESIGN_LAB_LIBRARY = [
+  { kind: "source", name: "Voltage Source", value: "5 V" },
+  { kind: "resistor", name: "Resistor", value: "1 kΩ" },
+  { kind: "capacitor", name: "Capacitor", value: "10 µF" },
+];
+
 export function createDesignLabState() {
   return {
     mode: "design",
@@ -20,6 +26,8 @@ export function createDesignLabState() {
     wireStart: null,
     connections: [],
     deletedComponents: [],
+    placedComponents: [],
+    placementKind: null,
   };
 }
 
@@ -37,6 +45,41 @@ export function deleteComponent(state, componentId) {
     ),
     wireStart:
       state.wireStart?.componentId === componentId ? null : state.wireStart,
+  };
+}
+
+export function startPlacement(state, kind) {
+  if (!DESIGN_LAB_LIBRARY.some((item) => item.kind === kind)) return state;
+  return { ...state, placementKind: kind, libraryOpen: true };
+}
+
+export function placeComponent(state, x, y) {
+  const definition = DESIGN_LAB_LIBRARY.find((item) => item.kind === state.placementKind);
+  if (!definition) return state;
+
+  const prefix = definition.kind === "source" ? "V" : definition.kind === "resistor" ? "R" : "C";
+  const usedIds = new Set(Object.keys(state.positions || {}));
+  let index = 1;
+  while (usedIds.has(prefix + index)) index += 1;
+  const id = prefix + index;
+
+  return {
+    ...state,
+    placementKind: null,
+    libraryOpen: false,
+    selectedComponent: id,
+    inspectorOpen: true,
+    positions: {
+      ...state.positions,
+      [id]: {
+        x: Math.max(5, Math.min(95, x)),
+        y: Math.max(8, Math.min(92, y)),
+      },
+    },
+    placedComponents: [
+      ...state.placedComponents,
+      { id, ...definition },
+    ],
   };
 }
 
