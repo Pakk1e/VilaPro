@@ -206,7 +206,7 @@ test("design lab pan tool moves the schematic viewport without moving component 
   const before = await node.boundingBox();
   if (!before) throw new Error("Unable to measure schematic node.");
 
-  await canvas.getByRole("button", { name: "Pan" }).click();
+  await page.getByRole("button", { name: "Pan" }).click();
   const canvasBox = await canvas.boundingBox();
   if (!canvasBox) throw new Error("Unable to measure canvas.");
 
