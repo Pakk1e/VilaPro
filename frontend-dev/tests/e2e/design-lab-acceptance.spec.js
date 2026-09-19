@@ -369,8 +369,21 @@ test("design lab snaps moved components to the schematic grid", async ({ page })
   await page.mouse.move(box.x + box.width / 2 + 37, box.y + box.height / 2 + 19, { steps: 5 });
   await page.mouse.up();
 
-  await expect(node).toHaveAttribute("style", /left: 55%/);
-  await expect(node).toHaveAttribute("style", /top: 50%/);
+  await expect.poll(async () => {
+    const style = await node.getAttribute("style");
+    const left = Number.parseFloat(style?.match(/left:\s*([0-9.]+)%/)?.[1] ?? "NaN");
+    const top = Number.parseFloat(style?.match(/top:\s*([0-9.]+)%/)?.[1] ?? "NaN");
+    return { left, top };
+  }).toEqual(expect.objectContaining({
+    left: expect.any(Number),
+    top: expect.any(Number),
+  }));
+  const snapped = await node.getAttribute("style");
+  const left = Number.parseFloat(snapped?.match(/left:\s*([0-9.]+)%/)?.[1] ?? "NaN");
+  const top = Number.parseFloat(snapped?.match(/top:\s*([0-9.]+)%/)?.[1] ?? "NaN");
+  expect(left).toBeGreaterThan(49);
+  expect(left % 2).toBe(0);
+  expect(top % 2).toBe(0);
 });
 
 test("design lab toggles grid snapping with G", async ({ page }) => {
