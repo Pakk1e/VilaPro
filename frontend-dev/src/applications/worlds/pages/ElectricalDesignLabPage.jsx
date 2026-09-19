@@ -29,6 +29,7 @@ import {
   createDesignLabState,
   DESIGN_LAB_COMPONENTS,
   selectComponent,
+  selectComponents,
   setMode,
   togglePanel,
   moveComponentsByDelta,
@@ -140,8 +141,12 @@ export default function ElectricalDesignLabPage() {
   const [state, setState] = useState(createDesignLabState);
   const [query, setQuery] = useState("");
   const [zoom, setZoom] = useState(100);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [marquee, setMarquee] = useState(null);
   const canvasRef = useRef(null);
   const dragRef = useRef(null);
+  const marqueeRef = useRef(null);
+  const suppressCanvasClickRef = useRef(false);
   const historyRef = useRef([]);
   const futureRef = useRef([]);
 
