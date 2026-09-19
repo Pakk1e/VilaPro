@@ -15,3 +15,23 @@ test("design lab zoom changes schematic scale", async ({ page }) => {
     return box?.width ?? 0;
   }, { timeout: 1000 }).toBeGreaterThan(before.width);
 });
+
+
+test("design lab component can be repositioned on the schematic", async ({ page }) => {
+  await page.goto("/worlds/design-lab", { waitUntil: "networkidle" });
+  const canvas = page.getByTestId("design-lab-canvas");
+  const node = page.getByTestId("design-lab-node-R1");
+  await expect(node).toBeVisible();
+  const before = await node.boundingBox();
+  const canvasBox = await canvas.boundingBox();
+  if (!before || !canvasBox) throw new Error("Unable to measure design lab geometry.");
+
+  await node.dispatchEvent("pointerdown", { clientX: before.x + before.width / 2, clientY: before.y + before.height / 2, pointerId: 1, buttons: 1 });
+  await page.mouse.move(before.x + before.width / 2 + 120, before.y + before.height / 2, { steps: 4 });
+  await page.mouse.up();
+
+  await expect.poll(async () => {
+    const after = await node.boundingBox();
+    return after?.x ?? before.x;
+  }, { timeout: 1000 }).toBeGreaterThan(before.x + 80);
+});
