@@ -130,13 +130,18 @@ export function placeComponent(state, x, y) {
   while (usedIds.has(prefix + index)) index += 1;
   const id = prefix + index;
 
+  const preserveGroup = (state.selectedComponents || []).length > 1;
+  const selectedComponents = preserveGroup
+    ? [...state.selectedComponents, id]
+    : [id];
+
   return {
     ...state,
     placementKind: null,
     libraryOpen: false,
     selectedComponent: id,
-    selectedComponents: [id],
-    inspectorOpen: true,
+    selectedComponents,
+    inspectorOpen: selectedComponents.length === 1,
     positions: {
       ...state.positions,
       [id]: {
@@ -323,7 +328,7 @@ export function selectComponent(state, componentId, additive = false) {
   const current = state.selectedComponents || [];
   const selectedComponents = additive
     ? current.includes(componentId)
-      ? current.filter((id) => id !== componentId)
+      ? current
       : [...current, componentId]
     : [componentId];
 
