@@ -19,6 +19,24 @@ export function createDesignLabState() {
     },
     wireStart: null,
     connections: [],
+    deletedComponents: [],
+  };
+}
+
+export function deleteComponent(state, componentId) {
+  if (!state.positions?.[componentId] || state.deletedComponents.includes(componentId)) return state;
+  return {
+    ...state,
+    selectedComponent: state.selectedComponent === componentId ? null : state.selectedComponent,
+    inspectorOpen: state.selectedComponent === componentId ? false : state.inspectorOpen,
+    deletedComponents: [...state.deletedComponents, componentId],
+    connections: state.connections.filter(
+      (connection) =>
+        connection.from.componentId !== componentId &&
+        connection.to.componentId !== componentId
+    ),
+    wireStart:
+      state.wireStart?.componentId === componentId ? null : state.wireStart,
   };
 }
 
