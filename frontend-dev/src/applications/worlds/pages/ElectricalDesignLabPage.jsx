@@ -66,32 +66,75 @@ function IconButton({ label, active = false, children, onClick }) {
   );
 }
 
-function ComponentSymbol({ kind, selected }) {
+function ComponentSymbol({ kind, selected, showPorts = false }) {
   const stroke = selected ? "#2563eb" : "#18212b";
+  const port = showPorts ? (
+    <>
+      <circle cx="2" cy={kind === "source" ? "27" : "23"} r="2.5" fill={stroke} />
+      <circle cx="86" cy={kind === "source" ? "27" : "23"} r="2.5" fill={stroke} />
+    </>
+  ) : null;
+
   if (kind === "resistor") {
-    return <svg width="88" height="46" viewBox="0 0 88 46" aria-hidden="true"><path d="M2 23h17l6-10 10 20 10-20 10 20 10-20 6 10h15" fill="none" stroke={stroke} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /><circle cx="2" cy="23" r="3" fill={stroke} /><circle cx="86" cy="23" r="3" fill={stroke} /></svg>;
+    return (
+      <svg width="100%" viewBox="0 0 88 46" aria-hidden="true">
+        <path d="M2 23h17l6-10 10 20 10-20 10 20 10-20 6 10h15" fill="none" stroke={stroke} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+        {port}
+      </svg>
+    );
   }
   if (kind === "capacitor") {
-    return <svg width="88" height="46" viewBox="0 0 88 46" aria-hidden="true"><path d="M2 23h30M56 23h30M32 8v30M56 8v30" fill="none" stroke={stroke} strokeWidth="2.2" strokeLinecap="round" /><circle cx="2" cy="23" r="3" fill={stroke} /><circle cx="86" cy="23" r="3" fill={stroke} /></svg>;
+    return (
+      <svg width="100%" viewBox="0 0 88 46" aria-hidden="true">
+        <path d="M2 23h30M56 23h30M32 8v30M56 8v30" fill="none" stroke={stroke} strokeWidth="2.2" strokeLinecap="round" />
+        {port}
+      </svg>
+    );
   }
-  return <svg width="88" height="54" viewBox="0 0 88 54" aria-hidden="true"><path d="M2 27h22M64 27h22M43 45V9" fill="none" stroke={stroke} strokeWidth="2.2" strokeLinecap="round" /><circle cx="43" cy="27" r="19" fill="white" stroke={stroke} strokeWidth="2.2" /><path d="M43 17v20M38 22h10" fill="none" stroke={stroke} strokeWidth="2" strokeLinecap="round" /><circle cx="2" cy="27" r="3" fill={stroke} /><circle cx="86" cy="27" r="3" fill={stroke} /></svg>;
+  return (
+    <svg width="100%" viewBox="0 0 88 54" aria-hidden="true">
+      <path d="M2 27h22M64 27h22M43 45V9" fill="none" stroke={stroke} strokeWidth="2.2" strokeLinecap="round" />
+      <circle cx="43" cy="27" r="19" fill="white" stroke={stroke} strokeWidth="2.2" />
+      <path d="M43 17v20M38 22h10" fill="none" stroke={stroke} strokeWidth="2" strokeLinecap="round" />
+      {port}
+    </svg>
+  );
 }
 
-function connectionPath(from, to) {
-  const startX = Number.parseFloat(from.x) + (from.side === "right" ? 3 : -3);
+function connectionPath(from, to, components = []) {
+  const portOffset = 6;
+  const startX = Number.parseFloat(from.x) + (from.side === "right" ? portOffset : -portOffset);
   const startY = Number.parseFloat(from.y);
-  const endX = Number.parseFloat(to.x) + (to.side === "right" ? 3 : -3);
+  const endX = Number.parseFloat(to.x) + (to.side === "right" ? portOffset : -portOffset);
   const endY = Number.parseFloat(to.y);
-  const middleX = Number(((startX + endX) / 2).toFixed(2));
 
   if (startY === endY) {
     return `M ${startX} ${startY} H ${endX}`;
   }
 
-  return `M ${startX} ${startY} H ${middleX} V ${endY} H ${endX}`;
+  const candidates = [
+    startX + (from.side === "right" ? 4 : -4),
+    endX + (to.side === "right" ? -4 : 4),
+    Number(((startX + endX) / 2).toFixed(2)),
+  ];
+
+  const blocked = (x) => components.some((component) => {
+    if (component.id === from.id || component.id === to.id) return false;
+    const cx = Number.parseFloat(component.x);
+    const cy = Number.parseFloat(component.y);
+    const horizontalHit = x > cx - portOffset && x < cx + portOffset;
+    const verticalHit = Math.max(startY, endY) > cy - 5 && Math.min(startY, endY) < cy + 5;
+    return horizontalHit && verticalHit;
+  });
+
+  const routeX = candidates.find((candidate) => !blocked(candidate)) ?? candidates[candidates.length - 1];
+  return `M ${startX} ${startY} H ${routeX} V ${endY} H ${endX}`;
 }
 
 function SchematicNode({ component, selected, tool, wireStart, rotation, onPointerDown, onPointerMove, onPointerUp, onPortClick }) {
+  const isSource = component.kind === "source";
+  const symbolHeight = isSource ? "61.4%" : "52.3%";
+
   return (
     <div
       role="button"
@@ -99,46 +142,48 @@ function SchematicNode({ component, selected, tool, wireStart, rotation, onPoint
       data-testid={`design-lab-node-${component.id}`}
       data-rotation={rotation}
       onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-        }
+        if (event.key === "Enter" || event.key === " ") event.preventDefault();
       }}
       onPointerDown={(event) => onPointerDown(component.id, event)}
       onPointerMove={(event) => onPointerMove(component.id, event)}
       onPointerUp={(event) => onPointerUp(component.id, event)}
-      className={`absolute -translate-x-1/2 -translate-y-1/2 cursor-grab touch-none text-left outline-none active:cursor-grabbing ${selected ? "z-20" : "z-10"}`}
-      style={{ left: component.x, top: component.y }}
+      className={`absolute -translate-x-1/2 -translate-y-1/2 touch-none text-left outline-none ${selected ? "z-20" : "z-10"}`}
+      style={{ left: component.x, top: component.y, width: "12%" }}
     >
       <div
-        className={`relative rounded-xl px-3 py-2 transition ${selected ? "bg-white/95 ring-2 ring-blue-500/25 shadow-lg" : "hover:bg-white/70"}`}
+        className={`relative w-full rounded-xl transition ${selected ? "bg-white/95 ring-2 ring-blue-500/25 shadow-lg" : "hover:bg-white/70"}`}
         style={{ transform: `rotate(${rotation}deg)` }}
       >
-        <ComponentSymbol kind={component.kind} selected={selected} />
-        <div className="mt-1 flex items-center justify-between gap-8 px-1 text-[11px]">
-          <span className={`font-semibold ${selected ? "text-blue-600" : "text-slate-800"}`}>{component.id}</span>
-          <span className="text-slate-400">{component.value}</span>
+        <div className="relative w-full" style={{ height: 0 }}>
+          <div className="absolute left-0 top-0 w-full -translate-y-1/2">
+            <ComponentSymbol kind={component.kind} selected={selected} showPorts={false} />
+          </div>
+          <div className="absolute left-0 top-0 w-full translate-y-[calc(50%+26px)] text-center">
+            <div className={`text-[11px] font-semibold ${selected ? "text-blue-600" : "text-slate-800"}`}>{component.id}</div>
+            <div className="mt-0.5 text-[10px] text-slate-400">{component.value}</div>
+          </div>
+          {tool === "wire" && (
+            <>
+              {["left", "right"].map((side) => {
+                const active = wireStart?.componentId === component.id && wireStart.side === side;
+                return (
+                  <button
+                    key={side}
+                    type="button"
+                    data-testid={`design-lab-port-${component.id}-${side}`}
+                    aria-label={`${component.id} ${side} port`}
+                    onPointerDown={(event) => event.stopPropagation()}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onPortClick(component.id, side);
+                    }}
+                    className={`absolute top-0 h-3 w-3 -translate-y-1/2 rounded-full border-2 border-white shadow-sm transition ${active ? "bg-blue-600 ring-4 ring-blue-100" : "bg-slate-500 hover:bg-blue-500"} ${side === "left" ? "-left-1.5" : "-right-1.5"}`}
+                  />
+                );
+              })}
+            </>
+          )}
         </div>
-        {tool === "wire" && (
-          <>
-            {["left", "right"].map((side) => {
-              const active = wireStart?.componentId === component.id && wireStart.side === side;
-              return (
-                <button
-                  key={side}
-                  type="button"
-                  data-testid={`design-lab-port-${component.id}-${side}`}
-                  aria-label={`${component.id} ${side} port`}
-                  onPointerDown={(event) => event.stopPropagation()}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onPortClick(component.id, side);
-                  }}
-                  className={`absolute top-[30px] h-3 w-3 -translate-y-1/2 rounded-full border-2 border-white shadow-sm transition ${active ? "bg-blue-600 ring-4 ring-blue-100" : "bg-slate-500 hover:bg-blue-500"} ${side === "left" ? "-left-1.5" : "-right-1.5"}`}
-                />
-              );
-            })}
-          </>
-        )}
       </div>
     </div>
   );
