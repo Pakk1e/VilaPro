@@ -200,14 +200,23 @@ export default function ElectricalDesignLabPage() {
 
   const choosePort = (componentId, side) => commitEdit((current) => connectPort(current, componentId, side));
   const handleCanvasClick = (event) => {
-    if (!state.placementKind || !canvasRef.current) return;
+    if (suppressCanvasClickRef.current) {
+      suppressCanvasClickRef.current = false;
+      return;
+    }
+    if (!canvasRef.current) return;
+    if (!state.placementKind && !event.target.closest?.("button,[role='button']")) {
+      setState((current) => selectComponent(current, null));
+      return;
+    }
+    if (!state.placementKind) return;
     if (event.target.closest?.("button,[role='button']")) return;
     const rect = canvasRef.current.getBoundingClientRect();
     const scale = zoom / 100;
     const centerX = rect.width / 2;
     const centerY = rect.height / 2;
-    const x = ((event.clientX - rect.left - centerX) / scale + centerX) / rect.width * 100;
-    const y = ((event.clientY - rect.top - centerY) / scale + centerY) / rect.height * 100;
+    const x = ((event.clientX - rect.left - centerX - pan.x) / scale + centerX) / rect.width * 100;
+    const y = ((event.clientY - rect.top - centerY - pan.y) / scale + centerY) / rect.height * 100;
     commitEdit((current) => placeComponent(current, x, y));
   };
 
