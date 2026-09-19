@@ -178,6 +178,56 @@ test("design lab rotates the selected component by 90 degrees", async ({ page })
   await expect(node).toHaveAttribute("data-rotation", "90");
 });
 
+test("design lab marquee selects components inside the selection box", async ({ page }) => {
+  await page.goto("/worlds/design-lab", { waitUntil: "networkidle" });
+  const canvas = page.getByTestId("design-lab-canvas");
+  const resistor = page.getByTestId("design-lab-node-R1");
+  const capacitor = page.getByTestId("design-lab-node-C1");
+  const resistorBox = await resistor.boundingBox();
+  const capacitorBox = await capacitor.boundingBox();
+  if (!resistorBox || !capacitorBox) throw new Error("Unable to measure schematic nodes.");
+
+  const startX = resistorBox.x - 40;
+  const startY = resistorBox.y - 40;
+  const endX = capacitorBox.x + capacitorBox.width + 40;
+  const endY = capacitorBox.y + capacitorBox.height + 40;
+  await page.mouse.move(startX, startY);
+  await page.mouse.down();
+  await page.mouse.move(endX, endY, { steps: 8 });
+  await expect(page.getByTestId("design-lab-marquee")).toBeVisible();
+  await page.mouse.up();
+
+  await expect(page.getByTestId("design-lab-selection-count")).toHaveText("2 selected");
+});
+
+test("design lab pan tool moves the schematic viewport without moving component geometry", async ({ page }) => {
+  await page.goto("/worlds/design-lab", { waitUntil: "networkidle" });
+  const canvas = page.getByTestId("design-lab-canvas");
+  const node = page.getByTestId("design-lab-node-R1");
+  const before = await node.boundingBox();
+  if (!before) throw new Error("Unable to measure schematic node.");
+
+  await canvas.getByRole("button", { name: "Pan" }).click();
+  const canvasBox = await canvas.boundingBox();
+  if (!canvasBox) throw new Error("Unable to measure canvas.");
+
+  const startX = canvasBox.x + canvasBox.width * 0.48;
+  const startY = canvasBox.y + canvasBox.height * 0.75;
+  await page.mouse.move(startX, startY);
+  await page.mouse.down();
+  await page.mouse.move(startX + 100, startY + 30, { steps: 6 });
+  await page.mouse.up();
+
+  await expect.poll(async () => {
+    const after = await node.boundingBox();
+    return after?.x ?? before.x;
+  }, { timeout: 1000 }).toBeGreaterThan(before.x + 60);
+  await expect.poll(async () => {
+    const after = await node.boundingBox();
+    return after?.y ?? before.y;
+  }, { timeout: 1000 }).toBeGreaterThan(before.y + 10);
+});
+
 test("design lab supports multi-selection with Shift-click", async ({ page }) => {
   await page.goto("/worlds/design-lab", { waitUntil: "networkidle" });
   const resistor = page.getByTestId("design-lab-node-R1");
