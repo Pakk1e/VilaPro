@@ -64,3 +64,45 @@ test("design lab removes the selected component with Backspace", async ({ page }
   await page.keyboard.press("Backspace");
   await expect(node).toBeHidden();
 });
+
+test("design lab undo restores the last document edit and redo reapplies it", async ({ page }) => {
+  await page.goto("/worlds/design-lab", { waitUntil: "networkidle" });
+  const canvas = page.getByTestId("design-lab-canvas");
+  const node = page.getByTestId("design-lab-node-C1");
+
+  await node.click();
+  await page.keyboard.press("Backspace");
+  await expect(node).toBeHidden();
+
+  await canvas.getByRole("button", { name: "Undo" }).click();
+  await expect(node).toBeVisible();
+
+  await canvas.getByRole("button", { name: "Redo" }).click();
+  await expect(node).toBeHidden();
+});
+
+test("design lab undo restores a moved component", async ({ page }) => {
+  await page.goto("/worlds/design-lab", { waitUntil: "networkidle" });
+  const canvas = page.getByTestId("design-lab-canvas");
+  const node = page.getByTestId("design-lab-node-R1");
+  const before = await node.boundingBox();
+  if (!before) throw new Error("Unable to measure design lab component.");
+
+  const startX = before.x + before.width / 2;
+  const startY = before.y + before.height / 2;
+  await page.mouse.move(startX, startY);
+  await page.mouse.down();
+  await page.mouse.move(startX + 120, startY, { steps: 6 });
+  await page.mouse.up();
+
+  await expect.poll(async () => {
+    const after = await node.boundingBox();
+    return after?.x ?? before.x;
+  }, { timeout: 1000 }).toBeGreaterThan(before.x + 80);
+
+  await canvas.getByRole("button", { name: "Undo" }).click();
+  await expect.poll(async () => {
+    const after = await node.boundingBox();
+    return after?.x ?? before.x + 1000;
+  }, { timeout: 1000 }).toBeLessThan(before.x + 20);
+});
